@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3efe3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Blocks">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+<title>Blocks</title>
+</head>
+<body>
+<div id="console">
+  <div id="game">
+    <div id="board-frame"><div id="board"></div></div>
+    <div id="hud">
+      <div>
+        <div class="hud-label">NEXT</div>
+        <div id="preview-card" class="card"><div id="preview"></div></div>
+      </div>
+      <div class="card metric"><div class="hud-label">SCORE</div><div id="score" class="value">0</div></div>
+      <div class="card metric"><div class="hud-label">LINES</div><div id="lines" class="value">0</div></div>
+    </div>
+  </div>
+  <div id="controls">
+    <button class="control rotate" data-command="rotate_ccw" aria-label="Rotate counterclockwise"><span class="icon"><svg class="rotate-svg" viewBox="0 0 32 32"><path d="M25 11 A11 11 0 1 0 25 22"/><path d="M25 11 L25 5 M25 11 L19 10"/></svg></span></button>
+    <button class="control rotate" data-command="rotate_cw" aria-label="Rotate clockwise"><span class="icon"><svg class="rotate-svg" viewBox="0 0 32 32"><path d="M7 11 A11 11 0 1 1 7 22"/><path d="M7 11 L7 5 M7 11 L13 10"/></svg></span></button>
+    <button class="control" data-command="down" aria-label="Drop"><span class="icon">↓</span></button>
+    <button class="control" data-command="left" aria-label="Move left"><span class="icon">←</span></button>
+    <button class="control" data-command="right" aria-label="Move right"><span class="icon">→</span></button>
+  </div>
+</div>
+<script src="tetrominoes.js"></script>
+<script src="game.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

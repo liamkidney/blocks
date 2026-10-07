@@ -94,3 +94,6 @@ document.addEventListener("keydown",e=>{
   else if(map[e.key]){e.preventDefault();game.press(map[e.key])}
 });
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+
+document.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("selectstart",e=>e.preventDefault());

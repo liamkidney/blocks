@@ -1,0 +1,9 @@
+{
+  "name": "Blocks",
+  "short_name": "Blocks",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3efe3",
+  "theme_color": "#f3efe3",
+  "orientation": "portrait"
+}

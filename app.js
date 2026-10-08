@@ -1,7 +1,15 @@
-const game=new Game(window.BLOCKS_CONFIG||{});
+let game=new Game(window.BLOCKS_CONFIG||{});
 const board=document.getElementById("board");
 const preview=document.getElementById("preview");
 const boardCells=[];
+const actions=document.createElement("div");
+actions.id="game-actions";
+const pauseButton=document.createElement("button");
+pauseButton.id="pause-button";pauseButton.textContent="Ⅱ PAUSE";
+const restartButton=document.createElement("button");
+restartButton.id="restart-button";restartButton.textContent="↻ RESTART";
+actions.append(pauseButton,restartButton);
+document.getElementById("hud").appendChild(actions);
 const gameOver=document.createElement("div");
 gameOver.id="game-over";
 gameOver.textContent="GAME OVER";
@@ -13,6 +21,16 @@ for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
   const cell=document.createElement("div");cell.className="cell";board.appendChild(cell);boardCells.push(cell);
 }
 
+pauseButton.addEventListener("click",()=>{
+  if(game.phase==="paused")game.resume();
+  else game.pause();
+});
+restartButton.addEventListener("click",()=>{
+  if(game.phase!=="game_over"&&!window.confirm("Abandon this game and start again?"))return;
+  game=new Game(window.BLOCKS_CONFIG||{});
+  lastTime=performance.now();
+  for(const button of document.querySelectorAll(".control"))release(button);
+});
 const boardIndex=(x,y)=>(19-y)*10+x;
 function paintBoard(x,y,name){
   if(x<0||x>=10||y<0||y>=20)return;
@@ -23,7 +41,7 @@ function paintBoard(x,y,name){
 }
 function render(){
   for(const cell of boardCells){
-    if(!(game.phase==="clearing_lines"&&cell.classList.contains("clearing")))cell.className="cell";
+    if(!((game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines"))&&cell.classList.contains("clearing")))cell.className="cell";
     cell.style.background="";
   }
   for(let y=0;y<20;y++) for(let x=0;x<10;x++) if(game.grid[y][x]) paintBoard(x,y,game.grid[y][x]);
@@ -32,7 +50,10 @@ function render(){
   document.getElementById("lines").textContent=game.lines;
   renderPreview();
   gameOver.hidden=game.phase!=="game_over";
-  if(game.phase==="clearing_lines") for(const y of game.completedRows) for(let x=0;x<10;x++) boardCells[boardIndex(x,y)].classList.add("clearing");
+  pauseButton.disabled=game.phase==="game_over";
+  pauseButton.textContent=game.phase==="paused"?"▶ RESUME":"Ⅱ PAUSE";
+  board.parentElement.classList.toggle("game-paused",game.phase==="paused");
+  if(game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines")) for(const y of game.completedRows) for(let x=0;x<10;x++) boardCells[boardIndex(x,y)].classList.add("clearing");
 }
 function renderPreview(){
   preview.replaceChildren();
@@ -57,7 +78,7 @@ function loop(now){game.update(Math.min((now-lastTime)/1000,.25));lastTime=now;r
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{
-  if(event.animationName==="clearFlash"&&event.pseudoElement==="::after"&&event.target.classList.contains("clearing")&&event.target===board.querySelector(".cell.clearing")) game.presentationComplete();
+  if(game.phase==="clearing_lines"&&event.animationName==="clearFlash"&&event.pseudoElement==="::after"&&event.target.classList.contains("clearing")&&event.target===board.querySelector(".cell.clearing")) game.presentationComplete();
 });
 
 // Each held button owns its repeat timer, so simultaneous presses do not interfere.

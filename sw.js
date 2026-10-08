@@ -1,5 +1,5 @@
-const CACHE="blocks-v2";
-const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","app.js","manifest.json"];
+const CACHE="blocks-v3";
+const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","app.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
 
 self.addEventListener("install",event=>{
   self.skipWaiting();

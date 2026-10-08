@@ -1,4 +1,26 @@
-let game=new Game(window.BLOCKS_CONFIG||{});
+const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index\\.html$/,"");
+let game;
+try{
+  const stored=localStorage.getItem(SAVE_KEY);
+  game=stored?Game.fromSnapshot(JSON.parse(stored),window.BLOCKS_CONFIG||{}):new Game(window.BLOCKS_CONFIG||{});
+}catch(error){
+  game=new Game(window.BLOCKS_CONFIG||{});
+  try{localStorage.removeItem(SAVE_KEY)}catch(_){}
+}
+let lastSavedAt=performance.now();
+function saveGame(force=false){
+  const now=performance.now();
+  if(!force&&now-lastSavedAt<2000)return;
+  lastSavedAt=now;
+  try{
+    if(game.phase==="game_over")localStorage.removeItem(SAVE_KEY);
+    else localStorage.setItem(SAVE_KEY,JSON.stringify(game.toSnapshot()));
+  }catch(_){}
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden")saveGame(true);
+});
+window.addEventListener("pagehide",()=>saveGame(true));
 const board=document.getElementById("board");
 const preview=document.getElementById("preview");
 const boardCells=[];
@@ -31,6 +53,7 @@ function togglePause(){
   if(game.phase==="paused")game.resume();
   else game.pause();
   renderActions();
+  saveGame(true);
 }
 function restartGame(){
   if(game.phase!=="game_over"&&!window.confirm("Abandon this game and start again?"))return;
@@ -38,6 +61,7 @@ function restartGame(){
   lastTime=performance.now();
   for(const button of document.querySelectorAll(".control"))release(button);
   renderActions();
+  saveGame(true);
 }
 function bindImmediateAction(button,action){
   let lastTouchAt=-Infinity;
@@ -106,11 +130,11 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-function loop(now){game.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();requestAnimationFrame(loop)}
+function loop(now){game.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();saveGame();requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{
-  if(game.phase==="clearing_lines"&&event.animationName==="clearFlash"&&event.pseudoElement==="::after"&&event.target.classList.contains("clearing")&&event.target===board.querySelector(".cell.clearing")) game.presentationComplete();
+  if(game.phase==="clearing_lines"&&event.animationName==="clearFlash"&&event.pseudoElement==="::after"&&event.target.classList.contains("clearing")&&event.target===board.querySelector(".cell.clearing")) {game.presentationComplete();saveGame(true);}
 });
 
 // Each held button owns its repeat timer, so simultaneous presses do not interfere.

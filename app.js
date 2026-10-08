@@ -2,6 +2,10 @@ const game=new Game(window.BLOCKS_CONFIG||{});
 const board=document.getElementById("board");
 const preview=document.getElementById("preview");
 const boardCells=[];
+const gameOver=document.createElement("div");
+gameOver.id="game-over";
+gameOver.textContent="GAME OVER";
+board.parentElement.appendChild(gameOver);
 let lastTime=performance.now(),boardTouch=null,repeatTimer=null;
 const REPEAT_DELAY=220,REPEAT_INTERVAL=80;
 
@@ -27,6 +31,7 @@ function render(){
   document.getElementById("score").textContent=game.score;
   document.getElementById("lines").textContent=game.lines;
   renderPreview();
+  gameOver.hidden=game.phase!=="game_over";
   if(game.phase==="clearing_lines") for(const y of game.completedRows) for(let x=0;x<10;x++) boardCells[boardIndex(x,y)].classList.add("clearing");
 }
 function renderPreview(){

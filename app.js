@@ -56,8 +56,26 @@ function togglePause(){
   renderActions();
   saveGame(true);
 }
-function restartGame(){
-  if(game.phase!=="game_over"&&!window.confirm("Abandon this game and start again?"))return;
+const restartDialog=document.createElement("div");
+restartDialog.id="restart-dialog";
+restartDialog.hidden=true;
+restartDialog.setAttribute("role","dialog");
+restartDialog.setAttribute("aria-modal","true");
+restartDialog.setAttribute("aria-labelledby","restart-title");
+restartDialog.innerHTML='<div class="restart-panel"><div id="restart-title">RESTART GAME?</div><p>YOUR CURRENT GAME WILL BE LOST.</p><div class="restart-choices"><button type="button" id="restart-cancel">CANCEL</button><button type="button" id="restart-confirm">RESTART</button></div></div>';
+document.body.appendChild(restartDialog);
+const cancelRestartButton=document.getElementById("restart-cancel");
+const confirmRestartButton=document.getElementById("restart-confirm");
+let restartWasPaused=false;
+function closeRestartDialog(){
+  restartDialog.hidden=true;
+  if(!restartWasPaused&&game.phase==="paused")game.resume();
+  renderActions();
+  saveGame(true);
+  restartButton.focus();
+}
+function startNewGame(){
+  restartDialog.hidden=true;
   game=new Game(window.BLOCKS_CONFIG||{});
   previousPhase=game.phase;
   lastTime=performance.now();
@@ -65,6 +83,18 @@ function restartGame(){
   renderActions();
   saveGame(true);
 }
+function restartGame(){
+  if(!restartDialog.hidden)return;
+  if(game.phase==="game_over"){startNewGame();return;}
+  restartWasPaused=game.phase==="paused";
+  if(!restartWasPaused)game.pause();
+  restartDialog.hidden=false;
+  renderActions();
+  saveGame(true);
+  cancelRestartButton.focus();
+}
+bindImmediateAction(cancelRestartButton,closeRestartDialog);
+bindImmediateAction(confirmRestartButton,startNewGame);
 function bindImmediateAction(button,action){
   let lastTouchAt=-Infinity;
   button.addEventListener("touchstart",event=>{

@@ -100,3 +100,24 @@ document.addEventListener("selectstart",e=>e.preventDefault());
 
 const versionElement=document.getElementById("version");
 if(versionElement&&window.BLOCKS_VERSION)versionElement.textContent=window.BLOCKS_VERSION;
+
+ 
+// Temporary Pythonista pointer-event diagnostics.
+const debug = document.createElement("pre");
+debug.style.cssText =
+  "position:fixed;top:0;left:0;z-index:9999;" +
+  "background:white;color:black;font:12px monospace;" +
+  "padding:8px;pointer-events:none;white-space:pre-wrap";
+document.body.appendChild(debug);
+
+const debugEvents = [];
+document.querySelectorAll(".control").forEach(button => {
+  for (const type of ["pointerdown", "pointerup", "touchstart", "touchend", "click"]) {
+    button.addEventListener(type, event => {
+      debugEvents.push(
+        `${Math.round(performance.now())} ${button.dataset.command} ${type}`
+      );
+      debug.textContent = debugEvents.slice(-12).join("\n");
+    });
+  }
+});

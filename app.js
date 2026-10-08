@@ -5,9 +5,13 @@ const boardCells=[];
 const actions=document.createElement("div");
 actions.id="game-actions";
 const pauseButton=document.createElement("button");
-pauseButton.id="pause-button";pauseButton.textContent="Ⅱ PAUSE";
+pauseButton.id="pause-button";pauseButton.type="button";
 const restartButton=document.createElement("button");
-restartButton.id="restart-button";restartButton.textContent="↻ RESTART";
+restartButton.id="restart-button";restartButton.type="button";
+const pauseIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
+const resumeIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" stroke-linejoin="round"/></svg>';
+const restartIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 6M4 4v6h6"/></svg>';
+restartButton.innerHTML=restartIcon+"<span>RESTART</span>";
 actions.append(pauseButton,restartButton);
 document.getElementById("hud").appendChild(actions);
 const gameOver=document.createElement("div");
@@ -21,21 +25,47 @@ for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
   const cell=document.createElement("div");cell.className="cell";board.appendChild(cell);boardCells.push(cell);
 }
 
-pauseButton.addEventListener("click",()=>{
+function togglePause(){
   if(game.phase==="paused")game.resume();
   else game.pause();
-});
-restartButton.addEventListener("click",()=>{
+  renderActions();
+}
+function restartGame(){
   if(game.phase!=="game_over"&&!window.confirm("Abandon this game and start again?"))return;
   game=new Game(window.BLOCKS_CONFIG||{});
   lastTime=performance.now();
   for(const button of document.querySelectorAll(".control"))release(button);
-});
+  renderActions();
+}
+function bindImmediateAction(button,action){
+  let lastTouchAt=-Infinity;
+  button.addEventListener("touchstart",event=>{
+    event.preventDefault();
+    lastTouchAt=performance.now();
+    if(!button.disabled)action();
+  },{passive:false});
+  button.addEventListener("click",event=>{
+    if(performance.now()-lastTouchAt<750){event.preventDefault();return;}
+    if(!button.disabled)action();
+  });
+}
+bindImmediateAction(pauseButton,togglePause);
+bindImmediateAction(restartButton,restartGame);
+function renderActions(){
+  const paused=game.phase==="paused";
+  pauseButton.disabled=game.phase==="game_over";
+  const label=paused?"RESUME":"PAUSE";
+  if(pauseButton.dataset.state!==label){
+    pauseButton.innerHTML=(paused?resumeIcon:pauseIcon)+"<span>"+label+"</span>";
+    pauseButton.dataset.state=label;
+  }
+  board.parentElement.classList.toggle("game-paused",paused);
+}
 const boardIndex=(x,y)=>(19-y)*10+x;
 function paintBoard(x,y,name){
   if(x<0||x>=10||y<0||y>=20)return;
   const cell=boardCells[boardIndex(x,y)];
-  const className=cell.classList.contains("clearing")&&game.phase==="clearing_lines"?"cell filled clearing":"cell filled";
+  const className=cell.classList.contains("clearing")&&(game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines"))?"cell filled clearing":"cell filled";
   if(cell.className!==className)cell.className=className;
   cell.style.backgroundColor=TETROMINO_BY_NAME[name].color;
 }
@@ -50,9 +80,7 @@ function render(){
   document.getElementById("lines").textContent=game.lines;
   renderPreview();
   gameOver.hidden=game.phase!=="game_over";
-  pauseButton.disabled=game.phase==="game_over";
-  pauseButton.textContent=game.phase==="paused"?"▶ RESUME":"Ⅱ PAUSE";
-  board.parentElement.classList.toggle("game-paused",game.phase==="paused");
+  renderActions();
   if(game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines")) for(const y of game.completedRows) for(let x=0;x<10;x++) boardCells[boardIndex(x,y)].classList.add("clearing");
 }
 function renderPreview(){

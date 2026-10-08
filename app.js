@@ -11,7 +11,9 @@ restartButton.id="restart-button";restartButton.type="button";
 const pauseIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
 const resumeIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" stroke-linejoin="round"/></svg>';
 const restartIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 6M4 4v6h6"/></svg>';
-restartButton.innerHTML=restartIcon+"<span>RESTART</span>";
+restartButton.innerHTML=restartIcon;
+restartButton.setAttribute("aria-label","Restart game");
+restartButton.title="Restart game";
 actions.append(pauseButton,restartButton);
 document.getElementById("hud").appendChild(actions);
 const gameOver=document.createElement("div");
@@ -56,7 +58,9 @@ function renderActions(){
   pauseButton.disabled=game.phase==="game_over";
   const label=paused?"RESUME":"PAUSE";
   if(pauseButton.dataset.state!==label){
-    pauseButton.innerHTML=(paused?resumeIcon:pauseIcon)+"<span>"+label+"</span>";
+    pauseButton.innerHTML=paused?resumeIcon:pauseIcon;
+    pauseButton.setAttribute("aria-label",paused?"Resume game":"Pause game");
+    pauseButton.title=paused?"Resume game":"Pause game";
     pauseButton.dataset.state=label;
   }
   board.parentElement.classList.toggle("game-paused",paused);

@@ -8,6 +8,7 @@ try{
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
 }
 let lastSavedAt=performance.now();
+let previousPhase=game.phase;
 function saveGame(force=false){
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
@@ -58,6 +59,7 @@ function togglePause(){
 function restartGame(){
   if(game.phase!=="game_over"&&!window.confirm("Abandon this game and start again?"))return;
   game=new Game(window.BLOCKS_CONFIG||{});
+  previousPhase=game.phase;
   lastTime=performance.now();
   for(const button of document.querySelectorAll(".control"))release(button);
   renderActions();
@@ -130,7 +132,7 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-function loop(now){game.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();saveGame();requestAnimationFrame(loop)}
+function loop(now){game.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{

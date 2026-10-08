@@ -13,11 +13,15 @@ const boardIndex=(x,y)=>(19-y)*10+x;
 function paintBoard(x,y,name){
   if(x<0||x>=10||y<0||y>=20)return;
   const cell=boardCells[boardIndex(x,y)];
-  cell.className="cell filled";
+  const className=cell.classList.contains("clearing")&&game.phase==="clearing_lines"?"cell filled clearing":"cell filled";
+  if(cell.className!==className)cell.className=className;
   cell.style.backgroundColor=TETROMINO_BY_NAME[name].color;
 }
 function render(){
-  for(const cell of boardCells){cell.className="cell";cell.style.background="";}
+  for(const cell of boardCells){
+    if(!(game.phase==="clearing_lines"&&cell.classList.contains("clearing")))cell.className="cell";
+    cell.style.background="";
+  }
   for(let y=0;y<20;y++) for(let x=0;x<10;x++) if(game.grid[y][x]) paintBoard(x,y,game.grid[y][x]);
   if(game.active) for(const [ox,oy] of game.offsets) paintBoard(game.active.x+ox,game.active.y+oy,game.active.tetromino.name);
   document.getElementById("score").textContent=game.score;

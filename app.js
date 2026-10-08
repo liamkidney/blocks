@@ -97,3 +97,6 @@ if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.ser
 
 document.addEventListener("contextmenu",e=>e.preventDefault());
 document.addEventListener("selectstart",e=>e.preventDefault());
+
+const versionElement=document.getElementById("version");
+if(versionElement&&window.BLOCKS_VERSION)versionElement.textContent=window.BLOCKS_VERSION;

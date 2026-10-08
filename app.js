@@ -71,10 +71,45 @@ function release(button){
   const command=button.dataset.command;button.classList.remove("pressed");
   if(command==="down"||command==="left"||command==="right"){clearTimeout(repeatTimer);repeatTimer=null}
 }
+// Prefer real touch events on touch devices. Pythonista's WebView emits a
+// second synthetic pointerdown/click after touchend, which must be ignored.
 document.querySelectorAll(".control").forEach(button=>{
-  button.addEventListener("pointerdown",e=>{e.preventDefault();button.setPointerCapture(e.pointerId);press(button)});
-  button.addEventListener("pointerup",e=>{e.preventDefault();release(button)});
-  button.addEventListener("pointercancel",()=>{button.classList.remove("pressed");clearTimeout(repeatTimer);repeatTimer=null});
+  let touchActive=false;
+  let lastTouchAt=-Infinity;
+  const suppressSyntheticPointer=e=>e.pointerType==="touch"||performance.now()-lastTouchAt<750;
+  button.addEventListener("touchstart",e=>{
+    e.preventDefault();
+    lastTouchAt=performance.now();
+    if(touchActive)return;
+    touchActive=true;
+    press(button);
+  },{passive:false});
+  button.addEventListener("touchend",e=>{
+    e.preventDefault();
+    lastTouchAt=performance.now();
+    if(touchActive)release(button);
+    touchActive=false;
+  },{passive:false});
+  button.addEventListener("touchcancel",e=>{
+    e.preventDefault();
+    lastTouchAt=performance.now();
+    if(touchActive)release(button);
+    touchActive=false;
+  },{passive:false});
+  button.addEventListener("pointerdown",e=>{
+    if(suppressSyntheticPointer(e)){e.preventDefault();return;}
+    e.preventDefault();
+    button.setPointerCapture(e.pointerId);
+    press(button);
+  });
+  button.addEventListener("pointerup",e=>{
+    if(suppressSyntheticPointer(e)){e.preventDefault();return;}
+    e.preventDefault();
+    release(button);
+  });
+  button.addEventListener("pointercancel",()=>{
+    if(!touchActive){button.classList.remove("pressed");clearTimeout(repeatTimer);repeatTimer=null;}
+  });
 });
 board.addEventListener("pointerdown",e=>{e.preventDefault();board.setPointerCapture(e.pointerId);boardTouch={x:e.clientX,y:e.clientY}});
 board.addEventListener("pointerup",e=>{
@@ -100,24 +135,3 @@ document.addEventListener("selectstart",e=>e.preventDefault());
 
 const versionElement=document.getElementById("version");
 if(versionElement&&window.BLOCKS_VERSION)versionElement.textContent=window.BLOCKS_VERSION;
-
- 
-// Temporary Pythonista pointer-event diagnostics.
-const debug = document.createElement("pre");
-debug.style.cssText =
-  "position:fixed;top:0;left:0;z-index:9999;" +
-  "background:white;color:black;font:12px monospace;" +
-  "padding:8px;pointer-events:none;white-space:pre-wrap";
-document.body.appendChild(debug);
-
-const debugEvents = [];
-document.querySelectorAll(".control").forEach(button => {
-  for (const type of ["pointerdown", "pointerup", "touchstart", "touchend", "click"]) {
-    button.addEventListener(type, event => {
-      debugEvents.push(
-        `${Math.round(performance.now())} ${button.dataset.command} ${type}`
-      );
-      debug.textContent = debugEvents.slice(-12).join("\n");
-    });
-  }
-});

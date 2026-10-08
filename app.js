@@ -6,7 +6,7 @@ const gameOver=document.createElement("div");
 gameOver.id="game-over";
 gameOver.textContent="GAME OVER";
 board.parentElement.appendChild(gameOver);
-let lastTime=performance.now(),boardTouch=null,repeatTimer=null;
+let lastTime=performance.now(),boardTouch=null;
 const REPEAT_DELAY=220,REPEAT_INTERVAL=80;
 
 for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
@@ -60,25 +60,34 @@ board.addEventListener("animationend",event=>{
   if(event.animationName==="clearFlash"&&event.pseudoElement==="::after"&&event.target.classList.contains("clearing")&&event.target===board.querySelector(".cell.clearing")) game.presentationComplete();
 });
 
-function repeat(command){
-  if(command==="down") game.dropOne(); else game.press(command);
-  repeatTimer=setTimeout(()=>repeat(command),REPEAT_INTERVAL);
+// Each held button owns its repeat timer, so simultaneous presses do not interfere.
+const repeatTimers=new Map();
+const repeatable=new Set(["down","left","right"]);
+function applyCommand(command){
+  if(command==="down")game.dropOne();
+  else game.press(command);
+}
+function stopRepeat(button){
+  clearTimeout(repeatTimers.get(button));
+  repeatTimers.delete(button);
+}
+function repeat(button){
+  if(!repeatTimers.has(button))return;
+  applyCommand(button.dataset.command);
+  repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_INTERVAL));
 }
 function press(button){
-  const command=button.dataset.command;button.classList.add("pressed");
-  if(command==="down"){
-    game.dropOne();
-    clearTimeout(repeatTimer);repeatTimer=setTimeout(()=>repeat(command),REPEAT_DELAY);
-  }else{
-    game.press(command);
-    if(command==="left"||command==="right"){
-      clearTimeout(repeatTimer);repeatTimer=setTimeout(()=>repeat(command),REPEAT_DELAY);
-    }
+  const command=button.dataset.command;
+  if(button.classList.contains("pressed"))return;
+  button.classList.add("pressed");
+  applyCommand(command);
+  if(repeatable.has(command)){
+    repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_DELAY));
   }
 }
 function release(button){
-  const command=button.dataset.command;button.classList.remove("pressed");
-  if(command==="down"||command==="left"||command==="right"){clearTimeout(repeatTimer);repeatTimer=null}
+  button.classList.remove("pressed");
+  stopRepeat(button);
 }
 // Prefer real touch events on touch devices. Pythonista's WebView emits a
 // second synthetic pointerdown/click after touchend, which must be ignored.
@@ -117,7 +126,7 @@ document.querySelectorAll(".control").forEach(button=>{
     release(button);
   });
   button.addEventListener("pointercancel",()=>{
-    if(!touchActive){button.classList.remove("pressed");clearTimeout(repeatTimer);repeatTimer=null;}
+    if(!touchActive)release(button);
   });
 });
 board.addEventListener("pointerdown",e=>{e.preventDefault();board.setPointerCapture(e.pointerId);boardTouch={x:e.clientX,y:e.clientY}});

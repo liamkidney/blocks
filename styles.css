@@ -17,3 +17,12 @@
 #game-over[hidden]{display:none}#game-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:5;pointer-events:none}
 
 #game-actions{display:flex;flex-direction:row;gap:7px;border-top:1px solid var(--ink);padding-top:12px}#game-actions button{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;width:0;min-width:0;min-height:42px;padding:8px 3px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);font:800 10px Helvetica,Arial,sans-serif;white-space:nowrap;touch-action:manipulation;cursor:pointer}#game-actions svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:square}#game-actions button:disabled{opacity:.3}#board-frame.game-paused .cell.clearing::after{animation-play-state:paused}#board-frame.game-paused::after{content:"PAUSED";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:6;pointer-events:none}
+
+#restart-dialog[hidden]{display:none}
+#restart-dialog{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(11,11,10,.52);touch-action:none}
+.restart-panel{width:min(100%,340px);padding:26px 22px 22px;background:var(--paper);border:3px solid var(--ink);color:var(--ink);text-align:center;font-family:Helvetica,Arial,sans-serif}
+#restart-title{font-size:clamp(24px,6vw,32px);line-height:1;font-weight:900;letter-spacing:-1px}
+.restart-panel p{margin:16px 0 24px;font-size:11px;line-height:1.5;font-weight:800;letter-spacing:1.2px}
+.restart-choices{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.restart-choices button{min-height:52px;border:2px solid var(--ink);border-radius:0;background:transparent;color:var(--ink);font:900 13px Helvetica,Arial,sans-serif;letter-spacing:.5px;touch-action:manipulation;cursor:pointer}
+#restart-confirm{background:var(--ink);color:var(--paper)}

@@ -71,10 +71,45 @@ function release(button){
   const command=button.dataset.command;button.classList.remove("pressed");
   if(command==="down"||command==="left"||command==="right"){clearTimeout(repeatTimer);repeatTimer=null}
 }
+// Prefer real touch events on touch devices. Pythonista's WebView emits a
+// second synthetic pointerdown/click after touchend, which must be ignored.
 document.querySelectorAll(".control").forEach(button=>{
-  button.addEventListener("pointerdown",e=>{e.preventDefault();button.setPointerCapture(e.pointerId);press(button)});
-  button.addEventListener("pointerup",e=>{e.preventDefault();release(button)});
-  button.addEventListener("pointercancel",()=>{button.classList.remove("pressed");clearTimeout(repeatTimer);repeatTimer=null});
+  let touchActive=false;
+  let lastTouchAt=-Infinity;
+  const suppressSyntheticPointer=e=>e.pointerType==="touch"||performance.now()-lastTouchAt<750;
+  button.addEventListener("touchstart",e=>{
+    e.preventDefault();
+    lastTouchAt=performance.now();
+    if(touchActive)return;
+    touchActive=true;
+    press(button);
+  },{passive:false});
+  button.addEventListener("touchend",e=>{
+    e.preventDefault();
+    lastTouchAt=performance.now();
+    if(touchActive)release(button);
+    touchActive=false;
+  },{passive:false});
+  button.addEventListener("touchcancel",e=>{
+    e.preventDefault();
+    lastTouchAt=performance.now();
+    if(touchActive)release(button);
+    touchActive=false;
+  },{passive:false});
+  button.addEventListener("pointerdown",e=>{
+    if(suppressSyntheticPointer(e)){e.preventDefault();return;}
+    e.preventDefault();
+    button.setPointerCapture(e.pointerId);
+    press(button);
+  });
+  button.addEventListener("pointerup",e=>{
+    if(suppressSyntheticPointer(e)){e.preventDefault();return;}
+    e.preventDefault();
+    release(button);
+  });
+  button.addEventListener("pointercancel",()=>{
+    if(!touchActive){button.classList.remove("pressed");clearTimeout(repeatTimer);repeatTimer=null;}
+  });
 });
 board.addEventListener("pointerdown",e=>{e.preventDefault();board.setPointerCapture(e.pointerId);boardTouch={x:e.clientX,y:e.clientY}});
 board.addEventListener("pointerup",e=>{

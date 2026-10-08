@@ -1,4 +1,4 @@
-const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index\\.html$/,"");
+const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"");
 let game;
 try{
   const stored=localStorage.getItem(SAVE_KEY);

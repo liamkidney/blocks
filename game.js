@@ -30,6 +30,16 @@ class Game {
     const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
     this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
   }
+  pause(){
+    if(this.phase!=="falling"&&this.phase!=="clearing_lines")return;
+    this.pausedPhase=this.phase;
+    this.phase="paused";
+  }
+  resume(){
+    if(this.phase!=="paused")return;
+    this.phase=this.pausedPhase;
+    this.pausedPhase=null;
+  }
   get offsets(){ return this.active.tetromino.orientations[this.active.orientation]; }
   update(dt){
     if(this.phase!=="falling") return;
@@ -71,6 +81,7 @@ class Game {
     const x=Math.floor((this.width-(maxX-minX+1))/2)-minX;
     const y=this.height-1-maxY;
     if(this.canPlace(offsets,x,y)) this.active={tetromino:t,x,y,orientation:0};
+    else this.phase="game_over";
   }
   tryMove(dx,dy){
     if(!this.active) return false;

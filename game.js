@@ -71,6 +71,7 @@ class Game {
     const x=Math.floor((this.width-(maxX-minX+1))/2)-minX;
     const y=this.height-1-maxY;
     if(this.canPlace(offsets,x,y)) this.active={tetromino:t,x,y,orientation:0};
+    else this.phase="game_over";
   }
   tryMove(dx,dy){
     if(!this.active) return false;

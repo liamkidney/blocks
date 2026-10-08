@@ -1,0 +1,1 @@
+window.BLOCKS_CONFIG = {};

@@ -22,12 +22,18 @@ jobs:
       - name: Generate build version
         run: |
           printf 'window.BLOCKS_VERSION = "v0.1 · %s · %s";\n' "$GITHUB_RUN_NUMBER" "${GITHUB_SHA::7}" > version.js
+      - name: Build variants
+        run: |
+          mkdir -p _site/io
+          cp index.html styles.css tetrominoes.js game.js app.js manifest.json sw.js version.js config.js _site/
+          cp index.html styles.css tetrominoes.js game.js app.js manifest.json sw.js version.js _site/io/
+          printf 'window.BLOCKS_CONFIG = {allowedPieces:["I","O"]};\n' > _site/io/config.js
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

@@ -1,16 +1,17 @@
 class PieceQueue {
   static DROUGHT_WEIGHT = 0.2;
-  constructor(){
+  constructor(tetrominoes=TETROMINOES){
+    this.tetrominoes=tetrominoes;
     this.pieces=[];
-    this.droughts=Object.fromEntries(TETROMINOES.map(t=>[t.name,0]));
+    this.droughts=Object.fromEntries(this.tetrominoes.map(t=>[t.name,0]));
     this.fill();
   }
   choose(){
-    const weights=TETROMINOES.map(t=>1+PieceQueue.DROUGHT_WEIGHT*this.droughts[t.name]);
+    const weights=this.tetrominoes.map(t=>1+PieceQueue.DROUGHT_WEIGHT*this.droughts[t.name]);
     const total=weights.reduce((a,b)=>a+b,0);
-    let pick=Math.random()*total, chosen=TETROMINOES[TETROMINOES.length-1];
-    for(let i=0;i<TETROMINOES.length;i++){ pick-=weights[i]; if(pick<0){ chosen=TETROMINOES[i]; break; } }
-    for(const t of TETROMINOES) this.droughts[t.name]=t.name===chosen.name?0:this.droughts[t.name]+1;
+    let pick=Math.random()*total, chosen=this.tetrominoes[this.tetrominoes.length-1];
+    for(let i=0;i<this.tetrominoes.length;i++){ pick-=weights[i]; if(pick<0){ chosen=this.tetrominoes[i]; break; } }
+    for(const t of this.tetrominoes) this.droughts[t.name]=t.name===chosen.name?0:this.droughts[t.name]+1;
     return chosen;
   }
   fill(){ while(this.pieces.length<2) this.pieces.push(this.choose()); }
@@ -20,12 +21,14 @@ class PieceQueue {
 }
 
 class Game {
-  constructor(){
+  constructor(config={}){
     this.width=10; this.height=20;
     this.grid=Array.from({length:this.height},()=>Array(this.width).fill(null));
     this.phase="falling"; this.completedRows=[]; this.score=0; this.lines=0;
     this.tickSeconds=1.0; this.elapsed=0;
-    this.queue=new PieceQueue(); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
+    const allowedNames=config.allowedPieces||TETROMINOES.map(t=>t.name);
+    const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
+    this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
   }
   get offsets(){ return this.active.tetromino.orientations[this.active.orientation]; }
   update(dt){

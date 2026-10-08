@@ -1,4 +1,4 @@
-const game=new Game();
+const game=new Game(window.BLOCKS_CONFIG||{});
 const board=document.getElementById("board");
 const preview=document.getElementById("preview");
 const boardCells=[];

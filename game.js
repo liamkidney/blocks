@@ -30,6 +30,49 @@ class Game {
     const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
     this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
   }
+  toSnapshot(){
+    return {
+      version:1,grid:this.grid.map(row=>[...row]),phase:this.phase,
+      pausedPhase:this.pausedPhase||null,completedRows:[...this.completedRows],
+      score:this.score,lines:this.lines,elapsed:this.elapsed,
+      active:this.active?{name:this.active.tetromino.name,x:this.active.x,y:this.active.y,orientation:this.active.orientation}:null,
+      queue:this.queue.pieces.map(t=>t.name),droughts:{...this.queue.droughts}
+    };
+  }
+  static fromSnapshot(snapshot,config={}){
+    const allowedNames=config.allowedPieces||TETROMINOES.map(t=>t.name);
+    const allowed=TETROMINOES.filter(t=>allowedNames.includes(t.name));
+    const byName=Object.fromEntries(allowed.map(t=>[t.name,t]));
+    const validName=name=>typeof name==="string"&&Object.hasOwn(byName,name);
+    const integer=n=>Number.isSafeInteger(n)&&n>=0;
+    if(!snapshot||snapshot.version!==1||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
+       !snapshot.grid.every(row=>Array.isArray(row)&&row.length===10&&row.every(v=>v===null||validName(v)))||
+       !["falling","clearing_lines","paused"].includes(snapshot.phase)||
+       !integer(snapshot.score)||!integer(snapshot.lines)||
+       !Number.isFinite(snapshot.elapsed)||snapshot.elapsed<0||snapshot.elapsed>2||
+       !Array.isArray(snapshot.queue)||snapshot.queue.length!==2||!snapshot.queue.every(validName)||
+       !snapshot.droughts||!allowed.every(t=>integer(snapshot.droughts[t.name]))||
+       !Array.isArray(snapshot.completedRows)||!snapshot.completedRows.every(y=>integer(y)&&y<20)||
+       (snapshot.phase==="paused"&&!["falling","clearing_lines"].includes(snapshot.pausedPhase))) throw new Error("Invalid saved game");
+    const clearing=snapshot.phase==="clearing_lines"||snapshot.phase==="paused"&&snapshot.pausedPhase==="clearing_lines";
+    if(clearing!==Boolean(snapshot.completedRows.length))throw new Error("Invalid clearing state");
+    const active=snapshot.active;
+    if((!clearing&&!active)||(clearing&&active))throw new Error("Invalid active piece");
+    if(active&&(!validName(active.name)||!Number.isInteger(active.x)||!Number.isInteger(active.y)||
+       !integer(active.orientation)||active.orientation>3))throw new Error("Invalid active piece");
+    const game=new Game(config);
+    game.grid=snapshot.grid.map(row=>[...row]);
+    game.phase="paused";
+    game.pausedPhase=clearing?"clearing_lines":"falling";
+    game.completedRows=[...snapshot.completedRows];
+    game.score=snapshot.score;game.lines=snapshot.lines;game.elapsed=snapshot.elapsed;
+    game.queue.pieces=snapshot.queue.map(name=>byName[name]);
+    game.queue.droughts=Object.fromEntries(allowed.map(t=>[t.name,snapshot.droughts[t.name]]));
+    game.nextTetromino=game.queue.next();
+    game.active=active?{tetromino:byName[active.name],x:active.x,y:active.y,orientation:active.orientation}:null;
+    if(game.active&&!game.canPlace(game.offsets,game.active.x,game.active.y))throw new Error("Invalid active position");
+    return game;
+  }
   pause(){
     if(this.phase!=="falling"&&this.phase!=="clearing_lines")return;
     this.pausedPhase=this.phase;

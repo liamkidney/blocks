@@ -12,6 +12,30 @@
 .control[data-command="down"]{grid-column:1;grid-row:1;justify-self:start;align-self:center;margin-left:40.5px;margin-top:82px;transform:none}
 .control[data-command="rotate_cw"]{grid-column:4;grid-row:1;justify-self:center;align-self:center;margin:0;transform:none}
 .control.pressed{transform:translateY(2px) scale(.96)}
+/* Fit the HUD and its action buttons within the viewport in landscape. */
+#board-frame,#hud{height:min(88dvh,760px)}
+#hud{gap:0;min-height:0}
+#hud>div:first-child{padding-bottom:clamp(5px,1.5vh,12px)}
+#preview{width:min(100%,clamp(48px,14vh,96px))}
+.hud-label{font-size:clamp(9px,1.7vh,12px);margin-bottom:clamp(3px,1vh,8px)}
+.metric{padding:clamp(5px,1.5vh,12px) 0}
+.metric .hud-label{margin-bottom:3px}
+.value,#lines{font-size:clamp(24px,6.5vh,48px);letter-spacing:-2px}
+#game-actions{margin-top:auto;padding-top:clamp(5px,1vh,10px);gap:5px}
+#game-actions button{min-height:clamp(30px,6vh,42px)}
+#game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
+/* Place the movement cluster beneath the heading and keep rotation beside the HUD. */
+.control[data-command="left"]{margin-top:-28px}
+.control[data-command="right"]{margin-top:-28px}
+.control[data-command="down"]{margin-top:136px}
+.control[data-command="rotate_cw"]{justify-self:start;margin-left:0}
+@media(max-height:540px){
+  #game::before{font-size:clamp(38px,10vh,60px)}
+  .control{width:clamp(48px,12vh,64px);height:clamp(48px,12vh,64px)}
+  .control[data-command="right"]{margin-left:calc(clamp(48px,12vh,64px) + 9px)}
+  .control[data-command="down"]{margin-left:calc((clamp(48px,12vh,64px) + 9px)/2);margin-top:calc(clamp(48px,12vh,64px) + 18px)}
+  .control[data-command="left"],.control[data-command="right"]{margin-top:-18px}
+}
 }
  
 #game-over[hidden]{display:none}#game-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:5;pointer-events:none}

@@ -100,6 +100,10 @@ class Game {
   tick(){
     if(!this.active) return;
     if(this.tryMove(0,-1)) return;
+    // A piece may rotate above the visible board, but must never lock there.
+    if(this.offsets.some(([,oy])=>this.active.y+oy>=this.height)){
+      this.phase="game_over";return;
+    }
     for(const [ox,oy] of this.offsets) this.grid[this.active.y+oy][this.active.x+ox]=this.active.tetromino.name;
     this.active=null;
     this.completedRows=this.grid.map((row,y)=>row.every(Boolean)?y:-1).filter(y=>y>=0);
@@ -141,7 +145,7 @@ class Game {
   canPlace(offsets,x,y){
     return offsets.every(([ox,oy])=>{
       const cx=x+ox,cy=y+oy;
-      return cx>=0&&cx<this.width&&cy>=0&&cy<this.height&&this.grid[cy][cx]===null;
+      return cx>=0&&cx<this.width&&cy>=0&&(cy>=this.height||this.grid[cy][cx]===null);
     });
   }
 }

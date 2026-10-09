@@ -2,7 +2,7 @@ const CACHE="blocks-__BUILD_ID__";
 const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","app.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
 
 self.addEventListener("install",event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS.map(url=>new Request(url,{cache:"reload"})))).then(()=>self.skipWaiting()));
 });
 
 self.addEventListener("activate",event=>event.waitUntil(Promise.all([

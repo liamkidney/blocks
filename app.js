@@ -255,7 +255,29 @@ document.addEventListener("keydown",e=>{
   if(e.key==="ArrowDown"){e.preventDefault();game.dropOne()}
   else if(map[e.key]){e.preventDefault();game.press(map[e.key])}
 });
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+if("serviceWorker" in navigator){
+  window.addEventListener("load",async()=>{
+    const hadController=Boolean(navigator.serviceWorker.controller);
+    let refreshing=false;
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{
+      if(!hadController||refreshing)return;
+      refreshing=true;
+      saveGame(true);
+      location.reload();
+    });
+    try{
+      const registration=await navigator.serviceWorker.register("sw.js",{updateViaCache:"none"});
+      const checkForUpdate=()=>registration.update().catch(()=>{});
+      checkForUpdate();
+      document.addEventListener("visibilitychange",()=>{
+        if(document.visibilityState==="visible")checkForUpdate();
+      });
+      window.addEventListener("pageshow",event=>{
+        if(event.persisted)checkForUpdate();
+      });
+    }catch(error){console.warn("Service worker registration failed",error);}
+  });
+}
 
 document.addEventListener("contextmenu",e=>e.preventDefault());
 document.addEventListener("selectstart",e=>e.preventDefault());

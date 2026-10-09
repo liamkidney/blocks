@@ -17,7 +17,7 @@
   #game::before{display:none}
   #controls{display:contents}
   #movement-controls{
-    --pad-size:clamp(52px,10dvh,80px);
+    --pad-size:clamp(78px,15dvh,120px);
     grid-column:1;grid-row:1;
     display:grid;
     grid-template-columns:repeat(2,var(--pad-size));
@@ -39,7 +39,7 @@
   #movement-controls .control[data-command="left"]{grid-column:1;grid-row:2}
   #movement-controls .control[data-command="right"]{grid-column:2;grid-row:2}
   #movement-controls .control[data-command="down"]{grid-column:1 / 3;grid-row:3;justify-self:center;width:var(--pad-size)}
-  #rotation-controls .control{width:clamp(66px,11vh,96px);height:clamp(66px,11vh,96px)}
+  #rotation-controls .control{width:clamp(78px,15dvh,120px);height:clamp(78px,15dvh,120px)}
   .control.pressed{transform:translateY(2px) scale(.96)}
   #hud>div:first-child{padding-bottom:clamp(5px,1vh,12px)}
   #preview{width:min(100%,clamp(50px,15vh,96px))}

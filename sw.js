@@ -1,9 +1,8 @@
-const CACHE="blocks-v3";
-const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","app.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
+const CACHE="blocks-__BUILD_ID__";
+const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","app.js","config.js","version.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
 
 self.addEventListener("install",event=>{
-  self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS.map(url=>new Request(url,{cache:"reload"})))).then(()=>self.skipWaiting()));
 });
 
 self.addEventListener("activate",event=>event.waitUntil(Promise.all([
@@ -14,12 +13,12 @@ self.addEventListener("activate",event=>event.waitUntil(Promise.all([
 self.addEventListener("fetch",event=>{
   if(event.request.method!=="GET") return;
   event.respondWith(
-    fetch(event.request)
+    fetch(new Request(event.request,{cache:"no-store"}))
       .then(response=>{
         const copy=response.clone();
         caches.open(CACHE).then(cache=>cache.put(event.request,copy));
         return response;
       })
-      .catch(()=>caches.match(event.request))
+      .catch(async()=>{\n        const cache=await caches.open(CACHE);\n        return (await cache.match(event.request,{ignoreSearch:true}))||Response.error();\n      })
   );
 });

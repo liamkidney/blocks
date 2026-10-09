@@ -7,10 +7,10 @@
 #game::before{content:"TETRIS";display:block;position:absolute;right:calc(100% + 28px);top:0;width:max-content;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:84px;line-height:1;font-weight:900;letter-spacing:-4px;white-space:nowrap}
 #controls{display:contents}#version{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);margin:0}
 .control{position:relative;top:auto;bottom:auto;width:72px;height:72px;transform:none;pointer-events:auto}
-.control[data-command="rotate_cw"]{grid-column:1;grid-row:1;justify-self:start;margin-left:0;transform:none}
-.control[data-command="down"]{grid-column:1;grid-row:1;justify-self:start;margin-left:81px;transform:none}
-.control[data-command="left"]{grid-column:4;grid-row:1;justify-self:end;margin-right:81px;transform:none}
-.control[data-command="right"]{grid-column:4;grid-row:1;justify-self:end;margin-right:0;transform:none}
+.control[data-command="left"]{grid-column:1;grid-row:1;justify-self:start;align-self:center;margin-left:0;margin-top:-82px;transform:none}
+.control[data-command="right"]{grid-column:1;grid-row:1;justify-self:start;align-self:center;margin-left:81px;margin-top:-82px;transform:none}
+.control[data-command="down"]{grid-column:1;grid-row:1;justify-self:start;align-self:center;margin-left:40.5px;margin-top:82px;transform:none}
+.control[data-command="rotate_cw"]{grid-column:4;grid-row:1;justify-self:center;align-self:center;margin:0;transform:none}
 .control.pressed{transform:translateY(2px) scale(.96)}
 }
  

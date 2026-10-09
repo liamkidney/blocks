@@ -1,5 +1,5 @@
 const CACHE="blocks-__BUILD_ID__";
-const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","app.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
+const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","app.js","config.js","version.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
 
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS.map(url=>new Request(url,{cache:"reload"})))).then(()=>self.skipWaiting()));
@@ -19,6 +19,6 @@ self.addEventListener("fetch",event=>{
         caches.open(CACHE).then(cache=>cache.put(event.request,copy));
         return response;
       })
-      .catch(()=>caches.match(event.request))
+      .catch(async()=>{\n        const cache=await caches.open(CACHE);\n        return (await cache.match(event.request,{ignoreSearch:true}))||Response.error();\n      })
   );
 });

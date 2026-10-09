@@ -22,7 +22,7 @@
     display:grid;
     grid-template-columns:repeat(2,var(--pad-size));
     grid-template-rows:auto repeat(2,var(--pad-size));
-    column-gap:var(--pad-size);
+    column-gap:calc(var(--pad-size) / 2);
     row-gap:clamp(12px,4dvh,32px);
     align-content:center;justify-content:center;
     min-width:0;

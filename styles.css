@@ -50,3 +50,9 @@
 .restart-choices{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .restart-choices button{min-height:52px;border:2px solid var(--ink);border-radius:0;background:transparent;color:var(--ink);font:900 13px Helvetica,Arial,sans-serif;letter-spacing:.5px;touch-action:manipulation;cursor:pointer}
 #restart-confirm{background:var(--ink);color:var(--paper)}
+
+@media(orientation:landscape){
+  #game-actions{margin-top:auto;padding-top:clamp(5px,1vh,10px);gap:5px}
+  #game-actions button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
+  #game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
+}

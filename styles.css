@@ -72,6 +72,7 @@ body:not(.two-player) #board-frame::before {
 .cell {
   border:0;
   background:var(--paper)}
+.cell.ghost { box-shadow:inset 0 0 0 2px var(--ink); opacity:.35; }
 .cell.filled,.preview-cell.filled {
   border-radius:2px;
   background-image:none!important;

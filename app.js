@@ -331,4 +331,7 @@ document.addEventListener("contextmenu",e=>e.preventDefault());
 document.addEventListener("selectstart",e=>e.preventDefault());
 
 const versionElement=document.getElementById("version");
-if(versionElement&&window.BLOCKS_VERSION)versionElement.textContent=window.BLOCKS_VERSION;
+if(versionElement){
+  const version=window.BLOCKS_VERSION||versionElement.textContent;
+  versionElement.textContent=version+(window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
+}

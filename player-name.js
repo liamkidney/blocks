@@ -34,6 +34,8 @@
     });
   }
   bindTap(document.getElementById('player-edit'),open);
+  const hudPlayer=document.getElementById('hud-player-button');
+  if(hudPlayer)bindTap(hudPlayer,open);
   bindTap(document.getElementById('player-cancel'),close);
   dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
   const form=document.getElementById('player-form');

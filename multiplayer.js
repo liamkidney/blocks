@@ -1,0 +1,89 @@
+// Iteration 2: mode selection and a second independently rendered board.
+// Player 2 controls and competitive attacks arrive in later iterations.
+(function(){
+  const modeButton=document.createElement("button");
+  modeButton.id="mode-switch";
+  modeButton.type="button";
+  modeButton.textContent=TWO_PLAYER?"1 PLAYER":"2 PLAYERS";
+  modeButton.setAttribute("aria-label",TWO_PLAYER?"Switch to one player":"Switch to two players");
+  document.body.appendChild(modeButton);
+  const switchMode=()=>{
+    saveGame(true);
+    const url=new URL(location.href);
+    if(TWO_PLAYER)url.searchParams.delete("players");
+    else url.searchParams.set("players","2");
+    location.href=url.href;
+  };
+  bindImmediateAction(modeButton,switchMode);
+  if(!TWO_PLAYER)return;
+  document.body.classList.add("two-player");
+  const second=document.createElement("div");
+  second.id="second-game";
+  second.innerHTML='<div class="second-board-wrap"><div class="player-label">PLAYER 2</div><div class="second-board-frame"><div class="second-board"></div></div></div><div class="second-hud"><div class="hud-label">NEXT</div><div class="second-preview"></div><div class="metric"><div class="hud-label">SCORE</div><div class="value second-score">0</div></div><div class="metric"><div class="hud-label">LINES</div><div class="value second-lines">0</div></div></div>';
+  document.getElementById("console").appendChild(second);
+  const hint=document.createElement("div");
+  hint.id="player-two-hint";
+  hint.textContent="PLAYER 2 CONTROLS — NEXT ITERATION";
+  document.getElementById("console").appendChild(hint);
+  const firstLabel=document.createElement("div");
+  firstLabel.className="player-label first-player-label";
+  firstLabel.textContent="PLAYER 1";
+  document.getElementById("board-frame").appendChild(firstLabel);
+  const board2=second.querySelector(".second-board");
+  const cells=[];
+  for(let y=19;y>=0;y--)for(let x=0;x<10;x++){
+    const cell=document.createElement("div");
+    cell.className="cell";board2.appendChild(cell);cells.push(cell);
+  }
+  const preview2=second.querySelector(".second-preview");
+  const game2=session.games[1];
+  const boardIndex2=(x,y)=>(19-y)*10+x;
+  function paint(x,y,name,clearing){
+    if(x<0||x>=10||y<0||y>=20)return;
+    const cell=cells[boardIndex2(x,y)];
+    cell.className=clearing?"cell filled clearing":"cell filled";
+    cell.style.backgroundColor=TETROMINO_BY_NAME[name].color;
+  }
+  function drawPreview(){
+    preview2.replaceChildren();
+    const t=game2.nextTetromino;
+    if(!t)return;
+    const offsets=t.orientations[0];
+    const xs=offsets.map(p=>p[0]),ys=offsets.map(p=>p[1]);
+    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const pct=maxX-minX+1===4?21:25;
+    const left=(100-(maxX-minX+1)*pct)/2;
+    const top=(100-(maxY-minY+1)*pct)/2;
+    for(const [x,y] of offsets){
+      const cell=document.createElement("div");
+      cell.className="preview-cell filled";
+      cell.style.backgroundColor=t.color;
+      cell.style.width=pct+"%";cell.style.height=pct+"%";
+      cell.style.left=left+(x-minX)*pct+"%";
+      cell.style.top=top+(maxY-y)*pct+"%";
+      preview2.appendChild(cell);
+    }
+  }
+  let previousNext=null;
+  function renderSecond(){
+    const clearing=game2.phase==="clearing_lines"||(game2.phase==="paused"&&game2.pausedPhase==="clearing_lines");
+    for(const cell of cells){cell.className="cell";cell.style.background="";}
+    for(let y=0;y<20;y++)for(let x=0;x<10;x++){
+      const name=game2.grid[y][x];
+      if(name)paint(x,y,name,clearing&&game2.completedRows.includes(y));
+    }
+    if(game2.active)for(const [ox,oy] of game2.offsets)
+      paint(game2.active.x+ox,game2.active.y+oy,game2.active.tetromino.name,false);
+    second.querySelector(".second-score").textContent=game2.score;
+    second.querySelector(".second-lines").textContent=game2.lines;
+    if(previousNext!==game2.nextTetromino){previousNext=game2.nextTetromino;drawPreview();}
+    second.classList.toggle("second-game-over",game2.phase==="game_over");
+    requestAnimationFrame(renderSecond);
+  }
+  board2.addEventListener("animationend",event=>{
+    if(game2.phase==="clearing_lines"&&event.animationName==="clearFlash"&&
+      event.pseudoElement==="::after"&&event.target===board2.querySelector(".cell.clearing"))
+      game2.presentationComplete();
+  });
+  renderSecond();
+})();

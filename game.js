@@ -22,6 +22,7 @@ class PieceQueue {
 
 class Game {
   constructor(config={}){
+    this.onEvent=typeof config.onEvent==="function"?config.onEvent:()=>{};
     this.width=10; this.height=20;
     this.grid=Array.from({length:this.height},()=>Array(this.width).fill(null));
     this.phase="falling"; this.completedRows=[]; this.score=0; this.lines=0;
@@ -112,13 +113,15 @@ class Game {
   }
   presentationComplete(){
     if(this.phase!=="clearing_lines") return;
+    const cleared=this.completedRows.length;
     const points={1:100,2:300,3:500,4:800};
-    this.score+=points[this.completedRows.length];
+    this.score+=points[cleared];
     this.lines+=this.completedRows.length;
     const done=new Set(this.completedRows);
     this.grid=this.grid.filter((_,y)=>!done.has(y));
     while(this.grid.length<this.height) this.grid.push(Array(this.width).fill(null));
     this.completedRows=[]; this.phase="falling"; this.elapsed=0; this.advance();
+    this.onEvent({type:"lines_cleared",count:cleared});
   }
   advance(){ this.queue.advance(); this.nextTetromino=this.queue.next(); this.spawn(); }
   spawn(){

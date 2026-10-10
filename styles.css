@@ -583,3 +583,10 @@ body.two-player #player-header{display:none}
 #scores-status{font-size:12px;font-weight:700;margin:18px 0}
 #scores-back,#scores-retry{border:2px solid var(--ink);background:var(--ink);color:var(--paper);padding:12px 18px;font:900 12px Helvetica,Arial,sans-serif;letter-spacing:1px;margin:0 0 22px;touch-action:manipulation}
 #scores-retry[hidden]{display:none}
+
+/* Trophy button sits beneath pause/restart in the HUD. */
+#high-scores-slot{margin-top:7px;display:flex;justify-content:center}
+#high-scores-slot #high-scores-button{position:static;display:flex;align-items:center;justify-content:center;width:100%;min-height:42px;padding:8px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);cursor:pointer;touch-action:manipulation}
+#high-scores-slot #high-scores-button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter}
+body.two-player #high-scores-slot{display:none}
+@media(orientation:landscape){body:not(.two-player) #high-scores-slot #high-scores-button{min-height:clamp(30px,6vh,42px);padding:4px}}

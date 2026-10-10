@@ -1,4 +1,4 @@
-"""Standalone Pythonista harness for the Supabase leaderboard test page.
+"""Standalone Pythonista harness for the public leaderboard page.
 
 Run from the Blocks repository directory. No game files are modified.
 """
@@ -11,7 +11,7 @@ import ui
 
 PORT = 8766
 ROOT = Path(__file__).resolve().parent
-PAGE = "leaderboard-test.html"
+PAGE = "leaderboard.html"  # Change to "leaderboard-test.html" for raw-data view
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

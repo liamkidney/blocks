@@ -287,7 +287,7 @@ body.two-player .diamond-pad > [data-command="down"] {
 body.two-player .control .icon { font-size:min(55cqw,55cqh); }
 body.two-player .rotate-svg { width:58cqw;height:58cqh; }
 body.two-player #landscape-title,
-body.two-player #version { display:none; }
+body.two-player #version { position:absolute; left:50%; bottom:max(2px,env(safe-area-inset-bottom)); transform:translateX(-50%); display:block; margin:0; font-size:9px; line-height:1; font-weight:600; letter-spacing:1px; opacity:.45; white-space:nowrap; z-index:2; }
 body.two-player #game-actions {
   display:flex;
   flex-direction:row;

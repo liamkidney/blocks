@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Blocks — High Scores</title>
+<style>
+:root{--paper:#f3efe3;--ink:#0b0b0a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Helvetica,Arial,-apple-system,sans-serif}
+main{max-width:560px;margin:0 auto;padding:clamp(20px,6vw,36px) 18px}
+h1{font-size:clamp(42px,11vw,72px);line-height:1;font-weight:900;letter-spacing:-3px;margin:0 0 28px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{font-size:11px;font-weight:800;letter-spacing:1.5px;text-align:left;border-bottom:3px solid var(--ink);padding:0 8px 12px}
+td{font-size:clamp(14px,4vw,18px);font-weight:800;border-bottom:1px solid var(--ink);padding:15px 8px}
+th:first-child,td:first-child{width:46px}
+th:nth-child(3),th:nth-child(4),td:nth-child(3),td:nth-child(4){text-align:right}
+td:nth-child(2){overflow-wrap:anywhere}
+#status{font-size:12px;font-weight:700;margin:18px 0}
+</style>
+</head>
+<body><main>
+<h1>HIGH SCORES</h1>
+<table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th></tr></thead><tbody id="rows"></tbody></table>
+<p id="status" role="status">Loading scores…</p>
+</main>
+<script>
+'use strict';
+const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
+const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
+const rows=document.getElementById('rows'),status=document.getElementById('status');
+function addCell(tr,value){const td=document.createElement('td');td.textContent=String(value);tr.appendChild(td);}
+async function load(){
+ try{
+  const headers={apikey:KEY};
+  const [playersResponse,sessionsResponse]=await Promise.all([
+   fetch(API+'players?select=player_id,display_name&limit=1000',{headers}),
+   fetch(API+'sessions?select=player_id,score,lines&order=score.desc&limit=100',{headers})
+  ]);
+  if(!playersResponse.ok||!sessionsResponse.ok)throw new Error('Could not load scores');
+  const players=new Map((await playersResponse.json()).map(p=>[p.player_id,p.display_name]));
+  const sessions=await sessionsResponse.json();
+  rows.replaceChildren();
+  sessions.forEach((s,i)=>{const tr=document.createElement('tr');[i+1,players.get(s.player_id)??'Unknown',s.score.toLocaleString(),s.lines].forEach(v=>addCell(tr,v));rows.appendChild(tr);});
+  status.textContent=sessions.length?'':'No scores yet';
+ }catch(error){status.textContent='Unable to load scores. Please try again later.';}
+}
+load();
+</script>
+</body></html>

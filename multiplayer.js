@@ -36,7 +36,11 @@
   }
   const secondMovement=controls2.querySelector(".second-movement");
   if(secondMovement)secondMovement.remove();
+  document.getElementById("game").classList.add("player-game");
+  second.classList.add("player-game");
+  document.getElementById("hud").classList.add("player-hud");
   const secondHud=second.querySelector(".second-hud");
+  secondHud.classList.add("player-hud");
   const nextGroup=document.createElement("div");
   nextGroup.className="next-group";
   secondHud.insertBefore(nextGroup,secondHud.firstChild);

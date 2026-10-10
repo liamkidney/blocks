@@ -1,4 +1,4 @@
-const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(new URLSearchParams(location.search).get("players")==="2"?":two":"");
+const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(new URLSearchParams(location.search).get("players")==="2"?":two":"")+(new URLSearchParams(location.search).get("pieces")?.toUpperCase()==="IO"?":io":"");
 const TWO_PLAYER=new URLSearchParams(location.search).get("players")==="2";
 let session;
 try{

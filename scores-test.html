@@ -25,8 +25,17 @@ th.numeric,td.numeric{text-align:right;font-variant-numeric:tabular-nums}
 const BASE='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
 const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
 const headers={apikey:KEY};
-const primary=['session_id','player_id','display_name','score','lines','pieces_mode','ghost_mode','status','updated_at'];
+const primary=['display_name','score','lines','pieces_mode','ghost_mode','status','updated_at'];
+const hidden=new Set(['session_id','player_id']);
 const $=id=>document.getElementById(id);
+function displayValue(name,value){
+ if(value==null)return '';
+ if(name.endsWith('_at')){
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?String(value):date.toLocaleString();
+ }
+ return String(value);
+}
 let sessions=[],columns=primary.slice();
 async function fetchAll(table,order){
  const result=[],limit=1000;
@@ -51,7 +60,7 @@ function render(){
    if(name==='score'||name==='lines'){
     td.classList.add('numeric');
     td.textContent=item[name]==null?'':Number(item[name]).toLocaleString('en-GB',{maximumFractionDigits:0});
-   }else{td.textContent=item[name]==null?'':String(item[name]);}
+   }else{td.textContent=displayValue(name,item[name]);}
    tr.appendChild(td);
   }
   $('rows').appendChild(tr);
@@ -64,7 +73,7 @@ async function load(){
   const [scores,players]=await Promise.all([fetchAll('sessions','updated_at.desc'),fetchAll('players','created_at.desc')]);
   const names=new Map(players.map(p=>[p.player_id,p.display_name]));
   sessions=scores.map(s=>({...s,display_name:names.get(s.player_id)??'Unknown'}));
-  columns=[...new Set([...primary,...scores.flatMap(s=>Object.keys(s))])];
+  columns=[...new Set([...primary,...scores.flatMap(s=>Object.keys(s))])].filter(name=>!hidden.has(name));
   $('head').replaceChildren();
   for(const name of columns){const th=document.createElement('th');th.textContent=name;if(name==='score'||name==='lines')th.classList.add('numeric');$('head').appendChild(th);}
   render();

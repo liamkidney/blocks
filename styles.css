@@ -223,8 +223,7 @@ body.two-player .second-game-over .second-board-frame::after{
   font-size:min(4cqw,5cqh);
   font-weight:900;
 }
-body.two-player #controls.diamond-pad,
-body.two-player #player-two-controls.diamond-pad{
+body.two-player .diamond-pad{
   position:relative;
   flex:none;
   display:grid;

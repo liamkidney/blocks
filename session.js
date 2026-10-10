@@ -12,8 +12,9 @@ class GameSession {
     if(playerCount===2&&!snapshots[0]&&!snapshots[1]){
       const a=this.games[0].queue.pieces;
       let b=this.games[1].queue.pieces;
-      if(a[0]===b[0]&&a[1]===b[1]){
+      while(a[0]===b[0]&&a[1]===b[1]){
         this.replaceGame(1);
+        b=this.games[1].queue.pieces;
       }
     }
   }

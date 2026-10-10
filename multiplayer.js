@@ -20,6 +20,14 @@
   playerTwoStation.id="player-two-station";
   consoleElement.insertBefore(playerTwoStation,playerOneStation);
   playerTwoStation.append(second,controls2);
+  // Normalize both pads to the same four direct children before applying the grid.
+  // The single-player DOM remains unchanged.
+  for(const pad of [document.getElementById("controls"),controls2]){
+    const buttons=Array.from(pad.querySelectorAll("button.control"));
+    for(const button of buttons)pad.appendChild(button);
+    pad.classList.add("diamond-pad");
+  }
+
   const firstLabel=document.createElement("div");
   firstLabel.className="player-label first-player-label";
   firstLabel.textContent="PLAYER 1";

@@ -590,3 +590,15 @@ body.two-player #player-header{display:none}
 #high-scores-slot #high-scores-button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter}
 body.two-player #high-scores-slot{display:none}
 @media(orientation:landscape){body:not(.two-player) #high-scores-slot #high-scores-button{min-height:clamp(30px,6vh,42px);padding:4px}}
+
+/* HUD action grid: two columns, consistent icon and button sizing. */
+body:not(.two-player) #game-actions{margin-top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+body:not(.two-player) #game-actions button{width:100%;min-width:0;flex:none}
+body:not(.two-player) #high-scores-slot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:7px}
+body:not(.two-player) #high-scores-slot #high-scores-button,
+body:not(.two-player) #high-scores-slot #hud-player-button{position:static;display:flex;align-items:center;justify-content:center;width:100%;min-width:0;min-height:42px;padding:8px 3px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);cursor:pointer;touch-action:manipulation;container-type:size}
+body:not(.two-player) #high-scores-slot svg{width:55cqh;height:55cqh;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:square;stroke-linejoin:round}
+@media(orientation:landscape){
+ body:not(.two-player) #high-scores-slot #high-scores-button,
+ body:not(.two-player) #high-scores-slot #hud-player-button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
+}

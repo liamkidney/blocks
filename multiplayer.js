@@ -8,7 +8,7 @@
   document.getElementById("console").appendChild(second);
   const controls2=document.createElement("div");
   controls2.id="player-two-controls";
-  controls2.innerHTML='<div class="second-movement"><button class="control" data-player="1" data-command="left" aria-label="Player 2 move left"><span class="icon">←</span></button><button class="control" data-player="1" data-command="right" aria-label="Player 2 move right"><span class="icon">→</span></button><button class="control" data-player="1" data-command="down" aria-label="Player 2 drop"><span class="icon">↓</span></button></div><button class="control rotate" data-player="1" data-command="rotate_cw" aria-label="Player 2 rotate clockwise"><span class="icon"><svg class="rotate-svg" viewBox="0 0 32 32"><path d="M25 11 A11 11 0 1 0 25 22"/><path d="M25 11 L25 5 M25 11 L19 10"/></svg></span></button>';
+  controls2.innerHTML='<button class="control" data-player="1" data-command="left" aria-label="Player 2 move left"><span class="icon">←</span></button><button class="control" data-player="1" data-command="right" aria-label="Player 2 move right"><span class="icon">→</span></button><button class="control" data-player="1" data-command="down" aria-label="Player 2 drop"><span class="icon">↓</span></button><button class="control rotate" data-player="1" data-command="rotate_cw" aria-label="Player 2 rotate clockwise"><span class="icon"><svg class="rotate-svg" viewBox="0 0 32 32"><path d="M25 11 A11 11 0 1 0 25 22"/><path d="M25 11 L25 5 M25 11 L19 10"/></svg></span></button>';
   document.getElementById("console").appendChild(controls2);
   bindGameControls(controls2);
   const consoleElement=document.getElementById("console");
@@ -34,8 +34,6 @@
     const wrapper=document.getElementById(id);
     if(wrapper)wrapper.remove();
   }
-  const secondMovement=controls2.querySelector(".second-movement");
-  if(secondMovement)secondMovement.remove();
   document.getElementById("game").classList.add("player-game");
   second.classList.add("player-game");
   document.getElementById("hud").classList.add("player-hud");

@@ -107,3 +107,8 @@
   body.two-player::after{content:"ROTATE TO LANDSCAPE FOR TWO PLAYERS";position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font:900 24px Helvetica,Arial,sans-serif}
   body.two-player #mode-switch{z-index:30}
 }
+
+@media(orientation:landscape){
+  body.two-player #movement-controls .control[data-command="left"],body.two-player #movement-controls .control[data-command="right"]{grid-row:1}
+  body.two-player #movement-controls .control[data-command="down"]{grid-row:2}
+}

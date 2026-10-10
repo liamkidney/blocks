@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Blocks — Players Raw View</title>
+<style>
+body{font:15px Helvetica,Arial,sans-serif;background:#f3efe3;color:#0b0b0a;margin:0;padding:22px 14px}
+h1{font-size:30px;letter-spacing:-1px;margin:0 0 6px}
+p{font-size:12px}button{background:#0b0b0a;color:#f3efe3;border:0;padding:10px 18px;font-weight:800}
+.scroll{overflow-x:auto;margin-top:16px}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}
+th,td{border-bottom:1px solid #999;padding:10px 12px;text-align:left}th{border-bottom:3px solid #0b0b0a}
+#status{min-height:1.5em}
+</style></head><body>
+<h1>PLAYERS — RAW DATA</h1>
+<p>Development-only, read-only view of public.players. Scroll sideways for all columns.</p>
+<button id="refresh" type="button">REFRESH</button><p id="status" role="status">Loading…</p>
+<div class="scroll"><table><thead><tr><th>player_id</th><th>display_name</th><th>created_at</th><th>updated_at</th></tr></thead><tbody id="rows"></tbody></table></div>
+<script>
+'use strict';
+const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
+const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
+const rows=document.getElementById('rows'),status=document.getElementById('status');
+async function load(){
+ status.textContent='Loading…';rows.replaceChildren();
+ try{
+  const response=await fetch(API+'players?select=player_id,display_name,created_at,updated_at&order=created_at.desc&limit=1000',{headers:{apikey:KEY}});
+  if(!response.ok)throw new Error('Supabase HTTP '+response.status);
+  const players=await response.json();
+  for(const p of players){
+   const tr=document.createElement('tr');
+   for(const key of ['player_id','display_name','created_at','updated_at']){
+    const td=document.createElement('td');td.textContent=p[key]??'';tr.appendChild(td);
+   }
+   rows.appendChild(tr);
+  }
+  status.textContent=players.length+' player(s) found'+(players.length===1000?' (first 1000 only)':'');
+ }catch(e){status.textContent='Error: '+e.message;}
+}
+document.getElementById('refresh').addEventListener('click',load);load();
+</script></body></html>

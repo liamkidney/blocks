@@ -124,6 +124,13 @@
       const name=game2.grid[y][x];
       if(name)paint(x,y,name,clearing&&game2.completedRows.includes(y));
     }
+    if(game2.active&&window.BLOCKS_CONFIG.ghostPiece){
+      const ghostY=game2.ghostY;
+      if(ghostY!==game2.active.y)for(const [ox,oy] of game2.offsets){
+        const x=game2.active.x+ox,y=ghostY+oy;
+        if(x>=0&&x<10&&y>=0&&y<20)cells[boardIndex2(x,y)].classList.add("ghost");
+      }
+    }
     if(game2.active)for(const [ox,oy] of game2.offsets)
       paint(game2.active.x+ox,game2.active.y+oy,game2.active.tetromino.name,false);
     second.querySelector(".second-score").textContent=game2.score;

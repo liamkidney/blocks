@@ -60,5 +60,6 @@
   el.addEventListener('click',e=>{if(performance.now()-last<750){e.preventDefault();return;}fn();});
  }
  tap(button,open);tap(overlay.querySelector('#scores-back'),close);tap(retry,()=>void load());
+ button.hidden=false;
  document.addEventListener('keydown',e=>{if(!overlay.hidden){if(e.key==='Escape')close();e.preventDefault();e.stopImmediatePropagation();}},true);
 })();

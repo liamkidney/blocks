@@ -12,6 +12,7 @@
  const pending=new Map();
  const registered=new Set();
  const sent=new Map();
+ const terminal=new Set();
  let busy=false,lastAttempt=0;
  function playerId(){
   try{return JSON.parse(localStorage.getItem('blocks:player:v1')||'null')?.player_id||null;}
@@ -26,7 +27,8 @@
   if(!item.player_id)return Promise.resolve();
   const previous=pending.get(item.session_id);
   // A terminal status must never be replaced by an active update.
-  if(previous&&previous.status!=='active'&&item.status==='active')return Promise.resolve();
+  if((previous&&previous.status!=='active'&&item.status==='active')||
+     (terminal.has(item.session_id)&&item.status==='active'))return Promise.resolve();
   const signature=JSON.stringify([item.score,item.lines,item.status]);
   if(!previous&&sent.get(item.session_id)===signature)return Promise.resolve();
   pending.set(item.session_id,item);
@@ -62,6 +64,7 @@
     try{
      await write(item);
      sent.set(sid,JSON.stringify([item.score,item.lines,item.status]));
+     if(item.status!=='active')terminal.add(sid);
      // Preserve a newer snapshot queued while the request was in flight.
      if(pending.get(sid)===item)pending.delete(sid);
     }catch(error){

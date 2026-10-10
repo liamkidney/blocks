@@ -123,6 +123,27 @@ class Game {
     this.completedRows=[]; this.phase="falling"; this.elapsed=0; this.advance();
     this.onEvent({type:"lines_cleared",count:cleared});
   }
+  // Garbage enters at the bottom; both stack and active piece rise together.
+  addGarbage(rows){
+    if(!Number.isInteger(rows)||rows<0)throw new Error("Invalid garbage count");
+    if(this.phase==="game_over"||rows===0)return;
+    for(let i=0;i<rows;i++){
+      const overflow=this.grid[this.height-1].some(Boolean);
+      this.grid.pop();
+      const row=Array.from({length:this.width},()=>Math.random()<0.7?"I":null);
+      if(row.every(Boolean))row[Math.floor(Math.random()*this.width)]=null;
+      this.grid.unshift(row);
+      if(this.active)this.active.y++;
+      if(this.completedRows.length)this.completedRows=this.completedRows.map(y=>y+1);
+      if(overflow||this.completedRows.some(y=>y>=this.height)||
+        this.active&&this.offsets.some(([,oy])=>this.active.y+oy>=this.height)){
+        this.phase="game_over";
+        this.completedRows=[];
+        this.active=null;
+        return;
+      }
+    }
+  }
   advance(){ this.queue.advance(); this.nextTetromino=this.queue.next(); this.spawn(); }
   spawn(){
     const t=this.queue.current(), offsets=t.orientations[0];

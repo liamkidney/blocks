@@ -1,10 +1,10 @@
-const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"");
+const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(new URLSearchParams(location.search).get("players")==="2"?":two":"");
 const TWO_PLAYER=new URLSearchParams(location.search).get("players")==="2";
 let session;
 try{
   const stored=localStorage.getItem(SAVE_KEY);
   const snapshot=stored?JSON.parse(stored):null;
-  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{},snapshots:TWO_PLAYER?[]:[snapshot]});
+  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{},snapshots:TWO_PLAYER?(snapshot?.games||[]):[snapshot],attackProgress:snapshot?.attackProgress||[0,0]});
 }catch(error){
   session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{}});
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
@@ -14,12 +14,15 @@ let skipSaveOnNavigation=false;
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
-  if(TWO_PLAYER||skipSaveOnNavigation)return;
+  if(skipSaveOnNavigation)return;
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
   lastSavedAt=now;
   try{
-    if(game.phase==="game_over")localStorage.removeItem(SAVE_KEY);
+    if(TWO_PLAYER){
+      if(session.outcome||session.games.some(g=>g.phase==="game_over"))localStorage.removeItem(SAVE_KEY);
+      else localStorage.setItem(SAVE_KEY,JSON.stringify({games:session.games.map(g=>g.toSnapshot()),attackProgress:session.attackProgress}));
+    }else if(game.phase==="game_over")localStorage.removeItem(SAVE_KEY);
     else localStorage.setItem(SAVE_KEY,JSON.stringify(game.toSnapshot()));
   }catch(_){}
 }
@@ -98,8 +101,9 @@ function startNewGame(playerCount=TWO_PLAYER?2:1){
     return;
   }
   restartDialog.hidden=true;
+  try{localStorage.removeItem(SAVE_KEY)}catch(_){}
   game=session.replaceGame(0);
-  if(TWO_PLAYER)session.replaceGame(1);
+  if(TWO_PLAYER){session.replaceGame(1);session.attackProgress=[0,0];}
   session.drainEvents();
   previousPhase=game.phase;
   lastTime=performance.now();
@@ -138,6 +142,7 @@ bindImmediateAction(pauseButton,togglePause);
 bindImmediateAction(restartButton,restartGame);
 function renderActions(){
   const paused=game.phase==="paused";
+  for(const button of document.querySelectorAll(".match-pause-button"))button.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
   pauseButton.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
   const label=paused?"RESUME":"PAUSE";
   if(pauseButton.dataset.state!==label){
@@ -145,6 +150,9 @@ function renderActions(){
     pauseButton.setAttribute("aria-label",paused?"Resume game":"Pause game");
     pauseButton.title=paused?"Resume game":"Pause game";
     pauseButton.dataset.state=label;
+  }
+  for(const button of document.querySelectorAll(".match-pause-button")){
+    if(button.dataset.state!==label){button.innerHTML=paused?resumeIcon:pauseIcon;button.dataset.state=label;button.setAttribute("aria-label",paused?"Resume game":"Pause game");}
   }
   board.parentElement.classList.toggle("game-paused",paused);
   if(TWO_PLAYER)document.body.classList.toggle("match-paused",paused);

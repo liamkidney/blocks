@@ -260,14 +260,14 @@ body:not(.two-player) #landscape-title{display:none}
   .metric{padding:clamp(5px,1.5vh,12px) 0}
   .metric .hud-label{margin-bottom:3px}
   .value,#lines{font-size:clamp(24px,6.5vh,48px);letter-spacing:-2px}
-  #game-actions{margin-top:auto;padding-top:clamp(5px,1vh,10px);gap:5px}
-  #game-actions button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
-  #game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
+  body:not(.two-player) #game-actions{margin-top:auto;padding-top:clamp(5px,1vh,10px);gap:5px}
+  body:not(.two-player) #game-actions button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
+  body:not(.two-player) #game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
   body:not(.two-player) #version{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);margin:0}
 }
 #game-over[hidden]{display:none}#game-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:5;pointer-events:none}
 
-#game-actions{display:flex;flex-direction:row;gap:7px;border-top:1px solid var(--ink);padding-top:12px}#game-actions button{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;width:0;min-width:0;min-height:42px;padding:8px 3px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);font:800 10px Helvetica,Arial,sans-serif;white-space:nowrap;touch-action:manipulation;cursor:pointer}#game-actions svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:square}#game-actions button:disabled{opacity:.3}body:not(.two-player) #board-frame.game-paused .cell.clearing::after{animation-play-state:paused}body:not(.two-player) #board-frame.game-paused::after{content:"PAUSED";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:6;pointer-events:none}
+body:not(.two-player) #game-actions{display:flex;flex-direction:row;gap:7px;border-top:1px solid var(--ink);padding-top:12px}body:not(.two-player) #game-actions button{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;width:0;min-width:0;min-height:42px;padding:8px 3px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);font:800 10px Helvetica,Arial,sans-serif;white-space:nowrap;touch-action:manipulation;cursor:pointer}body:not(.two-player) #game-actions svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:square}body:not(.two-player) #game-actions button:disabled{opacity:.3}body:not(.two-player) #board-frame.game-paused .cell.clearing::after{animation-play-state:paused}body:not(.two-player) #board-frame.game-paused::after{content:"PAUSED";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:6;pointer-events:none}
 
 #restart-dialog[hidden]{display:none}
 #restart-dialog{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(11,11,10,.52);touch-action:none}
@@ -279,9 +279,9 @@ body:not(.two-player) #landscape-title{display:none}
 #restart-confirm{background:var(--ink);color:var(--paper)}
 
 @media(orientation:landscape){
-  #game-actions{margin-top:auto;padding-top:clamp(5px,1vh,10px);gap:5px}
-  #game-actions button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
-  #game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
+  body:not(.two-player) #game-actions{margin-top:auto;padding-top:clamp(5px,1vh,10px);gap:5px}
+  body:not(.two-player) #game-actions button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
+  body:not(.two-player) #game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
 }
 
 /* Restart mode chooser. */
@@ -301,8 +301,8 @@ body.match-paused .second-board .cell.clearing::after{animation-play-state:pause
 .control{container-type:size}
 .control .icon{font-size:min(55cqh,55cqw)}
 .control .rotate-svg{width:58cqw;height:58cqh}
-#game-actions button{container-type:size}
-#game-actions svg{width:55cqh;height:55cqh}
+body:not(.two-player) #game-actions button{container-type:size}
+body:not(.two-player) #game-actions svg{width:55cqh;height:55cqh}
 @media(orientation:landscape){
   body:not(.two-player) .control .icon{font-size:min(55cqh,55cqw)}
   body:not(.two-player) .rotate-svg{width:58cqw;height:58cqh}
@@ -505,6 +505,9 @@ body.two-player .player-actions {
   border-top:1px solid var(--ink);
 }
 body.two-player .player-actions button {
+  container-type:size;
+  touch-action:manipulation;
+  cursor:pointer;
   display:flex;
   flex:1 1 0;
   align-items:center;
@@ -520,6 +523,7 @@ body.two-player .player-actions button {
   background:transparent;
 }
 body.two-player .player-actions svg {
+  flex:none;
   width:60%;
   height:60%;
   fill:none;

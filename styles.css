@@ -27,6 +27,7 @@ body:not(.two-player) #console {
 body:not(.two-player) #game::before {
   display:none}
 body:not(.two-player) #game {
+  --single-board-height:min(100%,calc((100vw - 52px - min(25vw,112px)) * 2));
   position:relative;
   flex:1;
   min-height:0;
@@ -37,7 +38,7 @@ body:not(.two-player) #game {
   padding-top:112px}
 body:not(.two-player) #board-frame {
   position:relative;
-  height:min(100%,calc((100vw - 52px - min(25vw,112px)) * 2));
+  height:var(--single-board-height);
   aspect-ratio:1/2;
   padding:0;
   border:3px solid var(--ink);
@@ -58,7 +59,7 @@ body:not(.two-player) #board-frame::before {
   letter-spacing:-4px;
   text-align:left;
   white-space:nowrap}
-#board {
+.player-board {
   width:100%;
   height:100%;
   display:grid;
@@ -104,7 +105,7 @@ body:not(.two-player) #hud {
   max-width:112px;
   flex-shrink:0;
   min-width:0;
-  height:min(100%,calc((100vw - 52px - min(25vw,112px)) * 2));
+  height:var(--single-board-height);
   display:flex;
   flex-direction:column;
   gap:0;
@@ -278,11 +279,6 @@ body:not(.two-player) #game-actions{display:flex;flex-direction:row;gap:7px;bord
 .restart-choices button{min-height:52px;border:2px solid var(--ink);border-radius:0;background:transparent;color:var(--ink);font:900 13px Helvetica,Arial,sans-serif;letter-spacing:.5px;touch-action:manipulation;cursor:pointer}
 #restart-confirm{background:var(--ink);color:var(--paper)}
 
-@media(orientation:landscape){
-  body:not(.two-player) #game-actions{margin-top:auto;padding-top:clamp(5px,1vh,10px);gap:5px}
-  body:not(.two-player) #game-actions button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
-  body:not(.two-player) #game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
-}
 
 /* Restart mode chooser. */
 .restart-choices #restart-one{background:var(--ink);color:var(--paper)}
@@ -303,10 +299,6 @@ body.match-paused .second-board .cell.clearing::after{animation-play-state:pause
 .control .rotate-svg{width:58cqw;height:58cqh}
 body:not(.two-player) #game-actions button{container-type:size}
 body:not(.two-player) #game-actions svg{width:55cqh;height:55cqh}
-@media(orientation:landscape){
-  body:not(.two-player) .control .icon{font-size:min(55cqh,55cqw)}
-  body:not(.two-player) .rotate-svg{width:58cqw;height:58cqh}
-}
 
 /* Two-player geometry. Both stations use precisely the same layout.
    The only orientation change is the direction of the outer split. */
@@ -380,16 +372,6 @@ body.two-player .second-board-frame {
   width:100%;
   height:100%;
   border:2px solid var(--ink);
-}
-body.two-player .player-board {
-  display:grid;
-  grid-template-columns:repeat(10,minmax(0,1fr));
-  grid-template-rows:repeat(20,minmax(0,1fr));
-  gap:1px;
-  width:100%;
-  height:100%;
-  background:var(--grid);
-  overflow:hidden;
 }
 body.two-player .player-hud {
   display:flex;
@@ -491,8 +473,6 @@ body.two-player .diamond-pad > [data-command="down"] {
   grid-column:1 / 3;
   grid-row:3;
 }
-body.two-player .control .icon { font-size:min(55cqw,55cqh); }
-body.two-player .rotate-svg { width:58cqw;height:58cqh; }
 body.two-player #landscape-title,
 body.two-player #version { display:none; }
 /* Both HUDs use the same actions and board overlay components. */

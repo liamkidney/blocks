@@ -24,7 +24,7 @@
   try{
    const [pr,sr]=await Promise.all([
     fetch(API+'players?select=player_id,display_name&limit=1000',{headers,signal}),
-    fetch(API+'sessions?select=player_id,score,lines,started_at&order=score.desc&limit=10',{headers,signal})
+    fetch(API+'sessions?select=player_id,score,lines,started_at&score=gte.1000&order=score.desc&limit=10',{headers,signal})
    ]);
    if(!pr.ok||!sr.ok)throw Error('HTTP '+pr.status+'/'+sr.status);
    const players=new Map((await pr.json()).map(p=>[p.player_id,p.display_name]));

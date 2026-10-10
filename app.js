@@ -179,7 +179,7 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-function loop(now){session.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
+function loop(now){session.update(Math.min((now-lastTime)/1000,.25));session.drainEvents();lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{

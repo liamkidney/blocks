@@ -1,4 +1,4 @@
-// One-player Supabase score sync. Sessions are identified by stable UUIDs.
+// Serial, retryable score synchronization. Never confuse two session IDs.
 (()=>{
  if(TWO_PLAYER)return;
  const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/sessions';
@@ -9,52 +9,80 @@
  const ghost=params.get('ghost')==='true';
  let id=storedSessionId||crypto.randomUUID();
  window.BLOCKS_SESSION_ID=id;
- let lastSent='',lastAttempt=0,busy=false;
- let registered=new Set();
+ const pending=new Map();
+ const registered=new Set();
+ const sent=new Map();
+ let busy=false,lastAttempt=0;
  function playerId(){
-   try{return JSON.parse(localStorage.getItem('blocks:player:v1')||'null')?.player_id||null;}
-   catch(_){return null;}
+  try{return JSON.parse(localStorage.getItem('blocks:player:v1')||'null')?.player_id||null;}
+  catch(_){return null;}
  }
- async function send(status='active',force=false){
-   const pid=playerId();
-   if(!pid||busy)return;
-   const data={score:game.score,lines:game.lines,status};
-   const signature=JSON.stringify(data);
-   if(!force&&signature===lastSent)return;
-   if(!force&&Date.now()-lastAttempt<5000)return;
-   busy=true;lastAttempt=Date.now();
-   const sid=id;
-   try{
-     if(!registered.has(sid)){
-       const response=await fetch(API+'?select=session_id&session_id=eq.'+encodeURIComponent(sid),{headers});
-       if(!response.ok)throw Error('Session lookup '+response.status);
-       const existing=await response.json();
-       if(!existing.length){
-         const created=await fetch(API,{method:'POST',headers,body:JSON.stringify({
-           session_id:sid,player_id:pid,...data,pieces_mode:mode,ghost_mode:ghost
-         })});
-         if(!created.ok)throw Error('Session create '+created.status);
-         registered.add(sid);if(sid===id)lastSent=signature;return;
-       }
-       registered.add(sid);
-     }
-     const response=await fetch(API+'?session_id=eq.'+encodeURIComponent(id),{
-       method:'PATCH',headers,body:JSON.stringify({...data,updated_at:new Date().toISOString()})
-     });
-     if(!response.ok)throw Error('Session update '+response.status);
-     if(sid===id)lastSent=signature;
-   }catch(error){console.warn('Blocks score sync:',error);}
-   finally{busy=false;}
+ function capture(status){
+  return {session_id:id,player_id:playerId(),score:game.score,lines:game.lines,status,
+   pieces_mode:mode,ghost_mode:ghost};
  }
- const timer=setInterval(()=>send(game.phase==='game_over'?'completed':'active'),1000);
+ function queue(status=game.phase==='game_over'?'completed':'active',force=false){
+  const item=capture(status);
+  if(!item.player_id)return Promise.resolve();
+  const previous=pending.get(item.session_id);
+  // A terminal status must never be replaced by an active update.
+  if(previous&&previous.status!=='active'&&item.status==='active')return Promise.resolve();
+  const signature=JSON.stringify([item.score,item.lines,item.status]);
+  if(!previous&&sent.get(item.session_id)===signature)return Promise.resolve();
+  pending.set(item.session_id,item);
+  return drain(force);
+ }
+ async function write(item){
+  const sid=encodeURIComponent(item.session_id);
+  if(!registered.has(item.session_id)){
+   const lookup=await fetch(API+'?select=session_id&session_id=eq.'+sid,{headers});
+   if(!lookup.ok)throw Error('Session lookup '+lookup.status);
+   if(!(await lookup.json()).length){
+    const created=await fetch(API,{method:'POST',headers,
+     body:JSON.stringify(item),keepalive:true});
+    if(!created.ok&&created.status!==409)throw Error('Session create '+created.status);
+    if(created.ok){registered.add(item.session_id);return;}
+   }
+   registered.add(item.session_id);
+  }
+  const response=await fetch(API+'?session_id=eq.'+sid,{
+   method:'PATCH',headers,keepalive:true,
+   body:JSON.stringify({score:item.score,lines:item.lines,status:item.status,updated_at:new Date().toISOString()})
+  });
+  if(!response.ok)throw Error('Session update '+response.status);
+ }
+ async function drain(force=false){
+  if(busy||!pending.size)return;
+  if(!force&&Date.now()-lastAttempt<5000)return;
+  busy=true;
+  try{
+   while(pending.size){
+    const [sid,item]=pending.entries().next().value;
+    lastAttempt=Date.now();
+    try{
+     await write(item);
+     sent.set(sid,JSON.stringify([item.score,item.lines,item.status]));
+     // Preserve a newer snapshot queued while the request was in flight.
+     if(pending.get(sid)===item)pending.delete(sid);
+    }catch(error){
+     console.warn('Blocks score sync:',error);
+     break; // Retry on the next interval, without discarding data.
+    }
+   }
+  }finally{busy=false;}
+ }
  window.addEventListener('blocks:restart',()=>{
-   void send('abandoned',true);
-   id=crypto.randomUUID();window.BLOCKS_SESSION_ID=id;lastSent='';lastAttempt=0;
+  // Capture the old game's final state before the game object is replaced.
+  void queue('abandoned',true);
+  id=crypto.randomUUID();
+  window.BLOCKS_SESSION_ID=id;
+  // The next tick creates the new session after the game is reset.
  });
- document.addEventListener('visibilitychange',()=>{
-   if(document.visibilityState==='hidden')void send(game.phase==='game_over'?'completed':'active',true);
-   else void send(game.phase==='game_over'?'completed':'active',true);
- });
- window.addEventListener('pagehide',()=>void send(game.phase==='game_over'?'completed':'active',true));
- void send(game.phase==='game_over'?'completed':'active',true);
+ setInterval(()=>{
+  void queue();
+  void drain();
+ },1000);
+ document.addEventListener('visibilitychange',()=>{void queue(undefined,true);});
+ window.addEventListener('pagehide',()=>{void queue(undefined,true);});
+ void queue(undefined,true);
 })();

@@ -19,6 +19,7 @@
   playerOneStation.append(document.getElementById("game"),document.getElementById("controls"));
   const playerTwoStation=document.createElement("div");
   playerTwoStation.id="player-two-station";
+  playerTwoStation.classList.add("player-station");
   consoleElement.insertBefore(playerTwoStation,playerOneStation);
   playerTwoStation.append(second,controls2);
   // Normalize both pads to the same four direct children before applying the grid.

@@ -22,6 +22,7 @@ class PieceQueue {
 
 class Game {
   constructor(config={}){
+    this.onEvent=typeof config.onEvent==="function"?config.onEvent:()=>{};
     this.width=10; this.height=20;
     this.grid=Array.from({length:this.height},()=>Array(this.width).fill(null));
     this.phase="falling"; this.completedRows=[]; this.score=0; this.lines=0;
@@ -112,13 +113,36 @@ class Game {
   }
   presentationComplete(){
     if(this.phase!=="clearing_lines") return;
+    const cleared=this.completedRows.length;
     const points={1:100,2:300,3:500,4:800};
-    this.score+=points[this.completedRows.length];
+    this.score+=points[cleared];
     this.lines+=this.completedRows.length;
     const done=new Set(this.completedRows);
     this.grid=this.grid.filter((_,y)=>!done.has(y));
     while(this.grid.length<this.height) this.grid.push(Array(this.width).fill(null));
     this.completedRows=[]; this.phase="falling"; this.elapsed=0; this.advance();
+    this.onEvent({type:"lines_cleared",count:cleared});
+  }
+  // Garbage enters at the bottom; both stack and active piece rise together.
+  addGarbage(rows){
+    if(!Number.isInteger(rows)||rows<0)throw new Error("Invalid garbage count");
+    if(this.phase==="game_over"||rows===0)return;
+    for(let i=0;i<rows;i++){
+      const overflow=this.grid[this.height-1].some(Boolean);
+      this.grid.pop();
+      const row=Array.from({length:this.width},()=>Math.random()<0.7?"I":null);
+      if(row.every(Boolean))row[Math.floor(Math.random()*this.width)]=null;
+      this.grid.unshift(row);
+      if(this.active)this.active.y++;
+      if(this.completedRows.length)this.completedRows=this.completedRows.map(y=>y+1);
+      if(overflow||this.completedRows.some(y=>y>=this.height)||
+        this.active&&this.offsets.some(([,oy])=>this.active.y+oy>=this.height)){
+        this.phase="game_over";
+        this.completedRows=[];
+        this.active=null;
+        return;
+      }
+    }
   }
   advance(){ this.queue.advance(); this.nextTetromino=this.queue.next(); this.spawn(); }
   spawn(){

@@ -1,15 +1,20 @@
 const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"");
-let game;
+const TWO_PLAYER=new URLSearchParams(location.search).get("players")==="2";
+let session;
 try{
   const stored=localStorage.getItem(SAVE_KEY);
-  game=stored?Game.fromSnapshot(JSON.parse(stored),window.BLOCKS_CONFIG||{}):new Game(window.BLOCKS_CONFIG||{});
+  const snapshot=stored?JSON.parse(stored):null;
+  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{},snapshots:TWO_PLAYER?[]:[snapshot]});
 }catch(error){
-  game=new Game(window.BLOCKS_CONFIG||{});
+  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{}});
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
 }
+let game=session.games[0];
+let skipSaveOnNavigation=false;
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
+  if(TWO_PLAYER||skipSaveOnNavigation)return;
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
   lastSavedAt=now;
@@ -51,7 +56,11 @@ for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
 }
 
 function togglePause(){
-  if(game.phase==="paused")game.resume();
+  if(TWO_PLAYER){
+    if(session.outcome)return;
+    if(game.phase==="paused")session.resume();
+    else session.pause();
+  }else if(game.phase==="paused")game.resume();
   else game.pause();
   renderActions();
   saveGame(true);
@@ -62,21 +71,36 @@ restartDialog.hidden=true;
 restartDialog.setAttribute("role","dialog");
 restartDialog.setAttribute("aria-modal","true");
 restartDialog.setAttribute("aria-labelledby","restart-title");
-restartDialog.innerHTML='<div class="restart-panel"><div id="restart-title">RESTART GAME?</div><p>YOUR CURRENT GAME WILL BE LOST.</p><div class="restart-choices"><button type="button" id="restart-cancel">CANCEL</button><button type="button" id="restart-confirm">RESTART</button></div></div>';
+restartDialog.innerHTML='<div class="restart-panel"><div id="restart-title">NEW GAME</div><p>CHOOSE NUMBER OF PLAYERS. YOUR CURRENT GAME WILL BE LOST.</p><div class="restart-choices"><button type="button" id="restart-one">1 PLAYER</button><button type="button" id="restart-two">2 PLAYERS</button></div><button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button></div>';
 document.body.appendChild(restartDialog);
 const cancelRestartButton=document.getElementById("restart-cancel");
-const confirmRestartButton=document.getElementById("restart-confirm");
+const onePlayerButton=document.getElementById("restart-one");
+const twoPlayerButton=document.getElementById("restart-two");
 let restartWasPaused=false;
 function closeRestartDialog(){
   restartDialog.hidden=true;
-  if(!restartWasPaused&&game.phase==="paused")game.resume();
+  if(!restartWasPaused&&game.phase==="paused"){
+    if(TWO_PLAYER)session.resume();
+    else game.resume();
+  }
   renderActions();
   saveGame(true);
   restartButton.focus();
 }
-function startNewGame(){
+function startNewGame(playerCount=TWO_PLAYER?2:1){
+  if(playerCount!==(TWO_PLAYER?2:1)){
+    skipSaveOnNavigation=true;
+    try{localStorage.removeItem(SAVE_KEY)}catch(_){}
+    const url=new URL(location.href);
+    if(playerCount===2)url.searchParams.set("players","2");
+    else url.searchParams.delete("players");
+    location.href=url.href;
+    return;
+  }
   restartDialog.hidden=true;
-  game=new Game(window.BLOCKS_CONFIG||{});
+  game=session.replaceGame(0);
+  if(TWO_PLAYER)session.replaceGame(1);
+  session.drainEvents();
   previousPhase=game.phase;
   lastTime=performance.now();
   for(const button of document.querySelectorAll(".control"))release(button);
@@ -85,16 +109,19 @@ function startNewGame(){
 }
 function restartGame(){
   if(!restartDialog.hidden)return;
-  if(game.phase==="game_over"){startNewGame();return;}
   restartWasPaused=game.phase==="paused";
-  if(!restartWasPaused)game.pause();
+  if(!restartWasPaused){
+    if(TWO_PLAYER)session.pause();
+    else game.pause();
+  }
   restartDialog.hidden=false;
   renderActions();
   saveGame(true);
-  cancelRestartButton.focus();
+  (TWO_PLAYER?twoPlayerButton:onePlayerButton).focus();
 }
 bindImmediateAction(cancelRestartButton,closeRestartDialog);
-bindImmediateAction(confirmRestartButton,startNewGame);
+bindImmediateAction(onePlayerButton,()=>startNewGame(1));
+bindImmediateAction(twoPlayerButton,()=>startNewGame(2));
 function bindImmediateAction(button,action){
   let lastTouchAt=-Infinity;
   button.addEventListener("touchstart",event=>{
@@ -111,7 +138,7 @@ bindImmediateAction(pauseButton,togglePause);
 bindImmediateAction(restartButton,restartGame);
 function renderActions(){
   const paused=game.phase==="paused";
-  pauseButton.disabled=game.phase==="game_over";
+  pauseButton.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
   const label=paused?"RESUME":"PAUSE";
   if(pauseButton.dataset.state!==label){
     pauseButton.innerHTML=paused?resumeIcon:pauseIcon;
@@ -120,6 +147,7 @@ function renderActions(){
     pauseButton.dataset.state=label;
   }
   board.parentElement.classList.toggle("game-paused",paused);
+  if(TWO_PLAYER)document.body.classList.toggle("match-paused",paused);
 }
 const boardIndex=(x,y)=>(19-y)*10+x;
 function paintBoard(x,y,name){
@@ -139,7 +167,7 @@ function render(){
   document.getElementById("score").textContent=game.score;
   document.getElementById("lines").textContent=game.lines;
   renderPreview();
-  gameOver.hidden=game.phase!=="game_over";
+  gameOver.hidden=TWO_PLAYER||game.phase!=="game_over";
   renderActions();
   if(game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines")) for(const y of game.completedRows) for(let x=0;x<10;x++) boardCells[boardIndex(x,y)].classList.add("clearing");
 }
@@ -162,7 +190,7 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-function loop(now){game.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
+function loop(now){session.update(Math.min((now-lastTime)/1000,.25));session.drainEvents();lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{
@@ -172,9 +200,11 @@ board.addEventListener("animationend",event=>{
 // Each held button owns its repeat timer, so simultaneous presses do not interfere.
 const repeatTimers=new Map();
 const repeatable=new Set(["down","left","right"]);
-function applyCommand(command){
-  if(command==="down")game.dropOne();
-  else game.press(command);
+function applyCommand(command,player=0){
+  const target=session.games[player];
+  if(!target)return;
+  if(command==="down")target.dropOne();
+  else target.press(command);
 }
 function stopRepeat(button){
   clearTimeout(repeatTimers.get(button));
@@ -182,14 +212,14 @@ function stopRepeat(button){
 }
 function repeat(button){
   if(!repeatTimers.has(button))return;
-  applyCommand(button.dataset.command);
+  applyCommand(button.dataset.command,Number(button.dataset.player||0));
   repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_INTERVAL));
 }
 function press(button){
   const command=button.dataset.command;
   if(button.classList.contains("pressed"))return;
   button.classList.add("pressed");
-  applyCommand(command);
+  applyCommand(command,Number(button.dataset.player||0));
   if(repeatable.has(command)){
     repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_DELAY));
   }
@@ -200,7 +230,8 @@ function release(button){
 }
 // Prefer real touch events on touch devices. Pythonista's WebView emits a
 // second synthetic pointerdown/click after touchend, which must be ignored.
-document.querySelectorAll(".control").forEach(button=>{
+function bindGameControls(root=document){
+root.querySelectorAll(".control").forEach(button=>{
   let touchActive=false;
   let lastTouchAt=-Infinity;
   const suppressSyntheticPointer=e=>e.pointerType==="touch"||performance.now()-lastTouchAt<750;
@@ -238,6 +269,8 @@ document.querySelectorAll(".control").forEach(button=>{
     if(!touchActive)release(button);
   });
 });
+}
+bindGameControls();
 board.addEventListener("pointerdown",e=>{e.preventDefault();board.setPointerCapture(e.pointerId);boardTouch={x:e.clientX,y:e.clientY}});
 board.addEventListener("pointerup",e=>{
   e.preventDefault();if(!boardTouch)return;

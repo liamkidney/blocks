@@ -537,3 +537,17 @@ body.two-player.match-paused .player-board-frame::after {
   font:900 calc(var(--board-h) * .05) Helvetica,Arial,sans-serif;
   pointer-events:none;
 }
+
+/* Player identity: local prototype, separate from the game layout. */
+#player-identity{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:12;display:flex;align-items:center;gap:5px;max-width:42vw;color:var(--ink);font:800 11px Helvetica,Arial,sans-serif;letter-spacing:.3px}
+#player-display{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#player-edit{border:1px solid var(--ink);background:var(--paper);color:var(--ink);width:30px;height:30px;border-radius:4px;font-size:17px;cursor:pointer;touch-action:manipulation;flex:none}
+#player-dialog[hidden]{display:none}
+#player-dialog{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(11,11,10,.52);touch-action:manipulation}
+.player-panel{width:min(100%,340px);background:var(--paper);border:3px solid var(--ink);padding:24px 20px}
+#player-title{display:block;font:900 25px Helvetica,Arial,sans-serif;letter-spacing:-1px;margin-bottom:18px}
+#player-input{width:100%;min-height:48px;padding:9px;border:2px solid var(--ink);border-radius:0;background:var(--paper);color:var(--ink);font:700 18px Helvetica,Arial,sans-serif;-webkit-user-select:text;user-select:text}
+.player-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+.player-buttons button{min-height:44px;border:2px solid var(--ink);background:transparent;color:var(--ink);font:900 12px Helvetica,Arial,sans-serif;touch-action:manipulation}
+.player-buttons button[type=submit]{background:var(--ink);color:var(--paper)}
+body.two-player #player-identity{display:none}

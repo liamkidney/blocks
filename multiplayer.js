@@ -41,6 +41,18 @@
   second.querySelector(".second-preview").classList.add("player-preview-frame");
   const secondHud=second.querySelector(".second-hud");
   secondHud.classList.add("player-hud");
+  const secondActions=actions.cloneNode(true);
+  secondActions.removeAttribute("id");
+  secondActions.className="match-actions";
+  const secondPause=secondActions.querySelector("#pause-button");
+  const secondRestart=secondActions.querySelector("#restart-button");
+  secondPause.removeAttribute("id");
+  secondRestart.removeAttribute("id");
+  secondPause.classList.add("match-pause-button");
+  secondRestart.classList.add("match-restart-button");
+  secondHud.appendChild(secondActions);
+  bindImmediateAction(secondPause,togglePause);
+  bindImmediateAction(secondRestart,restartGame);
   const nextGroup=document.createElement("div");
   nextGroup.className="next-group";
   secondHud.insertBefore(nextGroup,secondHud.firstChild);

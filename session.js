@@ -1,6 +1,6 @@
 // Coordinates independent game engines; no DOM or input assumptions.
 class GameSession {
-  constructor({playerCount=1,config={},snapshots=[]}={}){
+  constructor({playerCount=1,config={},snapshots=[],attackProgress=[0,0]}={}){
     if(![1,2].includes(playerCount))throw new Error("Unsupported player count");
     this.config=config;
     this.games=[];
@@ -8,6 +8,7 @@ class GameSession {
     this.attackProgress=[0,0];
     this.outcome=null;
     for(let i=0;i<playerCount;i++)this.replaceGame(i,snapshots[i]||null);
+    if(snapshots.length===2)this.attackProgress=[...attackProgress];
     // Independent openings: avoid giving both players the same first two pieces.
     if(playerCount===2&&!snapshots[0]&&!snapshots[1]){
       const a=this.games[0].queue.pieces;

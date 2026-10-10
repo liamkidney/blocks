@@ -121,6 +121,10 @@ body.two-player .player-station{
 }
 body.two-player #player-two-station{transform:rotate(180deg)}
 body.two-player .player-game{
+  grid-column:auto;
+  grid-row:auto;
+  position:relative;
+  flex:0 0 auto;
   display:flex;
   flex:0 0 auto;
   min-width:0;
@@ -222,7 +226,8 @@ body.two-player .second-game-over .second-board-frame::after{
   font-size:min(4cqw,5cqh);
   font-weight:900;
 }
-body.two-player .diamond-pad{
+body.two-player #controls.diamond-pad,
+body.two-player #player-two-controls.diamond-pad{
   position:relative;
   flex:none;
   display:grid;

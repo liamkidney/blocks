@@ -99,6 +99,8 @@ body.match-paused .second-board-frame::after{content:"PAUSED";position:absolute;
 body.two-player #console{
   display:flex;
   flex-direction:row;
+  align-items:stretch;
+  justify-content:stretch;
   gap:0;
   padding:max(1vmin,env(safe-area-inset-top)) max(1vmin,env(safe-area-inset-right))
           max(1vmin,env(safe-area-inset-bottom)) max(1vmin,env(safe-area-inset-left));

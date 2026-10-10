@@ -243,7 +243,7 @@ body.two-player #player-two-controls.diamond-pad{
   justify-content:center;
   align-content:center;
   /* Both boards are centred in their station. Shift by 10% of board height. */
-  translate:0 calc(var(--board-height) / 10);
+  translate:0 min(8.8cqh,8.8cqw);
 }
 body.two-player .diamond-pad > .control{
   width:var(--key-size);
@@ -301,3 +301,21 @@ body.two-player #match-actions button{
   padding:3px;
 }
 body.two-player #match-actions svg{width:65%;height:65%}
+
+body.two-player #match-actions button{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+  color:var(--ink);
+  border:1px solid var(--ink);
+  border-radius:3px;
+  touch-action:manipulation;
+}
+body.two-player #match-actions svg{
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2.5;
+  stroke-linecap:square;
+}
+body.two-player #match-actions button:disabled{opacity:.3}

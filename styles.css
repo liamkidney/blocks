@@ -198,3 +198,105 @@ body.match-paused .second-board-frame::after{content:"PAUSED";position:absolute;
   body.two-player #game-actions svg{width:55cqh;height:55cqh}
   body.two-player #version{display:none}
 }
+
+/* Dimension-driven two-player layout: split the long axis into equal stations.
+   The same station composition is used in both aspect ratios. */
+body.two-player #console{
+  --station-gap:min(1.2vw,1.2vh);
+  display:flex;
+  flex-direction:row;
+  align-items:stretch;
+  justify-content:stretch;
+  gap:var(--station-gap);
+  padding:max(1.2vmin,env(safe-area-inset-top))
+          max(1.2vmin,env(safe-area-inset-right))
+          max(1.2vmin,env(safe-area-inset-bottom))
+          max(1.2vmin,env(safe-area-inset-left));
+  visibility:visible;
+}
+body.two-player #player-one-station,
+body.two-player #player-two-station{
+  display:flex;
+  flex:1 1 0;
+  min-width:0;
+  min-height:0;
+  width:auto;
+  height:auto;
+  align-items:center;
+  justify-content:center;
+  gap:2cqw;
+  container-type:size;
+}
+body.two-player #player-two-station{transform:rotate(180deg)}
+body.two-player #game,body.two-player #second-game{
+  display:flex;
+  flex:0 1 auto;
+  align-items:center;
+  justify-content:center;
+  gap:1.5cqw;
+  width:auto;
+  height:auto;
+  min-width:0;
+  min-height:0;
+  padding:0;
+}
+body.two-player #board-frame,body.two-player .second-board-wrap{
+  height:min(92cqh,102cqw);
+  width:auto;
+  aspect-ratio:1/2;
+  max-height:none;
+  flex:none;
+}
+body.two-player #hud,body.two-player .second-hud{
+  height:min(92cqh,102cqw);
+  width:13cqw;
+  max-width:none;
+  padding-left:1cqw;
+  min-width:0;
+}
+body.two-player #controls,body.two-player #player-two-controls{
+  display:flex;
+  flex:0 0 auto;
+  width:auto;
+  max-width:none;
+  height:auto;
+  margin:0;
+  padding:0;
+  align-items:center;
+  justify-content:center;
+  gap:1.5cqw;
+}
+body.two-player #movement-controls,body.two-player .second-movement{
+  --pad-size:min(8.5cqw,13cqh);
+  display:grid;
+  grid-template-columns:repeat(2,var(--pad-size));
+  grid-template-rows:repeat(2,var(--pad-size));
+  column-gap:1cqw;
+  row-gap:1cqh;
+  margin:0;
+  align-content:center;
+  justify-content:center;
+}
+body.two-player #movement-controls .control[data-command="left"],
+body.two-player #movement-controls .control[data-command="right"]{grid-row:1}
+body.two-player #movement-controls .control[data-command="down"]{grid-row:2}
+body.two-player #rotation-controls{display:flex;align-items:center;justify-content:center}
+body.two-player #rotation-controls .control,
+body.two-player #player-two-controls>.control{
+  width:min(8.5cqw,13cqh);
+  height:min(8.5cqw,13cqh);
+}
+body.two-player #player-two-controls .control{height:var(--pad-size,min(8.5cqw,13cqh))}
+body.two-player .control{border-radius:18cqh}
+body.two-player .control .icon,body.two-player #player-two-controls .control .icon{font-size:min(55cqh,55cqw)}
+body.two-player .rotate-svg{width:58cqw;height:58cqh}
+body.two-player .hud-label{font-size:min(2.3cqw,2.4cqh);letter-spacing:.08em}
+body.two-player .value{font-size:min(6cqw,7cqh)}
+body.two-player .player-label{font-size:min(2.4cqw,2.8cqh)}
+body.two-player #game-actions button{min-height:5cqh}
+body.two-player #game-actions svg{width:55cqh;height:55cqh}
+body.two-player #landscape-title,body.two-player #version{display:none}
+body.two-player::after{content:none;display:none}
+@media(max-aspect-ratio:1/1){
+  body.two-player #console{flex-direction:column}
+}

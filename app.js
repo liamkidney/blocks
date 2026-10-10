@@ -178,9 +178,11 @@ board.addEventListener("animationend",event=>{
 // Each held button owns its repeat timer, so simultaneous presses do not interfere.
 const repeatTimers=new Map();
 const repeatable=new Set(["down","left","right"]);
-function applyCommand(command){
-  if(command==="down")game.dropOne();
-  else game.press(command);
+function applyCommand(command,player=0){
+  const target=session.games[player];
+  if(!target)return;
+  if(command==="down")target.dropOne();
+  else target.press(command);
 }
 function stopRepeat(button){
   clearTimeout(repeatTimers.get(button));
@@ -188,14 +190,14 @@ function stopRepeat(button){
 }
 function repeat(button){
   if(!repeatTimers.has(button))return;
-  applyCommand(button.dataset.command);
+  applyCommand(button.dataset.command,Number(button.dataset.player||0));
   repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_INTERVAL));
 }
 function press(button){
   const command=button.dataset.command;
   if(button.classList.contains("pressed"))return;
   button.classList.add("pressed");
-  applyCommand(command);
+  applyCommand(command,Number(button.dataset.player||0));
   if(repeatable.has(command)){
     repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_DELAY));
   }
@@ -206,7 +208,8 @@ function release(button){
 }
 // Prefer real touch events on touch devices. Pythonista's WebView emits a
 // second synthetic pointerdown/click after touchend, which must be ignored.
-document.querySelectorAll(".control").forEach(button=>{
+function bindGameControls(root=document){
+root.querySelectorAll(".control").forEach(button=>{
   let touchActive=false;
   let lastTouchAt=-Infinity;
   const suppressSyntheticPointer=e=>e.pointerType==="touch"||performance.now()-lastTouchAt<750;
@@ -244,6 +247,8 @@ document.querySelectorAll(".control").forEach(button=>{
     if(!touchActive)release(button);
   });
 });
+}
+bindGameControls();
 board.addEventListener("pointerdown",e=>{e.preventDefault();board.setPointerCapture(e.pointerId);boardTouch={x:e.clientX,y:e.clientY}});
 board.addEventListener("pointerup",e=>{
   e.preventDefault();if(!boardTouch)return;

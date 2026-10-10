@@ -22,6 +22,7 @@ jobs:
       - name: Generate build version
         run: |
           sed -i "s/__BUILD_ID__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/g" sw.js
+          sed -i "s/\";$/ · build ${GITHUB_RUN_NUMBER} · ${GITHUB_SHA::7}\";/" version.js
       - name: Build variants
         run: |
           mkdir -p _site/io

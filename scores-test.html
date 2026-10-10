@@ -11,6 +11,7 @@ button{background:#111;color:#fff;border:0}
 table{border-collapse:collapse;white-space:nowrap;font-size:12px}
 th,td{padding:9px 12px;border-bottom:1px solid #aaa;text-align:left}
 th{position:sticky;top:0;background:#f3efe3;border-bottom:3px solid #111}
+th.numeric,td.numeric{text-align:right;font-variant-numeric:tabular-nums}
 </style></head><body>
 <h1>SESSIONS — RAW DATA</h1>
 <p>Read-only Supabase sessions with player names. Scroll sideways for all columns.</p>
@@ -47,7 +48,10 @@ function render(){
   const tr=document.createElement('tr');
   for(const name of columns){
    const td=document.createElement('td');
-   td.textContent=item[name]==null?'':String(item[name]);
+   if(name==='score'||name==='lines'){
+    td.classList.add('numeric');
+    td.textContent=item[name]==null?'':Number(item[name]).toLocaleString('en-GB',{maximumFractionDigits:0});
+   }else{td.textContent=item[name]==null?'':String(item[name]);}
    tr.appendChild(td);
   }
   $('rows').appendChild(tr);
@@ -62,7 +66,7 @@ async function load(){
   sessions=scores.map(s=>({...s,display_name:names.get(s.player_id)??'Unknown'}));
   columns=[...new Set([...primary,...scores.flatMap(s=>Object.keys(s))])];
   $('head').replaceChildren();
-  for(const name of columns){const th=document.createElement('th');th.textContent=name;$('head').appendChild(th);}
+  for(const name of columns){const th=document.createElement('th');th.textContent=name;if(name==='score'||name==='lines')th.classList.add('numeric');$('head').appendChild(th);}
   render();
  }catch(e){$('status').textContent='Error: '+e.message;}
 }

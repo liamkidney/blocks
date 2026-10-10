@@ -46,6 +46,8 @@
   secondHud.insertBefore(nextGroup,secondHud.firstChild);
   nextGroup.append(secondHud.querySelector(".hud-label"),secondHud.querySelector(".second-preview"));
   document.getElementById("hud").firstElementChild.classList.add("next-group");
+  document.getElementById("board-frame").classList.add("player-board-wrap");
+  second.querySelector(".second-board-wrap").classList.add("player-board-wrap");
   const firstLabel=document.createElement("div");
   firstLabel.className="player-label first-player-label";
   firstLabel.textContent="PLAYER 1";

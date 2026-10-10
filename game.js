@@ -85,6 +85,12 @@ class Game {
     this.pausedPhase=null;
   }
   get offsets(){ return this.active.tetromino.orientations[this.active.orientation]; }
+  get ghostY(){
+    if(!this.active)return null;
+    let y=this.active.y;
+    while(this.canPlace(this.offsets,this.active.x,y-1))y--;
+    return y;
+  }
   update(dt){
     if(this.phase!=="falling") return;
     this.elapsed+=dt;

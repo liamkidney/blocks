@@ -141,8 +141,7 @@ class Game {
       this.grid.unshift(row);
       if(this.active)this.active.y++;
       if(this.completedRows.length)this.completedRows=this.completedRows.map(y=>y+1);
-      if(overflow||this.completedRows.some(y=>y>=this.height)||
-        this.active&&this.offsets.some(([,oy])=>this.active.y+oy>=this.height)){
+      if(overflow||this.completedRows.some(y=>y>=this.height)){
         this.phase="game_over";
         this.completedRows=[];
         this.active=null;

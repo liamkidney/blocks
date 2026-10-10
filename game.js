@@ -26,7 +26,7 @@ class Game {
     this.width=10; this.height=20;
     this.grid=Array.from({length:this.height},()=>Array(this.width).fill(null));
     this.phase="falling"; this.completedRows=[]; this.score=0; this.lines=0;
-    this.tickSeconds=1.0; this.elapsed=0;
+    this.tickSeconds=0.8; this.elapsed=0;
     const allowedNames=config.allowedPieces||TETROMINOES.map(t=>t.name);
     const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
     this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();

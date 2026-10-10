@@ -8,6 +8,7 @@ for(const file of ["tetrominoes.js","game.js","session.js"])
 const {GameSession}=vm.runInContext("({GameSession})",context);
 const s=new GameSession({playerCount:2});
 const [a,b]=s.games;
+b.active.y=5;
 const startingY=b.active.y;
 a.onEvent({type:"lines_cleared",count:1});
 assert.equal(b.grid[0].some(Boolean),false);

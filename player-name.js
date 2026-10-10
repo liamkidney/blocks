@@ -16,8 +16,21 @@
   function refresh(){display.textContent=player?.display_name||'YOUR NAME';}
   function open(){input.value=player?.display_name||'';dialog.hidden=false;input.focus();input.select();}
   function close(){dialog.hidden=true;document.getElementById('player-edit').focus();}
-  document.getElementById('player-edit').addEventListener('click',open);
-  document.getElementById('player-cancel').addEventListener('click',close);
+  // Pythonista's WebView can emit duplicate synthetic clicks after a touch.
+  function bindTap(element,action){
+    let lastTouch=-Infinity;
+    element.addEventListener('touchstart',e=>{
+      e.preventDefault();
+      lastTouch=performance.now();
+      action();
+    },{passive:false});
+    element.addEventListener('click',e=>{
+      if(performance.now()-lastTouch<750){e.preventDefault();return;}
+      action();
+    });
+  }
+  bindTap(document.getElementById('player-edit'),open);
+  bindTap(document.getElementById('player-cancel'),close);
   dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
   document.getElementById('player-form').addEventListener('submit',e=>{
     e.preventDefault();

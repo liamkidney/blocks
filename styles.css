@@ -160,8 +160,7 @@ body.two-player .player-hud{
   gap:0;
 }
 body.two-player .next-group{padding-bottom:1cqh}
-body.two-player #preview-card,
-body.two-player .second-preview{
+body.two-player .player-preview-frame{
   position:relative;
   width:100%;
   aspect-ratio:1;

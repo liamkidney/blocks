@@ -1,6 +1,9 @@
 // Render scores in the current document: avoids nested WebView/iframe loading issues.
 (()=>{
- const button=document.getElementById('high-scores-button');\n button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v7a5 5 0 0 1-10 0V3zM7 5H4v3a4 4 0 0 0 4 4M17 5h3v3a4 4 0 0 1-4 4M12 15v4M8 21h8M9 19h6"/></svg>';\n button.setAttribute('aria-label','High scores');button.title='High scores';\n document.getElementById('high-scores-slot').appendChild(button);
+ const button=document.getElementById('high-scores-button');
+ button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v7a5 5 0 0 1-10 0V3zM7 5H4v3a4 4 0 0 0 4 4M17 5h3v3a4 4 0 0 1-4 4M12 15v4M8 21h8M9 19h6"/></svg>';
+ button.setAttribute('aria-label','High scores');button.title='High scores';
+ document.getElementById('high-scores-slot').appendChild(button);
  const overlay=document.createElement('div');
  overlay.id='high-scores-overlay';overlay.hidden=true;
  overlay.innerHTML='<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>';

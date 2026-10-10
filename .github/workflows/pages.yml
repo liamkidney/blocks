@@ -23,12 +23,9 @@ jobs:
         run: |
           sed -i "s/__BUILD_ID__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/g" sw.js
           sed -i "s/\";$/ · build ${GITHUB_RUN_NUMBER} · ${GITHUB_SHA::7}\";/" version.js
-      - name: Build variants
+      - name: Build site
         run: |
-          mkdir -p _site/io
           cp index.html styles.css tetrominoes.js game.js session.js app.js multiplayer.js manifest.json sw.js version.js config.js icon.svg favicon-32.png apple-touch-icon.png icon-192.png icon-512.png _site/
-          cp index.html styles.css tetrominoes.js game.js session.js app.js multiplayer.js manifest.json sw.js version.js icon.svg favicon-32.png apple-touch-icon.png icon-192.png icon-512.png _site/io/
-          printf 'window.BLOCKS_CONFIG = {allowedPieces:["I","O"]};\n' > _site/io/config.js
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site

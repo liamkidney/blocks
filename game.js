@@ -109,7 +109,7 @@ class Game {
     if(this.tryMove(0,-1)) return;
     // A piece may rotate above the visible board, but must never lock there.
     if(this.offsets.some(([,oy])=>this.active.y+oy>=this.height)){
-      this.phase="game_over";return;
+      this.endGame();return;
     }
     for(const [ox,oy] of this.offsets) this.grid[this.active.y+oy][this.active.x+ox]=this.active.tetromino.name;
     this.active=null;
@@ -141,14 +141,17 @@ class Game {
       this.grid.unshift(row);
       if(this.active)this.active.y++;
       if(this.completedRows.length)this.completedRows=this.completedRows.map(y=>y+1);
-      if(overflow||this.completedRows.some(y=>y>=this.height)||
-        this.active&&this.offsets.some(([,oy])=>this.active.y+oy>=this.height)){
-        this.phase="game_over";
-        this.completedRows=[];
-        this.active=null;
+      // Only locked blocks crossing the top cause a garbage top-out.
+      if(overflow||this.completedRows.some(y=>y>=this.height)){
+        this.endGame();
         return;
       }
     }
+  }
+  endGame(){
+    this.phase="game_over";
+    this.completedRows=[];
+    this.active=null;
   }
   advance(){ this.queue.advance(); this.nextTetromino=this.queue.next(); this.spawn(); }
   spawn(){
@@ -158,7 +161,7 @@ class Game {
     const x=Math.floor((this.width-(maxX-minX+1))/2)-minX;
     const y=this.height-1-maxY;
     if(this.canPlace(offsets,x,y)) this.active={tetromino:t,x,y,orientation:0};
-    else this.phase="game_over";
+    else this.endGame();
   }
   tryMove(dx,dy){
     if(!this.active) return false;

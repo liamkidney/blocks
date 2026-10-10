@@ -8,18 +8,46 @@
   document.getElementById("console").appendChild(second);
   const controls2=document.createElement("div");
   controls2.id="player-two-controls";
-  controls2.innerHTML='<div class="second-movement"><button class="control" data-player="1" data-command="left" aria-label="Player 2 move left"><span class="icon">←</span></button><button class="control" data-player="1" data-command="right" aria-label="Player 2 move right"><span class="icon">→</span></button><button class="control" data-player="1" data-command="down" aria-label="Player 2 drop"><span class="icon">↓</span></button></div><button class="control rotate" data-player="1" data-command="rotate_cw" aria-label="Player 2 rotate clockwise"><span class="icon"><svg class="rotate-svg" viewBox="0 0 32 32"><path d="M25 11 A11 11 0 1 0 25 22"/><path d="M25 11 L25 5 M25 11 L19 10"/></svg></span></button>';
+  controls2.innerHTML='<button class="control" data-player="1" data-command="left" aria-label="Player 2 move left"><span class="icon">←</span></button><button class="control" data-player="1" data-command="right" aria-label="Player 2 move right"><span class="icon">→</span></button><button class="control" data-player="1" data-command="down" aria-label="Player 2 drop"><span class="icon">↓</span></button><button class="control rotate" data-player="1" data-command="rotate_cw" aria-label="Player 2 rotate clockwise"><span class="icon"><svg class="rotate-svg" viewBox="0 0 32 32"><path d="M25 11 A11 11 0 1 0 25 22"/><path d="M25 11 L25 5 M25 11 L19 10"/></svg></span></button>';
   document.getElementById("console").appendChild(controls2);
   bindGameControls(controls2);
   const consoleElement=document.getElementById("console");
   const playerOneStation=document.createElement("div");
   playerOneStation.id="player-one-station";
+  playerOneStation.classList.add("player-station");
   consoleElement.insertBefore(playerOneStation,document.getElementById("game"));
   playerOneStation.append(document.getElementById("game"),document.getElementById("controls"));
   const playerTwoStation=document.createElement("div");
   playerTwoStation.id="player-two-station";
+  playerTwoStation.classList.add("player-station");
   consoleElement.insertBefore(playerTwoStation,playerOneStation);
   playerTwoStation.append(second,controls2);
+  // Normalize both pads to the same four direct children before applying the grid.
+  // The single-player DOM remains unchanged.
+  for(const pad of [document.getElementById("controls"),controls2]){
+    const buttons=Array.from(pad.querySelectorAll("button.control"));
+    for(const button of buttons)pad.appendChild(button);
+    pad.classList.add("diamond-pad");
+  }
+
+  for(const id of ["movement-controls","rotation-controls"]){
+    const wrapper=document.getElementById(id);
+    if(wrapper)wrapper.remove();
+  }
+  document.getElementById("game").classList.add("player-game");
+  second.classList.add("player-game");
+  document.getElementById("hud").classList.add("player-hud");
+  document.getElementById("preview-card").classList.add("player-preview-frame");
+  second.querySelector(".second-preview").classList.add("player-preview-frame");
+  const secondHud=second.querySelector(".second-hud");
+  secondHud.classList.add("player-hud");
+  const nextGroup=document.createElement("div");
+  nextGroup.className="next-group";
+  secondHud.insertBefore(nextGroup,secondHud.firstChild);
+  nextGroup.append(secondHud.querySelector(".hud-label"),secondHud.querySelector(".second-preview"));
+  document.getElementById("hud").firstElementChild.classList.add("next-group");
+  document.getElementById("board-frame").classList.add("player-board-wrap");
+  second.querySelector(".second-board-wrap").classList.add("player-board-wrap");
   const firstLabel=document.createElement("div");
   firstLabel.className="player-label first-player-label";
   firstLabel.textContent="PLAYER 1";

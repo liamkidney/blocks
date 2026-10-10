@@ -8,6 +8,15 @@ class GameSession {
     this.attackProgress=[0,0];
     this.outcome=null;
     for(let i=0;i<playerCount;i++)this.replaceGame(i,snapshots[i]||null);
+    // Independent openings: avoid giving both players the same first two pieces.
+    if(playerCount===2&&!snapshots[0]&&!snapshots[1]){
+      const a=this.games[0].queue.pieces;
+      let b=this.games[1].queue.pieces;
+      while(a[0]===b[0]&&a[1]===b[1]){
+        this.replaceGame(1);
+        b=this.games[1].queue.pieces;
+      }
+    }
   }
   replaceGame(player,snapshot=null){
     if(!Number.isInteger(player)||player<0||player>this.games.length||player>1)

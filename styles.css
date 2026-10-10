@@ -296,3 +296,12 @@ body.two-player #player-two-controls.diamond-pad > [data-command="down"]{
   grid-row:3;
   justify-self:center;
 }
+
+/* Seat each diamond towards the player's bottom edge, not mid-board.
+   Player 2's whole station is rotated, so this mirrors automatically. */
+body.two-player #player-one-station > #controls.diamond-pad,
+body.two-player #player-two-station > #player-two-controls.diamond-pad{
+  align-self:flex-end;
+  margin-top:0;
+  margin-bottom:3cqh;
+}

@@ -37,6 +37,8 @@
   document.getElementById("game").classList.add("player-game");
   second.classList.add("player-game");
   document.getElementById("hud").classList.add("player-hud");
+  document.getElementById("preview-card").classList.add("player-preview-frame");
+  second.querySelector(".second-preview").classList.add("player-preview-frame");
   const secondHud=second.querySelector(".second-hud");
   secondHud.classList.add("player-hud");
   const nextGroup=document.createElement("div");

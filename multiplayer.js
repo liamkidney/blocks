@@ -1,19 +1,5 @@
 // Mode selection, independent second board, and simultaneous player controls.
 (function(){
-  const modeButton=document.createElement("button");
-  modeButton.id="mode-switch";
-  modeButton.type="button";
-  modeButton.textContent=TWO_PLAYER?"1 PLAYER":"2 PLAYERS";
-  modeButton.setAttribute("aria-label",TWO_PLAYER?"Switch to one player":"Switch to two players");
-  document.body.appendChild(modeButton);
-  const switchMode=()=>{
-    saveGame(true);
-    const url=new URL(location.href);
-    if(TWO_PLAYER)url.searchParams.delete("players");
-    else url.searchParams.set("players","2");
-    location.href=url.href;
-  };
-  bindImmediateAction(modeButton,switchMode);
   if(!TWO_PLAYER)return;
   document.body.classList.add("two-player");
   const second=document.createElement("div");

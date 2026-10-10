@@ -41,7 +41,8 @@
   function paint(x,y,name,clearing){
     if(x<0||x>=10||y<0||y>=20)return;
     const cell=cells[boardIndex2(x,y)];
-    cell.className=clearing?"cell filled clearing":"cell filled";
+    const cls=clearing?"cell filled clearing":"cell filled";
+    if(cell.className!==cls)cell.className=cls;
     cell.style.backgroundColor=TETROMINO_BY_NAME[name].color;
   }
   function drawPreview(){
@@ -67,7 +68,10 @@
   let previousNext=null;
   function renderSecond(){
     const clearing=game2.phase==="clearing_lines"||(game2.phase==="paused"&&game2.pausedPhase==="clearing_lines");
-    for(const cell of cells){cell.className="cell";cell.style.background="";}
+    for(const cell of cells){
+      if(!(clearing&&cell.classList.contains("clearing")))cell.className="cell";
+      cell.style.background="";
+    }
     for(let y=0;y<20;y++)for(let x=0;x<10;x++){
       const name=game2.grid[y][x];
       if(name)paint(x,y,name,clearing&&game2.completedRows.includes(y));

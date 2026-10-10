@@ -70,3 +70,40 @@
   #game-actions button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
   #game-actions svg{width:clamp(16px,3.5vh,22px);height:clamp(16px,3.5vh,22px)}
 }
+
+/* Iteration 2: mode selection and two-board landscape preview. */
+#mode-switch{position:fixed;z-index:20;right:max(8px,env(safe-area-inset-right));top:max(5px,env(safe-area-inset-top));background:var(--ink);color:var(--paper);border:0;border-radius:4px;padding:7px 9px;font:800 10px Helvetica,Arial,sans-serif;letter-spacing:.5px;touch-action:manipulation}
+#second-game,#player-two-hint,.first-player-label{display:none}
+@media(orientation:landscape){
+  body.two-player #console{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;column-gap:clamp(8px,2vw,20px);row-gap:6px;padding:24px max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left))}
+  body.two-player #game{grid-column:1;grid-row:1;min-width:0;min-height:0;padding:0;gap:7px;justify-content:center;align-items:center}
+  body.two-player #board-frame{height:min(67dvh,calc(100dvh - 120px));max-height:100%;border-width:2px}
+  body.two-player #hud{height:min(67dvh,calc(100dvh - 120px));width:clamp(54px,8vw,84px);padding-left:6px}
+  body.two-player .hud-label{font-size:9px;letter-spacing:1px;margin-bottom:3px}
+  body.two-player .metric{padding:7px 0}
+  body.two-player .value{font-size:clamp(18px,4dvh,32px);letter-spacing:-1px}
+  body.two-player #game-actions{gap:3px;padding-top:4px}
+  body.two-player #game-actions button{min-height:26px;padding:2px}
+  body.two-player #game-actions svg{width:15px;height:15px}
+  body.two-player #landscape-title{display:none}
+  body.two-player #movement-controls{--pad-size:clamp(36px,9dvh,56px);grid-column:1;grid-row:2;grid-template-rows:repeat(2,var(--pad-size));column-gap:calc(var(--pad-size)/2);row-gap:4px;justify-self:center;margin-right:clamp(48px,10vw,80px)}
+  body.two-player #rotation-controls{grid-column:1;grid-row:2;justify-self:end;align-self:center}
+  body.two-player #rotation-controls .control{width:clamp(36px,9dvh,56px);height:clamp(36px,9dvh,56px)}
+  body.two-player .control .icon{font-size:27px}
+  body.two-player #second-game{grid-column:2;grid-row:1;display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:0}
+  body.two-player .second-board-wrap{height:min(67dvh,calc(100dvh - 120px));position:relative;aspect-ratio:1/2;flex:none}
+  body.two-player .second-board-frame{width:100%;height:100%;border:2px solid var(--ink);position:relative}
+  body.two-player .second-board{width:100%;height:100%;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));grid-template-rows:repeat(20,minmax(0,1fr));gap:1px;background:var(--grid);overflow:hidden}
+  body.two-player .second-hud{height:min(67dvh,calc(100dvh - 120px));width:clamp(54px,8vw,84px);min-width:0;border-left:1px solid var(--ink);padding-left:6px}
+  body.two-player .second-preview{width:100%;aspect-ratio:1;border:1.5px solid var(--ink);position:relative}
+  body.two-player .player-label{position:absolute;left:0;bottom:calc(100% + 3px);font:900 12px Helvetica,Arial,sans-serif;white-space:nowrap}
+  body.two-player .first-player-label{display:block}
+  body.two-player #player-two-hint{display:flex;grid-column:2;grid-row:2;align-items:center;justify-content:center;font:800 10px Helvetica,Arial,sans-serif;letter-spacing:1px;text-align:center}
+  body.two-player .second-game-over .second-board-frame::after{content:"GAME OVER";position:absolute;inset:0;display:grid;place-items:center;background:rgba(243,239,227,.85);font:900 17px Helvetica,Arial,sans-serif}
+  body.two-player #version{display:none}
+}
+@media(orientation:portrait){
+  body.two-player #console{visibility:hidden}
+  body.two-player::after{content:"ROTATE TO LANDSCAPE FOR TWO PLAYERS";position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font:900 24px Helvetica,Arial,sans-serif}
+  body.two-player #mode-switch{z-index:30}
+}

@@ -241,3 +241,51 @@ body.two-player .second-movement [data-command="down"]{grid-row:2}
 body.two-player #rotation-controls .control{height:min(8.5cqw,13cqh)}
 body.two-player #player-two-station{order:0}
 body.two-player #player-one-station{order:1}
+
+/* Two-player diamond pad: rotate above, left/right across, drop below.
+   Keep the same control geometry for both players and both aspect ratios. */
+body.two-player #controls,
+body.two-player #player-two-controls{
+  --diamond-key:min(8.5cqw,13cqh);
+  --diamond-gap:min(1cqw,1cqh);
+  display:grid;
+  grid-template-columns:repeat(3,var(--diamond-key));
+  grid-template-rows:repeat(3,var(--diamond-key));
+  gap:var(--diamond-gap);
+  align-content:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+body.two-player #movement-controls,
+body.two-player .second-movement,
+body.two-player #rotation-controls{
+  display:contents;
+}
+body.two-player #controls .control,
+body.two-player #player-two-controls .control{
+  width:var(--diamond-key);
+  height:var(--diamond-key);
+  min-width:0;
+  min-height:0;
+  grid-column:auto;
+  grid-row:auto;
+  justify-self:stretch;
+  align-self:stretch;
+}
+body.two-player #controls [data-command="rotate_cw"],
+body.two-player #player-two-controls [data-command="rotate_cw"]{
+  grid-column:2;grid-row:1;
+}
+body.two-player #controls [data-command="left"],
+body.two-player #player-two-controls [data-command="left"]{
+  grid-column:1;grid-row:2;
+}
+body.two-player #controls [data-command="right"],
+body.two-player #player-two-controls [data-command="right"]{
+  grid-column:3;grid-row:2;
+}
+body.two-player #controls [data-command="down"],
+body.two-player #player-two-controls [data-command="down"]{
+  grid-column:2;grid-row:3;
+  width:var(--diamond-key);
+}

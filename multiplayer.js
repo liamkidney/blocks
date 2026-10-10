@@ -58,7 +58,12 @@
   secondHud.insertBefore(nextGroup,secondHud.firstChild);
   nextGroup.append(secondHud.querySelector(".hud-label"),secondHud.querySelector(".second-preview"));
   document.getElementById("hud").firstElementChild.classList.add("next-group");
-  document.getElementById("board-frame").classList.add("player-board-wrap");
+  document.getElementById("board-frame").classList.add("player-board-wrap","player-board-frame");
+  document.getElementById("board").classList.add("player-board");
+  second.querySelector(".second-board-frame").classList.add("player-board-frame");
+  second.querySelector(".second-board").classList.add("player-board");
+  document.getElementById("game-actions").classList.add("player-actions");
+  secondActions.classList.add("player-actions");
   second.querySelector(".second-board-wrap").classList.add("player-board-wrap");
   const firstLabel=document.createElement("div");
   firstLabel.className="player-label first-player-label";

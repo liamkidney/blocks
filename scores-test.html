@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blocks — Scores Inspector</title>
+<style>
+body{font:14px system-ui,sans-serif;background:#f3efe3;color:#111;margin:0;padding:16px}
+h1{font-size:26px;margin:0 0 6px}p{font-size:12px}
+button,select{padding:9px;font:inherit}
+button{background:#111;color:#fff;border:0}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.scroll{overflow:auto;max-height:78vh;margin-top:12px}
+table{border-collapse:collapse;white-space:nowrap;font-size:12px}
+th,td{padding:9px 12px;border-bottom:1px solid #aaa;text-align:left}
+th{position:sticky;top:0;background:#f3efe3;border-bottom:3px solid #111}
+th.numeric,td.numeric{text-align:right;font-variant-numeric:tabular-nums}
+</style></head><body>
+<h1>SESSIONS — RAW DATA</h1>
+<p>Read-only Supabase sessions with player names. Scroll sideways for all columns.</p>
+<div class="controls"><button id="refresh">REFRESH</button>
+<select id="filter"><option value="">All statuses</option><option value="active">Active</option><option value="completed">Completed</option><option value="abandoned">Abandoned</option></select>
+<select id="sort"><option value="updated">Latest updated</option><option value="score">Highest score</option></select></div>
+<p id="status" role="status">Loading…</p>
+<div class="scroll"><table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table></div>
+<script>
+'use strict';
+const BASE='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
+const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
+const headers={apikey:KEY};
+const primary=['display_name','score','lines','pieces_mode','ghost_mode','status','updated_at'];
+const hidden=new Set(['session_id','player_id']);
+const $=id=>document.getElementById(id);
+function displayValue(name,value){
+ if(value==null)return '';
+ if(name.endsWith('_at')){
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?String(value):date.toLocaleString();
+ }
+ return String(value);
+}
+let sessions=[],columns=primary.slice();
+async function fetchAll(table,order){
+ const result=[],limit=1000;
+ for(let offset=0;;offset+=limit){
+  const q=new URLSearchParams({select:'*',order,limit:String(limit),offset:String(offset)});
+  const response=await fetch(BASE+table+'?'+q,{headers});
+  if(!response.ok)throw Error(table+' HTTP '+response.status+': '+(await response.text()).slice(0,180));
+  const page=await response.json();result.push(...page);
+  if(page.length<limit)break;
+ }
+ return result;
+}
+function render(){
+ $('rows').replaceChildren();
+ const filter=$('filter').value,sort=$('sort').value;
+ const data=sessions.filter(s=>!filter||s.status===filter).sort((a,b)=>
+  sort==='score'?(b.score??0)-(a.score??0):String(b.updated_at??'').localeCompare(String(a.updated_at??'')));
+ for(const item of data){
+  const tr=document.createElement('tr');
+  for(const name of columns){
+   const td=document.createElement('td');
+   if(name==='score'||name==='lines'){
+    td.classList.add('numeric');
+    td.textContent=item[name]==null?'':Number(item[name]).toLocaleString('en-GB',{maximumFractionDigits:0});
+   }else{td.textContent=displayValue(name,item[name]);}
+   tr.appendChild(td);
+  }
+  $('rows').appendChild(tr);
+ }
+ $('status').textContent=data.length+' shown / '+sessions.length+' loaded';
+}
+async function load(){
+ $('status').textContent='Loading…';$('rows').replaceChildren();
+ try{
+  const [scores,players]=await Promise.all([fetchAll('sessions','updated_at.desc'),fetchAll('players','created_at.desc')]);
+  const names=new Map(players.map(p=>[p.player_id,p.display_name]));
+  sessions=scores.map(s=>({...s,display_name:names.get(s.player_id)??'Unknown'}));
+  columns=[...new Set([...primary,...scores.flatMap(s=>Object.keys(s))])].filter(name=>!hidden.has(name));
+  $('head').replaceChildren();
+  for(const name of columns){const th=document.createElement('th');th.textContent=name;if(name==='score'||name==='lines')th.classList.add('numeric');$('head').appendChild(th);}
+  render();
+ }catch(e){$('status').textContent='Error: '+e.message;}
+}
+$('refresh').addEventListener('click',load);
+$('filter').addEventListener('change',render);
+$('sort').addEventListener('change',render);
+load();
+</script></body></html>

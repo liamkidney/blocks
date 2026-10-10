@@ -539,7 +539,7 @@ body.two-player.match-paused .player-board-frame::after {
 }
 
 /* Player identity: local prototype, separate from the game layout. */
-#player-identity{position:relative;z-index:2;display:flex;align-items:center;gap:4px;width:100%;min-width:0;margin-top:12px;padding-top:10px;border-top:1px solid var(--ink);color:var(--ink);font:800 11px Helvetica,Arial,sans-serif;letter-spacing:.3px}
+#player-identity{display:flex;align-items:center;gap:6px;max-width:100%;min-width:0;color:var(--ink);font:800 11px Helvetica,Arial,sans-serif;letter-spacing:.3px}
 #player-display{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #player-edit{border:1px solid var(--ink);background:var(--paper);color:var(--ink);width:32px;height:32px;border-radius:4px;font-size:18px;cursor:pointer;touch-action:manipulation;flex:none}
 #player-dialog[hidden]{display:none}
@@ -552,5 +552,11 @@ body.two-player.match-paused .player-board-frame::after {
 .player-buttons button[type=submit]{background:var(--ink);color:var(--paper)}
 
 
-body:not(.two-player) #hud #player-identity{margin-top:auto}
-body.two-player #player-identity{display:none}
+
+
+/* Structural top-right header, within the game console rather than the viewport. */
+#console{position:relative}
+#player-header{position:absolute;top:max(14px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right));z-index:20;max-width:min(55vw,230px);display:flex;justify-content:flex-end}
+#player-identity{margin:0;padding:0;border:0}
+@media(orientation:landscape){body:not(.two-player) #player-header{top:8px;right:max(18px,env(safe-area-inset-right))}}
+body.two-player #player-header{display:none}

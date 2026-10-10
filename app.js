@@ -47,7 +47,9 @@ const restartIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 
 restartButton.innerHTML=restartIcon;
 restartButton.setAttribute("aria-label","Restart game");
 restartButton.title="Restart game";
-actions.append(pauseButton,restartButton);\nconst highScoresSlot=document.createElement("div");\nhighScoresSlot.id="high-scores-slot";
+actions.append(pauseButton,restartButton);
+const highScoresSlot=document.createElement("div");
+highScoresSlot.id="high-scores-slot";
 document.getElementById("hud").append(actions,highScoresSlot);
 const gameOver=document.createElement("div");
 gameOver.id="game-over";

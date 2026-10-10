@@ -7,7 +7,7 @@
   bar.id='player-identity';
   bar.innerHTML='<span id="player-display"></span><button id="player-edit" type="button" aria-label="Edit player name" title="Edit player name">✎</button>';
   // Keep the name in the game's HUD flow, not a viewport-fixed overlay.
-  document.getElementById('hud').appendChild(bar);
+  document.getElementById('player-header').appendChild(bar);
   const dialog=document.createElement('div');
   dialog.id='player-dialog';dialog.hidden=true;
   dialog.innerHTML='<div class="player-panel" role="dialog" aria-modal="true" aria-labelledby="player-title"><form id="player-form"><label id="player-title" for="player-input">PLAYER NAME</label><input id="player-input" type="text" maxlength="40" autocomplete="nickname" required><div class="player-buttons"><button type="button" id="player-cancel">CANCEL</button><button type="submit">SAVE</button></div></form></div>';

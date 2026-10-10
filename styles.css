@@ -72,7 +72,6 @@
 }
 
 /* Iteration 2: mode selection and two-board landscape preview. */
-#mode-switch{position:fixed;z-index:20;right:max(8px,env(safe-area-inset-right));top:max(5px,env(safe-area-inset-top));background:var(--ink);color:var(--paper);border:0;border-radius:4px;padding:7px 9px;font:800 10px Helvetica,Arial,sans-serif;letter-spacing:.5px;touch-action:manipulation}
 #second-game,#player-two-controls,.first-player-label{display:none}
 @media(orientation:landscape){
   body.two-player #console{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;column-gap:clamp(8px,2vw,20px);row-gap:6px;padding:24px max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left))}
@@ -113,7 +112,6 @@
 @media(orientation:portrait){
   body.two-player #console{visibility:hidden}
   body.two-player::after{content:"ROTATE TO LANDSCAPE FOR TWO PLAYERS";position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font:900 24px Helvetica,Arial,sans-serif}
-  body.two-player #mode-switch{z-index:30}
 }
 
 @media(orientation:landscape){

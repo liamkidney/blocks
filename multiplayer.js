@@ -28,6 +28,21 @@
     pad.classList.add("diamond-pad");
   }
 
+  const matchActions=document.getElementById("game-actions");
+  matchActions.id="match-actions";
+  consoleElement.appendChild(matchActions);
+  for(const id of ["movement-controls","rotation-controls"]){
+    const wrapper=document.getElementById(id);
+    if(wrapper)wrapper.remove();
+  }
+  const secondMovement=controls2.querySelector(".second-movement");
+  if(secondMovement)secondMovement.remove();
+  const secondHud=second.querySelector(".second-hud");
+  const nextGroup=document.createElement("div");
+  nextGroup.className="next-group";
+  secondHud.insertBefore(nextGroup,secondHud.firstChild);
+  nextGroup.append(secondHud.querySelector(".hud-label"),secondHud.querySelector(".second-preview"));
+  document.getElementById("hud").firstElementChild.classList.add("next-group");
   const firstLabel=document.createElement("div");
   firstLabel.className="player-label first-player-label";
   firstLabel.textContent="PLAYER 1";

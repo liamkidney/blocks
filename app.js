@@ -56,7 +56,11 @@ for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
 }
 
 function togglePause(){
-  if(game.phase==="paused")game.resume();
+  if(TWO_PLAYER){
+    if(session.outcome)return;
+    if(game.phase==="paused")session.resume();
+    else session.pause();
+  }else if(game.phase==="paused")game.resume();
   else game.pause();
   renderActions();
   saveGame(true);
@@ -75,7 +79,10 @@ const twoPlayerButton=document.getElementById("restart-two");
 let restartWasPaused=false;
 function closeRestartDialog(){
   restartDialog.hidden=true;
-  if(!restartWasPaused&&game.phase==="paused")game.resume();
+  if(!restartWasPaused&&game.phase==="paused"){
+    if(TWO_PLAYER)session.resume();
+    else game.resume();
+  }
   renderActions();
   saveGame(true);
   restartButton.focus();
@@ -103,7 +110,10 @@ function startNewGame(playerCount=TWO_PLAYER?2:1){
 function restartGame(){
   if(!restartDialog.hidden)return;
   restartWasPaused=game.phase==="paused";
-  if(!restartWasPaused)game.pause();
+  if(!restartWasPaused){
+    if(TWO_PLAYER)session.pause();
+    else game.pause();
+  }
   restartDialog.hidden=false;
   renderActions();
   saveGame(true);
@@ -128,7 +138,7 @@ bindImmediateAction(pauseButton,togglePause);
 bindImmediateAction(restartButton,restartGame);
 function renderActions(){
   const paused=game.phase==="paused";
-  pauseButton.disabled=game.phase==="game_over";
+  pauseButton.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
   const label=paused?"RESUME":"PAUSE";
   if(pauseButton.dataset.state!==label){
     pauseButton.innerHTML=paused?resumeIcon:pauseIcon;
@@ -137,6 +147,7 @@ function renderActions(){
     pauseButton.dataset.state=label;
   }
   board.parentElement.classList.toggle("game-paused",paused);
+  if(TWO_PLAYER)document.body.classList.toggle("match-paused",paused);
 }
 const boardIndex=(x,y)=>(19-y)*10+x;
 function paintBoard(x,y,name){
@@ -156,7 +167,7 @@ function render(){
   document.getElementById("score").textContent=game.score;
   document.getElementById("lines").textContent=game.lines;
   renderPreview();
-  gameOver.hidden=game.phase!=="game_over";
+  gameOver.hidden=TWO_PLAYER||game.phase!=="game_over";
   renderActions();
   if(game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines")) for(const y of game.completedRows) for(let x=0;x<10;x++) boardCells[boardIndex(x,y)].classList.add("clearing");
 }

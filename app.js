@@ -171,6 +171,13 @@ function render(){
     cell.style.background="";
   }
   for(let y=0;y<20;y++) for(let x=0;x<10;x++) if(game.grid[y][x]) paintBoard(x,y,game.grid[y][x]);
+  if(game.active&&window.BLOCKS_CONFIG.ghostPiece){
+    const ghostY=game.ghostY;
+    if(ghostY!==game.active.y)for(const [ox,oy] of game.offsets){
+      const x=game.active.x+ox,y=ghostY+oy;
+      if(x>=0&&x<10&&y>=0&&y<20)boardCells[boardIndex(x,y)].classList.add("ghost");
+    }
+  }
   if(game.active) for(const [ox,oy] of game.offsets) paintBoard(game.active.x+ox,game.active.y+oy,game.active.tetromino.name);
   document.getElementById("score").textContent=game.score;
   document.getElementById("lines").textContent=game.lines;

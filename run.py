@@ -11,6 +11,7 @@ ROOT = Path(__file__).parent
 # Change these to test different modes in Pythonista.
 GHOST = True
 PLAYERS = 1
+PIECES = "ALL"  # Set to "IO" for I/O pieces only
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -32,6 +33,8 @@ if __name__ == "__main__":
     server = start_server()
     webview = ui.WebView()
     params = {"ghost": "true" if GHOST else "false"}
+    if PIECES.upper() == "IO":
+        params["pieces"] = "IO"
     if PLAYERS == 2:
         params["players"] = "2"
     webview.load_url(f"http://127.0.0.1:{PORT}/?{urlencode(params)}")

@@ -1,4 +1,4 @@
-const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(new URLSearchParams(location.search).get("players")==="2"?":two":"");
+const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(new URLSearchParams(location.search).get("players")==="2"?":two":"")+(new URLSearchParams(location.search).get("pieces")?.toUpperCase()==="IO"?":io":"");
 const TWO_PLAYER=new URLSearchParams(location.search).get("players")==="2";
 let session;
 try{
@@ -331,4 +331,7 @@ document.addEventListener("contextmenu",e=>e.preventDefault());
 document.addEventListener("selectstart",e=>e.preventDefault());
 
 const versionElement=document.getElementById("version");
-if(versionElement&&window.BLOCKS_VERSION)versionElement.textContent=window.BLOCKS_VERSION;
+if(versionElement){
+  const version=window.BLOCKS_VERSION||versionElement.textContent;
+  versionElement.textContent=version+(window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
+}

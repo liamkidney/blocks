@@ -15,6 +15,13 @@
   firstLabel.className="player-label first-player-label";
   firstLabel.textContent="PLAYER 1";
   document.getElementById("board-frame").appendChild(firstLabel);
+  const result=document.createElement("div");
+  result.id="match-result";
+  result.hidden=true;
+  result.setAttribute("role","status");
+  result.innerHTML='<div class="match-result-panel"><div id="match-result-title"></div><button id="match-again" type="button">NEW MATCH</button></div>';
+  document.body.appendChild(result);
+  bindImmediateAction(result.querySelector("#match-again"),restartGame);
   const board2=second.querySelector(".second-board");
   const cells=[];
   for(let y=19;y>=0;y--)for(let x=0;x<10;x++){
@@ -68,12 +75,15 @@
     second.querySelector(".second-score").textContent=game2.score;
     second.querySelector(".second-lines").textContent=game2.lines;
     if(previousNext!==game2.nextTetromino){previousNext=game2.nextTetromino;drawPreview();}
-    second.classList.toggle("second-game-over",game2.phase==="game_over");
+    const outcome=session.resolveOutcome();
+    result.hidden=!outcome;
+    if(outcome)result.querySelector("#match-result-title").textContent=outcome==="draw"?"DRAW":outcome==="player1"?"PLAYER 1 WINS":"PLAYER 2 WINS";
+    second.classList.toggle("second-game-over",game2.phase==="game_over"&&!outcome);
     requestAnimationFrame(renderSecond);
   }
   board2.addEventListener("animationend",event=>{
     const game2=getGame2();
-    if(game2.phase==="clearing_lines"&&event.animationName==="clearFlash"&&
+    if(!session.outcome&&game2.phase==="clearing_lines"&&event.animationName==="clearFlash"&&
       event.pseudoElement==="::after"&&event.target===board2.querySelector(".cell.clearing"))
       game2.presentationComplete();
   });

@@ -297,11 +297,12 @@ body.two-player #player-two-controls.diamond-pad > [data-command="down"]{
   justify-self:center;
 }
 
-/* Seat each diamond towards the player's bottom edge, not mid-board.
-   Player 2's whole station is rotated, so this mirrors automatically. */
+/* Centre each pad at 60% of the board height, not the station edge.
+   Both boards use height:min(92cqh,102cqw), so a 10% downward
+   translation from the shared midpoint is symmetric for both players. */
 body.two-player #player-one-station > #controls.diamond-pad,
 body.two-player #player-two-station > #player-two-controls.diamond-pad{
-  align-self:flex-end;
-  margin-top:0;
-  margin-bottom:3cqh;
+  align-self:center;
+  margin:0;
+  transform:translateY(calc(.1 * min(92cqh,102cqw)));
 }

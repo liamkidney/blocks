@@ -122,3 +122,12 @@
 /* Restart mode chooser. */
 .restart-choices #restart-one{background:var(--ink);color:var(--paper)}
 .restart-panel .restart-cancel{display:block;width:100%;margin-top:10px;min-height:42px;background:transparent;border:1px solid var(--ink);border-radius:0;color:var(--ink);font:800 11px Helvetica,Arial,sans-serif;letter-spacing:.5px;touch-action:manipulation}
+
+/* Two-player match outcome and shared pause state. */
+#match-result[hidden]{display:none}
+#match-result{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.73);pointer-events:none}
+.match-result-panel{padding:22px 28px;background:var(--paper);border:3px solid var(--ink);text-align:center;pointer-events:auto}
+#match-result-title{font:900 clamp(24px,5vw,44px) Helvetica,Arial,sans-serif;letter-spacing:-1px;white-space:nowrap}
+#match-again{margin-top:18px;min-height:48px;padding:0 22px;border:0;background:var(--ink);color:var(--paper);font:900 13px Helvetica,Arial,sans-serif;touch-action:manipulation}
+body.match-paused .second-board .cell.clearing::after{animation-play-state:paused}
+body.match-paused .second-board-frame::after{content:"PAUSED";position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:rgba(243,239,227,.86);font:900 20px Helvetica,Arial,sans-serif;pointer-events:none}

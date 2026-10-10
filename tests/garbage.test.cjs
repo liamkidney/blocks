@@ -1,0 +1,34 @@
+// Run with: node tests/garbage.test.cjs
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const vm=require("node:vm");
+const context=vm.createContext({console,Math});
+for(const file of ["tetrominoes.js","game.js","session.js"])
+  vm.runInContext(fs.readFileSync(file,"utf8"),context,{filename:file});
+const {GameSession}=vm.runInContext("({GameSession})",context);
+const s=new GameSession({playerCount:2});
+const [a,b]=s.games;
+const startingY=b.active.y;
+a.onEvent({type:"lines_cleared",count:1});
+assert.equal(b.grid[0].some(Boolean),false);
+a.onEvent({type:"lines_cleared",count:1});
+assert.equal(b.active.y,startingY+1);
+assert.equal(b.grid[0].length,10);
+assert(b.grid[0].some(Boolean));
+assert(b.grid[0].some(v=>v===null));
+assert.equal(s.attackProgress[0],0);
+a.onEvent({type:"lines_cleared",count:4});
+assert.equal(b.active.y,startingY+3);
+assert.equal(s.attackProgress[0],0);
+const c=new GameSession({playerCount:2});
+c.games[1].grid[19][0]="I";
+c.games[0].onEvent({type:"lines_cleared",count:2});
+assert.equal(c.games[1].phase,"game_over");
+const d=new GameSession({playerCount:2});
+d.games[1].active.y=19;
+d.games[0].onEvent({type:"lines_cleared",count:2});
+assert.equal(d.games[1].phase,"game_over");
+const solo=new GameSession();
+solo.games[0].onEvent({type:"lines_cleared",count:4});
+assert.equal(solo.games[0].grid[0].some(Boolean),false);
+console.log("Garbage tests passed");

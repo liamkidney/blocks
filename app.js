@@ -1,9 +1,11 @@
 const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(new URLSearchParams(location.search).get("players")==="2"?":two":"")+(new URLSearchParams(location.search).get("pieces")?.toUpperCase()==="IO"?":io":"");
 const TWO_PLAYER=new URLSearchParams(location.search).get("players")==="2";
 let session;
+let storedSessionId=null;
 try{
   const stored=localStorage.getItem(SAVE_KEY);
   const snapshot=stored?JSON.parse(stored):null;
+  storedSessionId=TWO_PLAYER?null:snapshot?.session_id||null;
   session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{},snapshots:TWO_PLAYER?(snapshot?.games||[]):[snapshot],attackProgress:snapshot?.attackProgress||[0,0]});
 }catch(error){
   session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{}});
@@ -23,7 +25,7 @@ function saveGame(force=false){
       if(session.outcome||session.games.some(g=>g.phase==="game_over"))localStorage.removeItem(SAVE_KEY);
       else localStorage.setItem(SAVE_KEY,JSON.stringify({games:session.games.map(g=>g.toSnapshot()),attackProgress:session.attackProgress}));
     }else if(game.phase==="game_over")localStorage.removeItem(SAVE_KEY);
-    else localStorage.setItem(SAVE_KEY,JSON.stringify(game.toSnapshot()));
+    else localStorage.setItem(SAVE_KEY,JSON.stringify({...game.toSnapshot(),session_id:window.BLOCKS_SESSION_ID||storedSessionId}));
   }catch(_){}
 }
 document.addEventListener("visibilitychange",()=>{
@@ -46,7 +48,14 @@ restartButton.innerHTML=restartIcon;
 restartButton.setAttribute("aria-label","Restart game");
 restartButton.title="Restart game";
 actions.append(pauseButton,restartButton);
-document.getElementById("hud").appendChild(actions);
+const highScoresSlot=document.createElement("div");
+highScoresSlot.id="high-scores-slot";
+const playerButton=document.createElement("button");
+playerButton.id="hud-player-button";playerButton.type="button";
+playerButton.setAttribute("aria-label","Player");playerButton.title="Player";
+playerButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>';
+highScoresSlot.appendChild(playerButton);
+document.getElementById("hud").append(actions,highScoresSlot);
 const gameOver=document.createElement("div");
 gameOver.id="game-over";
 gameOver.textContent="GAME OVER";
@@ -91,6 +100,7 @@ function closeRestartDialog(){
   restartButton.focus();
 }
 function startNewGame(playerCount=TWO_PLAYER?2:1){
+  if(!TWO_PLAYER)window.dispatchEvent(new Event("blocks:restart"));
   if(playerCount!==(TWO_PLAYER?2:1)){
     skipSaveOnNavigation=true;
     try{localStorage.removeItem(SAVE_KEY)}catch(_){}

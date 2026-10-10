@@ -320,3 +320,49 @@ body.two-player .second-game-over .second-board-frame::after {
   font-size:calc(var(--board-h) * .05);
   font-weight:900;
 }
+
+/* Both player HUDs expose the same match actions. */
+body.two-player :is(#game-actions,.match-actions) {
+  display:flex;
+  flex-direction:row;
+  margin-top:auto;
+  padding-top:calc(var(--board-h) * .01);
+  gap:3px;
+  border-top:1px solid var(--ink);
+}
+body.two-player :is(#game-actions,.match-actions) button {
+  display:flex;
+  flex:1 1 0;
+  align-items:center;
+  justify-content:center;
+  width:0;
+  min-width:0;
+  height:calc(var(--board-h) * .06);
+  min-height:0;
+  padding:0;
+  border:1px solid var(--ink);
+  border-radius:5px;
+  color:var(--ink);
+  background:transparent;
+}
+body.two-player :is(#game-actions,.match-actions) svg {
+  width:60%;
+  height:60%;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2.5;
+  stroke-linecap:square;
+}
+body.two-player .match-actions button:disabled { opacity:.3; }
+body.two-player.match-paused :is(#board-frame,.second-board-frame)::after {
+  content:"PAUSED";
+  position:absolute;
+  inset:0;
+  z-index:6;
+  display:grid;
+  place-items:center;
+  background:rgba(243,239,227,.86);
+  color:var(--ink);
+  font:900 calc(var(--board-h) * .05) Helvetica,Arial,sans-serif;
+  pointer-events:none;
+}

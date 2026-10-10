@@ -1,17 +1,19 @@
 const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"");
+const TWO_PLAYER=new URLSearchParams(location.search).get("players")==="2";
 let session;
 try{
   const stored=localStorage.getItem(SAVE_KEY);
   const snapshot=stored?JSON.parse(stored):null;
-  session=new GameSession({config:window.BLOCKS_CONFIG||{},snapshots:[snapshot]});
+  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{},snapshots:TWO_PLAYER?[]:[snapshot]});
 }catch(error){
-  session=new GameSession({config:window.BLOCKS_CONFIG||{}});
+  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{}});
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
 }
 let game=session.games[0];
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
+  if(TWO_PLAYER)return;
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
   lastSavedAt=now;
@@ -79,6 +81,7 @@ function closeRestartDialog(){
 function startNewGame(){
   restartDialog.hidden=true;
   game=session.replaceGame(0);
+  if(TWO_PLAYER)session.replaceGame(1);
   session.drainEvents();
   previousPhase=game.phase;
   lastTime=performance.now();

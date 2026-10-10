@@ -10,10 +10,11 @@ try{
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
 }
 let game=session.games[0];
+let skipSaveOnNavigation=false;
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
-  if(TWO_PLAYER)return;
+  if(TWO_PLAYER||skipSaveOnNavigation)return;
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
   lastSavedAt=now;
@@ -66,10 +67,11 @@ restartDialog.hidden=true;
 restartDialog.setAttribute("role","dialog");
 restartDialog.setAttribute("aria-modal","true");
 restartDialog.setAttribute("aria-labelledby","restart-title");
-restartDialog.innerHTML='<div class="restart-panel"><div id="restart-title">RESTART GAME?</div><p>YOUR CURRENT GAME WILL BE LOST.</p><div class="restart-choices"><button type="button" id="restart-cancel">CANCEL</button><button type="button" id="restart-confirm">RESTART</button></div></div>';
+restartDialog.innerHTML='<div class="restart-panel"><div id="restart-title">NEW GAME</div><p>CHOOSE NUMBER OF PLAYERS. YOUR CURRENT GAME WILL BE LOST.</p><div class="restart-choices"><button type="button" id="restart-one">1 PLAYER</button><button type="button" id="restart-two">2 PLAYERS</button></div><button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button></div>';
 document.body.appendChild(restartDialog);
 const cancelRestartButton=document.getElementById("restart-cancel");
-const confirmRestartButton=document.getElementById("restart-confirm");
+const onePlayerButton=document.getElementById("restart-one");
+const twoPlayerButton=document.getElementById("restart-two");
 let restartWasPaused=false;
 function closeRestartDialog(){
   restartDialog.hidden=true;
@@ -78,7 +80,16 @@ function closeRestartDialog(){
   saveGame(true);
   restartButton.focus();
 }
-function startNewGame(){
+function startNewGame(playerCount=TWO_PLAYER?2:1){
+  if(playerCount!==(TWO_PLAYER?2:1)){
+    skipSaveOnNavigation=true;
+    try{localStorage.removeItem(SAVE_KEY)}catch(_){}
+    const url=new URL(location.href);
+    if(playerCount===2)url.searchParams.set("players","2");
+    else url.searchParams.delete("players");
+    location.href=url.href;
+    return;
+  }
   restartDialog.hidden=true;
   game=session.replaceGame(0);
   if(TWO_PLAYER)session.replaceGame(1);
@@ -91,16 +102,16 @@ function startNewGame(){
 }
 function restartGame(){
   if(!restartDialog.hidden)return;
-  if(game.phase==="game_over"){startNewGame();return;}
   restartWasPaused=game.phase==="paused";
   if(!restartWasPaused)game.pause();
   restartDialog.hidden=false;
   renderActions();
   saveGame(true);
-  cancelRestartButton.focus();
+  (TWO_PLAYER?twoPlayerButton:onePlayerButton).focus();
 }
 bindImmediateAction(cancelRestartButton,closeRestartDialog);
-bindImmediateAction(confirmRestartButton,startNewGame);
+bindImmediateAction(onePlayerButton,()=>startNewGame(1));
+bindImmediateAction(twoPlayerButton,()=>startNewGame(2));
 function bindImmediateAction(button,action){
   let lastTouchAt=-Infinity;
   button.addEventListener("touchstart",event=>{

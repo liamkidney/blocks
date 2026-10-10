@@ -16,11 +16,11 @@ td{font-size:clamp(12px,3.5vw,17px);font-weight:800;border-bottom:1px solid var(
 th:first-child,td:first-child{width:46px}
 th:nth-child(3),th:nth-child(4),td:nth-child(3),td:nth-child(4){text-align:right}th:nth-child(5),td:nth-child(5){text-align:right;white-space:nowrap}td:nth-child(5){font-size:clamp(10px,2.8vw,12px);white-space:nowrap;font-weight:700}
 td:nth-child(2){overflow-wrap:anywhere}
-#status{font-size:12px;font-weight:700;margin:18px 0}
+#status{font-size:12px;font-weight:700;margin:18px 0}\n#back-to-game{display:none;border:2px solid var(--ink);background:var(--ink);color:var(--paper);padding:12px 18px;font:900 12px Helvetica,Arial,sans-serif;letter-spacing:1px;margin:0 0 22px;cursor:pointer}
 </style>
 </head>
 <body><main>
-<h1>HIGH SCORES</h1>
+<button id="back-to-game" type="button">← BACK TO GAME</button>\n<h1>HIGH SCORES</h1>
 <table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="rows"></tbody></table>
 <p id="status" role="status">Loading scores…</p>
 </main>
@@ -45,6 +45,5 @@ async function load(){
   status.textContent=sessions.length?'':'No scores yet';
  }catch(error){status.textContent='Unable to load scores. Please try again later.';}
 }
-load();
-</script>
+if(new URLSearchParams(location.search).has('embedded')){\n const back=document.getElementById('back-to-game');back.style.display='block';\n back.addEventListener('click',()=>parent.postMessage({type:'blocks:close-high-scores'},location.origin));\n}\nload();\n</script>
 </body></html>

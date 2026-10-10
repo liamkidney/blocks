@@ -120,3 +120,7 @@
   body.two-player #movement-controls .control[data-command="left"],body.two-player #movement-controls .control[data-command="right"]{grid-row:1}
   body.two-player #movement-controls .control[data-command="down"]{grid-row:2}
 }
+
+/* Restart mode chooser. */
+.restart-choices #restart-one{background:var(--ink);color:var(--paper)}
+.restart-panel .restart-cancel{display:block;width:100%;margin-top:10px;min-height:42px;background:transparent;border:1px solid var(--ink);border-radius:0;color:var(--ink);font:800 11px Helvetica,Arial,sans-serif;letter-spacing:.5px;touch-action:manipulation}

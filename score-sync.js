@@ -62,6 +62,7 @@
     const [sid,item]=pending.entries().next().value;
     lastAttempt=Date.now();
     try{
+     if(window.BLOCKS_ENSURE_PLAYER)await window.BLOCKS_ENSURE_PLAYER();
      await write(item);
      sent.set(sid,JSON.stringify([item.score,item.lines,item.status]));
      if(item.status!=='active')terminal.add(sid);

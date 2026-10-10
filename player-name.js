@@ -6,20 +6,13 @@
   const headers={apikey:API_KEY,'Content-Type':'application/json'};
   let player=null;
   try{player=JSON.parse(localStorage.getItem(KEY)||'null')}catch(_){}
-  const bar=document.createElement('div');
-  bar.id='player-identity';
-  bar.innerHTML='<span id="player-display"></span><button id="player-edit" type="button" aria-label="Edit player name" title="Edit player name">✎</button>';
-  // Keep the name in the game's HUD flow, not a viewport-fixed overlay.
-  document.getElementById('player-header').appendChild(bar);
   const dialog=document.createElement('div');
   dialog.id='player-dialog';dialog.hidden=true;
   dialog.innerHTML='<div class="player-panel" role="dialog" aria-modal="true" aria-labelledby="player-title"><form id="player-form"><label id="player-title" for="player-input">PLAYER NAME</label><input id="player-input" type="text" maxlength="40" autocomplete="nickname" required><div class="player-buttons"><button type="button" id="player-cancel">CANCEL</button><button type="submit">SAVE</button></div></form></div>';
   document.body.appendChild(dialog);
-  const display=document.getElementById('player-display');
   const input=document.getElementById('player-input');
-  function refresh(){display.textContent=player?.display_name||'YOUR NAME';}
   function open(){message.textContent='';input.value=player?.display_name||'';dialog.hidden=false;input.focus();input.select();}
-  function close(){dialog.hidden=true;document.getElementById('player-edit').focus();}
+  function close(){dialog.hidden=true;document.getElementById('hud-player-button').focus();}
   // Pythonista's WebView can emit duplicate synthetic clicks after a touch.
   function bindTap(element,action){
     let lastTouch=-Infinity;
@@ -33,7 +26,6 @@
       action();
     });
   }
-  bindTap(document.getElementById('player-edit'),open);
   const hudPlayer=document.getElementById('hud-player-button');
   if(hudPlayer)bindTap(hudPlayer,open);
   bindTap(document.getElementById('player-cancel'),close);
@@ -59,10 +51,9 @@
       if(!response.ok)throw new Error('Supabase error '+response.status);
       player={player_id:id,display_name:name};
       try{localStorage.setItem(KEY,JSON.stringify(player));}catch(_){}
-      refresh();close();
+      close();
     }catch(error){message.textContent='Could not save online. Check connection and retry.';}
     finally{saveButton.disabled=false;}
   });
   document.addEventListener('keydown',e=>{if(dialog.hidden)return;if(e.key==='Escape'){e.preventDefault();close();}else if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp'].includes(e.key))e.stopImmediatePropagation();},true);
-  refresh();
 })();

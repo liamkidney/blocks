@@ -28,9 +28,6 @@
     pad.classList.add("diamond-pad");
   }
 
-  const matchActions=document.getElementById("game-actions");
-  matchActions.id="match-actions";
-  consoleElement.appendChild(matchActions);
   for(const id of ["movement-controls","rotation-controls"]){
     const wrapper=document.getElementById(id);
     if(wrapper)wrapper.remove();

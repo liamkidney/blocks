@@ -107,7 +107,7 @@ body.two-player #console{
 @media(max-aspect-ratio:1/1){
   body.two-player #console{flex-direction:column}
 }
-body.two-player .player-station{
+body.two-player #player-one-station,body.two-player #player-two-station{
   position:relative;
   display:flex;
   flex:1 1 0;
@@ -132,7 +132,7 @@ body.two-player #second-game{
   width:auto;
   height:var(--board-height);
 }
-body.two-player .player-station{
+body.two-player #player-one-station,body.two-player #player-two-station{
   --board-height:min(88cqh,88cqw);
   --key-size:min(8cqw,12cqh);
 }

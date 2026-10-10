@@ -1,12 +1,14 @@
 const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"");
-let game;
+let session;
 try{
   const stored=localStorage.getItem(SAVE_KEY);
-  game=stored?Game.fromSnapshot(JSON.parse(stored),window.BLOCKS_CONFIG||{}):new Game(window.BLOCKS_CONFIG||{});
+  const snapshot=stored?JSON.parse(stored):null;
+  session=new GameSession({config:window.BLOCKS_CONFIG||{},snapshots:[snapshot]});
 }catch(error){
-  game=new Game(window.BLOCKS_CONFIG||{});
+  session=new GameSession({config:window.BLOCKS_CONFIG||{}});
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
 }
+let game=session.games[0];
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
@@ -76,7 +78,8 @@ function closeRestartDialog(){
 }
 function startNewGame(){
   restartDialog.hidden=true;
-  game=new Game(window.BLOCKS_CONFIG||{});
+  game=session.replaceGame(0);
+  session.drainEvents();
   previousPhase=game.phase;
   lastTime=performance.now();
   for(const button of document.querySelectorAll(".control"))release(button);
@@ -162,7 +165,7 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-function loop(now){game.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
+function loop(now){session.update(Math.min((now-lastTime)/1000,.25));lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{

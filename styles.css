@@ -59,6 +59,7 @@ body:not(.two-player) #board-frame::before {
   letter-spacing:-4px;
   text-align:left;
   white-space:nowrap}
+#board,
 .player-board {
   width:100%;
   height:100%;

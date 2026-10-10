@@ -14,6 +14,7 @@
   const consoleElement=document.getElementById("console");
   const playerOneStation=document.createElement("div");
   playerOneStation.id="player-one-station";
+  playerOneStation.classList.add("player-station");
   consoleElement.insertBefore(playerOneStation,document.getElementById("game"));
   playerOneStation.append(document.getElementById("game"),document.getElementById("controls"));
   const playerTwoStation=document.createElement("div");

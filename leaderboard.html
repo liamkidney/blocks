@@ -5,23 +5,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Blocks — High Scores</title>
 <style>
-:root{--paper:#f3efe3;--ink:#0b0b0a}
+:root{--paper:#f3efe3;--ink:#0b0b0a;--blue:#1376df;--yellow:#ffd018;--red:#ff3b30;--cyan:#21afe0}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:Helvetica,Arial,-apple-system,sans-serif}
 main{max-width:560px;margin:0 auto;padding:clamp(20px,6vw,36px) 18px}
-h1{font-size:clamp(42px,11vw,72px);line-height:1;font-weight:900;letter-spacing:-3px;margin:0 0 28px}
+h1{font-size:clamp(42px,11vw,72px);line-height:1;font-weight:900;letter-spacing:-3px;margin:0 0 28px}h1 span{color:var(--blue)}
 table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-th{font-size:11px;font-weight:800;letter-spacing:1.5px;text-align:left;border-bottom:3px solid var(--ink);padding:0 8px 12px}
-td{font-size:clamp(14px,4vw,18px);font-weight:800;border-bottom:1px solid var(--ink);padding:15px 8px}
+th{font-size:11px;font-weight:800;letter-spacing:1.5px;text-align:left;border-bottom:3px solid var(--blue);padding:0 8px 12px}
+td{font-size:clamp(12px,3.5vw,17px);font-weight:800;border-bottom:1px solid var(--ink);padding:15px 8px}
 th:first-child,td:first-child{width:46px}
-th:nth-child(3),th:nth-child(4),td:nth-child(3),td:nth-child(4){text-align:right}
+th:nth-child(3),th:nth-child(4),td:nth-child(3),td:nth-child(4){text-align:right}th:nth-child(5),td:nth-child(5){text-align:right;white-space:nowrap}td:first-child{font-weight:900;color:var(--blue)}tbody tr:nth-child(1) td:first-child{color:var(--red)}tbody tr:nth-child(2) td:first-child{color:var(--blue)}tbody tr:nth-child(3) td:first-child{color:#008c9f}tbody tr:nth-child(1){background:rgba(255,208,24,.25)}td:nth-child(5){font-size:clamp(10px,2.8vw,12px);white-space:nowrap;font-weight:700}
 td:nth-child(2){overflow-wrap:anywhere}
 #status{font-size:12px;font-weight:700;margin:18px 0}
 </style>
 </head>
 <body><main>
-<h1>HIGH SCORES</h1>
-<table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th></tr></thead><tbody id="rows"></tbody></table>
+<h1>HIGH <span>SCORES</span></h1>
+<table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="rows"></tbody></table>
 <p id="status" role="status">Loading scores…</p>
 </main>
 <script>
@@ -35,13 +35,13 @@ async function load(){
   const headers={apikey:KEY};
   const [playersResponse,sessionsResponse]=await Promise.all([
    fetch(API+'players?select=player_id,display_name&limit=1000',{headers}),
-   fetch(API+'sessions?select=player_id,score,lines&order=score.desc&limit=10',{headers})
+   fetch(API+'sessions?select=player_id,score,lines,started_at&order=score.desc&limit=10',{headers})
   ]);
   if(!playersResponse.ok||!sessionsResponse.ok)throw new Error('Could not load scores');
   const players=new Map((await playersResponse.json()).map(p=>[p.player_id,p.display_name]));
   const sessions=await sessionsResponse.json();
   rows.replaceChildren();
-  sessions.forEach((s,i)=>{const tr=document.createElement('tr');[i+1,players.get(s.player_id)??'Unknown',s.score.toLocaleString(),s.lines].forEach(v=>addCell(tr,v));rows.appendChild(tr);});
+  sessions.forEach((s,i)=>{const tr=document.createElement('tr');[i+1,players.get(s.player_id)??'Unknown',s.score.toLocaleString(),s.lines,new Date(s.started_at).toLocaleDateString("en-GB",{day:"2-digit",month:"short"})].forEach(v=>addCell(tr,v));rows.appendChild(tr);});
   status.textContent=sessions.length?'':'No scores yet';
  }catch(error){status.textContent='Unable to load scores. Please try again later.';}
 }

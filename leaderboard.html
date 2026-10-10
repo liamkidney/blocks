@@ -35,7 +35,7 @@ async function load(){
   const headers={apikey:KEY};
   const [playersResponse,sessionsResponse]=await Promise.all([
    fetch(API+'players?select=player_id,display_name&limit=1000',{headers}),
-   fetch(API+'sessions?select=player_id,score,lines&order=score.desc&limit=100',{headers})
+   fetch(API+'sessions?select=player_id,score,lines&order=score.desc&limit=10',{headers})
   ]);
   if(!playersResponse.ok||!sessionsResponse.ok)throw new Error('Could not load scores');
   const players=new Map((await playersResponse.json()).map(p=>[p.player_id,p.display_name]));

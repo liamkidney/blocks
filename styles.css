@@ -23,7 +23,7 @@ body:not(.two-player) #console {
   height:100dvh;
   display:flex;
   flex-direction:column;
-  padding:max(14px,env(safe-area-inset-top)) 18px max(58px,calc(env(safe-area-inset-bottom) + 34px))}
+  padding:max(14px,env(safe-area-inset-top)) 18px max(108px,calc(env(safe-area-inset-bottom) + 84px))}
 body:not(.two-player) #game::before {
   display:none}
 body:not(.two-player) #game {
@@ -589,7 +589,7 @@ body.two-player #high-scores-slot{display:none}
 @media(orientation:landscape){body:not(.two-player) #high-scores-slot #high-scores-button{min-height:clamp(30px,6vh,42px);padding:4px}}
 
 /* HUD action grid: two columns, consistent icon and button sizing. */
-body:not(.two-player) #game-actions{margin-top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+body:not(.two-player) #game-actions{margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
 body:not(.two-player) #game-actions button{width:100%;min-width:0;flex:none}
 body:not(.two-player) #high-scores-slot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:7px}
 body:not(.two-player) #high-scores-slot #high-scores-button,

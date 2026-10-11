@@ -1,4 +1,3 @@
-import hashlib
 import http.server
 import socketserver
 import threading
@@ -42,14 +41,5 @@ if __name__ == "__main__":
         params["pieces"] = "IO"
     if PLAYERS == 2:
         params["players"] = "2"
-    # Change the URL only when the local HTML changes; retain cached assets and offline play.
-    html_path = ROOT / "index.html"
-    html = html_path.read_bytes()
-    params["v"] = hashlib.sha256(html).hexdigest()[:12]
-    title_marker = b'id="landscape-title"'
-    title_position = html.find(title_marker)
-    print(f"Serving HTML: {html_path.resolve()}")
-    print(f"Local title snippet: {html[title_position:title_position + 90].decode('utf-8', errors='replace') if title_position >= 0 else 'NOT FOUND'}")
-    print(f"HTML version: {params['v']}")
     webview.load_url(f"http://127.0.0.1:{PORT}/?{urlencode(params)}")
     webview.present("fullscreen", hide_title_bar=True)

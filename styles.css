@@ -33,7 +33,7 @@ body:not(.two-player) #game {
   min-height:0;
   display:flex;
   justify-content:center;
-  align-items:flex-end;
+  align-items:center;
   gap:16px;
   /* Reserve space for the SVG heading, scaled to the board width. */
   padding-top:clamp(42px,13vw,62px)}

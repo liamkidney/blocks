@@ -40,27 +40,21 @@ body:not(.two-player) #board-frame {
   position:relative;
   height:var(--single-board-height);
   aspect-ratio:1/2;
-  container-type:inline-size;
   padding:0;
   border:3px solid var(--ink);
   background:var(--paper)}
-body:not(.two-player) #board-frame::before {
-  content:"BLOCKS";
+#board-title {
   position:absolute;
   left:-3px;
   bottom:100%;
-  height:112px;
-  display:flex;
-  align-items:center;
-  justify-content:flex-start;
+  width:calc(100% + 6px);
+  height:auto;
+  overflow:visible;
+  fill:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;
-  /* cqw is relative to the board frame width, not the viewport. */
-  font-size:21cqw;
-  line-height:1;
+  font-size:240px;
   font-weight:900;
-  letter-spacing:-0.04em;
-  text-align:left;
-  white-space:nowrap}
+}
 #board,
 .player-board {
   width:100%;
@@ -231,7 +225,7 @@ body:not(.two-player) #landscape-title{display:none}
   body:not(.two-player) #game{grid-column:2;grid-row:1;min-height:0;padding:0;gap:clamp(8px,1.5vw,16px);align-items:center}
   body:not(.two-player) #board-frame{height:min(88dvh,calc(100dvh - 36px));max-height:100%;flex:none}
   body:not(.two-player) #hud{height:min(88dvh,calc(100dvh - 36px));width:clamp(90px,12vw,132px);max-width:none;min-height:0;padding-left:clamp(8px,1vw,13px)}
-  body:not(.two-player) #board-frame::before{display:none}
+  body:not(.two-player) #board-title{display:none}
   body:not(.two-player) #game::before{display:none}
   body:not(.two-player) #controls{display:contents}
   body:not(.two-player) #movement-controls{
@@ -369,7 +363,7 @@ body.two-player .player-board-wrap {
   padding:0;
   border:2px solid var(--ink);
 }
-body.two-player #board-frame::before { display:none; }
+body.two-player #board-title { display:none; }
 body.two-player .second-board-wrap { border:0; }
 body.two-player .second-board-frame {
   position:relative;

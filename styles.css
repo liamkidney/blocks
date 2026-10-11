@@ -53,10 +53,11 @@ body:not(.two-player) #board-frame::before {
   align-items:center;
   justify-content:flex-start;
   font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;
-  font-size:84px;
+  /* Scale the heading with the board (whose width is half its height). */
+  font-size:calc(var(--single-board-height) / 10);
   line-height:1;
   font-weight:900;
-  letter-spacing:-4px;
+  letter-spacing:-0.04em;
   text-align:left;
   white-space:nowrap}
 #board,

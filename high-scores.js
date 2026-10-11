@@ -14,7 +14,7 @@
  const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
  const headers={apikey:'sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH'};
  let resumeOnClose=false,controller=null;
- function cell(row,value){const td=document.createElement('td');td.textContent=String(value);row.appendChild(td);}
+ function cell(row,value){const td=document.createElement('td');td.textContent=String(value);row.appendChild(td);return td;}
  async function load(){
   if(controller)controller.abort();
   controller=new AbortController();
@@ -24,15 +24,25 @@
   try{
    const [pr,sr]=await Promise.all([
     fetch(API+'players?select=player_id,display_name&limit=1000',{headers,signal}),
-    fetch(API+'sessions?select=player_id,score,lines,started_at&score=gte.1000&order=score.desc&limit=10',{headers,signal})
+    fetch(API+'sessions?select=player_id,score,lines,started_at,status,updated_at&score=gte.1000&order=score.desc&limit=10',{headers,signal})
    ]);
    if(!pr.ok||!sr.ok)throw Error('HTTP '+pr.status+'/'+sr.status);
    const players=new Map((await pr.json()).map(p=>[p.player_id,p.display_name]));
    const sessions=await sr.json();
    if(overlay.hidden)return;
+   const now=Date.now();
    sessions.forEach((s,i)=>{
     const tr=document.createElement('tr');
-    [i+1,players.get(s.player_id)??'Unknown',s.score.toLocaleString(),s.lines,new Date(s.started_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
+    cell(tr,i+1);
+    const playerCell=cell(tr,players.get(s.player_id)??'Unknown');
+    const updated=Date.parse(s.updated_at);
+    if(s.status==='active'&&Number.isFinite(updated)&&now-updated>=0&&now-updated<30*60*1000){
+     const dot=document.createElement('span');
+     dot.textContent='●';dot.style.color='#20a44b';dot.style.marginLeft='6px';
+     dot.setAttribute('aria-label','Game active recently');dot.title='Game in progress (updated within 30 minutes)';
+     playerCell.appendChild(dot);
+    }
+    [s.score.toLocaleString(),s.lines,new Date(s.started_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
     rows.appendChild(tr);
    });
    status.textContent=sessions.length?'':'No scores yet';

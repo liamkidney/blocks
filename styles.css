@@ -44,7 +44,7 @@ body:not(.two-player) #board-frame {
   border:3px solid var(--ink);
   background:var(--paper)}
 body:not(.two-player) #board-frame::before {
-  content:"TETRIS";
+  content:"BLOCKS";
   position:absolute;
   left:-3px;
   bottom:100%;

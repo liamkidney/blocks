@@ -609,3 +609,30 @@ body:not(.two-player) #high-scores-slot svg{width:55cqh;height:55cqh;flex:none;f
  body:not(.two-player) #high-scores-slot #high-scores-button,
  body:not(.two-player) #high-scores-slot #hud-player-button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
 }
+
+/* Landscape single-player: pause mask follows the actual board geometry.
+   All four HUD action keys share one square size across both containers. */
+@media (orientation:landscape) {
+  body:not(.two-player) #board-frame.game-paused::after {
+    inset:0;
+    height:auto;
+  }
+  body:not(.two-player) #hud {
+    --hud-key-gap:5px;
+    --hud-key-size:calc((100% - var(--hud-key-gap)) / 2);
+  }
+  body:not(.two-player) #game-actions,
+  body:not(.two-player) #high-scores-slot {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:var(--hud-key-gap);
+  }
+  body:not(.two-player) #game-actions button,
+  body:not(.two-player) #high-scores-slot #high-scores-button,
+  body:not(.two-player) #high-scores-slot #hud-player-button {
+    width:100%;
+    height:auto;
+    aspect-ratio:1;
+    min-height:0;
+    padding:3px;
+  }
+}

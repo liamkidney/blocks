@@ -35,7 +35,8 @@ body:not(.two-player) #game {
   justify-content:center;
   align-items:flex-end;
   gap:16px;
-  padding-top:112px}
+  /* Reserve space for the SVG heading, scaled to the board width. */
+  padding-top:clamp(42px,13vw,62px)}
 body:not(.two-player) #board-frame {
   position:relative;
   height:var(--single-board-height);

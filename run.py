@@ -1,3 +1,4 @@
+import hashlib
 import http.server
 import socketserver
 import threading
@@ -41,5 +42,7 @@ if __name__ == "__main__":
         params["pieces"] = "IO"
     if PLAYERS == 2:
         params["players"] = "2"
+    # Change the URL only when the local HTML changes; retain cached assets and offline play.
+    params["v"] = hashlib.sha256((ROOT / "index.html").read_bytes()).hexdigest()[:12]
     webview.load_url(f"http://127.0.0.1:{PORT}/?{urlencode(params)}")
     webview.present("fullscreen", hide_title_bar=True)

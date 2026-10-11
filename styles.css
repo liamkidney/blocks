@@ -40,6 +40,7 @@ body:not(.two-player) #board-frame {
   position:relative;
   height:var(--single-board-height);
   aspect-ratio:1/2;
+  container-type:inline-size;
   padding:0;
   border:3px solid var(--ink);
   background:var(--paper)}
@@ -53,8 +54,8 @@ body:not(.two-player) #board-frame::before {
   align-items:center;
   justify-content:flex-start;
   font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;
-  /* Scale the heading with the board (whose width is half its height). */
-  font-size:calc(var(--single-board-height) / 10);
+  /* cqw is relative to the board frame width, not the viewport. */
+  font-size:21cqw;
   line-height:1;
   font-weight:900;
   letter-spacing:-0.04em;

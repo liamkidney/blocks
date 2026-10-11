@@ -277,7 +277,8 @@ body:not(.two-player) #landscape-title{display:none}
 }
 #game-over[hidden]{display:none}#game-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:5;pointer-events:none}
 
-body:not(.two-player) #game-actions{display:flex;flex-direction:row;gap:7px;border-top:1px solid var(--ink);padding-top:12px}body:not(.two-player) #game-actions button{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;width:0;min-width:0;min-height:42px;padding:8px 3px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);font:800 10px Helvetica,Arial,sans-serif;white-space:nowrap;touch-action:manipulation;cursor:pointer}body:not(.two-player) #game-actions svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:square}body:not(.two-player) #game-actions button:disabled{opacity:.3}body:not(.two-player) #board-frame.game-paused .cell.clearing::after{animation-play-state:paused}body:not(.two-player) #board-frame.game-paused::after{content:"PAUSED";position:absolute;inset:auto 0 0;height:var(--single-board-height);display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:6;pointer-events:none}
+body:not(.two-player) #game-actions button:disabled{opacity:.3}
+body:not(.two-player) #board-frame.game-paused .cell.clearing::after{animation-play-state:paused}body:not(.two-player) #board-frame.game-paused::after{content:"PAUSED";position:absolute;inset:auto 0 0;height:var(--single-board-height);display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:6;pointer-events:none}
 
 #restart-dialog[hidden]{display:none}
 #restart-dialog{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(11,11,10,.52);touch-action:none}
@@ -306,8 +307,6 @@ body.match-paused .second-board .cell.clearing::after{animation-play-state:pause
 .control{container-type:size}
 .control .icon{font-size:min(55cqh,55cqw)}
 .control .rotate-svg{width:58cqw;height:58cqh}
-body:not(.two-player) #game-actions button{container-type:size}
-body:not(.two-player) #game-actions svg{width:55cqh;height:55cqh}
 
 /* Two-player geometry. Both stations use precisely the same layout.
    The only orientation change is the direction of the outer split. */
@@ -592,47 +591,59 @@ body.two-player #player-header{display:none}
 #scores-retry[hidden]{display:none}
 
 /* Trophy button sits beneath pause/restart in the HUD. */
-#high-scores-slot{margin-top:7px;display:flex;justify-content:center}
-#high-scores-slot #high-scores-button{position:static;display:flex;align-items:center;justify-content:center;width:100%;min-height:42px;padding:8px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);cursor:pointer;touch-action:manipulation}
-#high-scores-slot #high-scores-button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter}
 body.two-player #high-scores-slot{display:none}
-@media(orientation:landscape){body:not(.two-player) #high-scores-slot #high-scores-button{min-height:clamp(30px,6vh,42px);padding:4px}}
 
-/* HUD action grid: two columns, consistent icon and button sizing. */
-body:not(.two-player) #game-actions{margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-body:not(.two-player) #game-actions button{width:100%;min-width:0;flex:none}
-body:not(.two-player) #high-scores-slot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:7px}
-body:not(.two-player) #high-scores-slot #high-scores-button,
-body:not(.two-player) #high-scores-slot #hud-player-button{position:static;display:flex;align-items:center;justify-content:center;width:100%;min-width:0;min-height:42px;padding:8px 3px;background:transparent;border:1px solid var(--ink);border-radius:5px;color:var(--ink);cursor:pointer;touch-action:manipulation;container-type:size}
-body:not(.two-player) #high-scores-slot svg{width:55cqh;height:55cqh;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:square;stroke-linejoin:round}
-@media(orientation:landscape){
- body:not(.two-player) #high-scores-slot #high-scores-button,
- body:not(.two-player) #high-scores-slot #hud-player-button{min-height:clamp(30px,6vh,42px);padding:4px 2px}
+/* One-player HUD controls: two identical columns and one shared button style.
+   Both rows use the same grid track widths and the same square dimensions. */
+body:not(.two-player) #hud {
+  --hud-action-gap:7px;
 }
-
-/* Landscape single-player: pause mask follows the actual board geometry.
-   All four HUD action keys share one square size across both containers. */
+body:not(.two-player) :is(#game-actions,#high-scores-slot) {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--hud-action-gap);
+  width:100%;
+  margin-top:7px;
+}
+body:not(.two-player) #game-actions {
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--ink);
+}
+body:not(.two-player) :is(#game-actions,#high-scores-slot) button {
+  position:static;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-width:0;
+  min-height:0;
+  height:auto;
+  aspect-ratio:1;
+  padding:3px;
+  border:1px solid var(--ink);
+  border-radius:5px;
+  background:transparent;
+  color:var(--ink);
+  cursor:pointer;
+  touch-action:manipulation;
+  container-type:size;
+}
+body:not(.two-player) :is(#game-actions,#high-scores-slot) button svg {
+  width:55cqh;
+  height:55cqh;
+  flex:none;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2.5;
+  stroke-linecap:square;
+  stroke-linejoin:round;
+}
 @media (orientation:landscape) {
   body:not(.two-player) #board-frame.game-paused::after {
     inset:0;
     height:auto;
   }
-  body:not(.two-player) #hud {
-    --hud-key-gap:5px;
-    --hud-key-size:calc((100% - var(--hud-key-gap)) / 2);
-  }
-  body:not(.two-player) #game-actions,
-  body:not(.two-player) #high-scores-slot {
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:var(--hud-key-gap);
-  }
-  body:not(.two-player) #game-actions button,
-  body:not(.two-player) #high-scores-slot #high-scores-button,
-  body:not(.two-player) #high-scores-slot #hud-player-button {
-    width:100%;
-    height:auto;
-    aspect-ratio:1;
-    min-height:0;
-    padding:3px;
-  }
+  body:not(.two-player) #hud {--hud-action-gap:5px}
+  body:not(.two-player) #game-actions {padding-top:clamp(5px,1vh,10px)}
 }

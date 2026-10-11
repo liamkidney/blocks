@@ -28,12 +28,12 @@ body:not(.two-player) #console {
 }
 body:not(.two-player) #game::before {display:none}
 body:not(.two-player) #game {
-  --single-board-height:min(calc(100dvh - 280px),calc((100vw - 52px - min(25vw,112px)) * 2));
+  --single-board-height:min(calc(100dvh - 205px),calc((100vw - 52px - min(25vw,112px)) * 2));
   grid-row:2;
   position:relative;
   min-height:0;
   display:flex;
-  justify-content:center;
+  justify-content:flex-start;
   align-items:flex-end;
   gap:16px;
   padding:0;

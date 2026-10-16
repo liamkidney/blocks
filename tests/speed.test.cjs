@@ -61,11 +61,11 @@ test("old string snapshots migrate to numeric IDs",()=>{
 });
 test("both players use the selected mode for a new match",()=>{
   const session=new GameSession({playerCount:2,config:{difficulty:2}});
-  assert.ok(session.games.every(game=>game.difficulty==="hard"));
+  assert.ok(session.games.every(game=>game.difficulty===2));
   session.config.difficulty="easy";
   session.replaceGame(0);
   session.replaceGame(1);
-  assert.ok(session.games.every(game=>game.difficulty==="easy"));
+  assert.ok(session.games.every(game=>game.difficulty===1));
 });
 
 test("beginner mode always stays at 0.8 seconds per row",()=>{

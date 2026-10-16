@@ -1,39 +1,72 @@
-name: Deploy Pages
+name: Deploy Blocks Pages
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
-  group: pages
+  group: blocks-pages
   cancel-in-progress: true
+
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout production
         uses: actions/checkout@v4
-      - name: Generate build version
+        with:
+          ref: main
+          path: production
+
+      - name: Checkout development
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: development
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate both branches
         run: |
-          sed -i "s/__BUILD_ID__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/g" sw.js
-          sed -i "s/\";$/ · build ${GITHUB_RUN_NUMBER} · ${GITHUB_SHA::7}\";/" version.js
-      - name: Build site
+          set -euo pipefail
+          for source in production development; do
+            for script in config.js tetrominoes.js game.js session.js app.js multiplayer.js player-name.js score-sync.js high-scores.js sw.js version.js; do
+              node --check "$source/$script"
+            done
+          done
+          node --test development/tests/*.test.cjs
+
+      - name: Build production and development sites
         run: |
-          mkdir -p _site
-          cp index.html styles.css tetrominoes.js game.js session.js app.js multiplayer.js manifest.json sw.js version.js config.js player-name.js score-sync.js high-scores.js icon.svg favicon-32.png apple-touch-icon.png icon-192.png icon-512.png _site/
-          for script in player-name.js score-sync.js high-scores.js; do test -s "_site/$script" || exit 1; done
+          set -euo pipefail
+          PROD_SHA=$(git -C production rev-parse --short=8 HEAD)
+          DEV_SHA=$(git -C development rev-parse --short=8 HEAD)
+          node production/scripts/build-pages.mjs production _site prod "$PROD_SHA"
+          node production/scripts/build-pages.mjs development _site/dev dev "$DEV_SHA"
+          touch _site/.nojekyll
+          test -s _site/index.html
+          test -s _site/dev/index.html
+          grep -q 'Blocks Dev' _site/dev/manifest.json
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload site
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-      - name: Deploy
+
+      - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4

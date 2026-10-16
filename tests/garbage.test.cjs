@@ -3,7 +3,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const vm=require("node:vm");
 const context=vm.createContext({console,Math});
-for(const file of ["tetrominoes.js","game.js","session.js"])
+for(const file of ["game-modes.js","tetrominoes.js","game.js","session.js"])
   vm.runInContext(fs.readFileSync(file,"utf8"),context,{filename:file});
 const {GameSession}=vm.runInContext("({GameSession})",context);
 const s=new GameSession({playerCount:2});

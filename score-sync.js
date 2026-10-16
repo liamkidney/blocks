@@ -6,7 +6,7 @@
  const headers={apikey:KEY,'Content-Type':'application/json'};
  const params=new URLSearchParams(location.search);
  const mode=params.get('pieces')?.toUpperCase()==='IO'?'IO':'ALL';
- const ghost=params.get('ghost')==='true';
+
  let id=storedSessionId||crypto.randomUUID();
  window.BLOCKS_SESSION_ID=id;
  const pending=new Map();
@@ -20,7 +20,7 @@
  }
  function capture(status){
   return {session_id:id,player_id:playerId(),score:game.score,lines:game.lines,status,
-   pieces_mode:mode,ghost_mode:ghost,difficulty:game.difficulty};
+   pieces_mode:mode,ghost_mode:window.BLOCKS_CONFIG.ghostPiece===true,difficulty:game.difficulty};
  }
  function queue(status=game.phase==='game_over'?'completed':'active',force=false){
   // The initial mode chooser is not a played session.

@@ -48,7 +48,8 @@ test("legacy snapshots without difficulty still restore",()=>{
   const game=new Game({difficulty:"easy"});
   const snapshot=game.toSnapshot();
   delete snapshot.difficulty;
-  assert.equal(Game.fromSnapshot(snapshot,{}).difficulty,"easy");
+  assert.equal(Game.fromSnapshot(snapshot,{}).difficulty,"fixed");
+  assert.equal(Game.fromSnapshot(snapshot,{difficulty:"hard"}).tickSeconds,48/60);
 });
 test("both players use the selected mode for a new match",()=>{
   const session=new GameSession({playerCount:2,config:{difficulty:"hard"}});
@@ -57,4 +58,24 @@ test("both players use the selected mode for a new match",()=>{
   session.replaceGame(0);
   session.replaceGame(1);
   assert.ok(session.games.every(game=>game.difficulty==="easy"));
+});
+
+test("fixed mode always stays at 0.8 seconds per row",()=>{
+  const game=new Game({difficulty:"fixed"});
+  assert.equal(game.tickSeconds,48/60);
+  game.lines=500;
+  assert.equal(game.level,0);
+  assert.equal(game.tickSeconds,48/60);
+});
+test("fixed difficulty survives a saved game",()=>{
+  const game=new Game({difficulty:"fixed"});
+  game.lines=40;
+  const resumed=Game.fromSnapshot(game.toSnapshot(),{difficulty:"hard"});
+  assert.equal(resumed.difficulty,"fixed");
+  assert.equal(resumed.tickSeconds,48/60);
+});
+test("difficulty is validated when restoring saved games",()=>{
+  const snapshot=new Game().toSnapshot();
+  snapshot.difficulty="impossible";
+  assert.throws(()=>Game.fromSnapshot(snapshot,{}),/Invalid saved difficulty/);
 });

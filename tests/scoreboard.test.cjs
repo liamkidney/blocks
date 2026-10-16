@@ -22,7 +22,7 @@ function setup(difficulty="hard"){
     if(!elements.has(id))elements.set(id,new Element());
     return elements.get(id);
   };
-  const modes=["fixed","easy","hard"].map(mode=>{
+  const modes=["beginner","easy","hard"].map(mode=>{
     const button=new Element();
     button.dataset.mode=mode;
     return button;
@@ -78,12 +78,12 @@ test("one touch switches to a separately ranked server-side scoreboard",async()=
   await b.flush();
   const requests=b.urls.filter(url=>url.includes("/sessions?"));
   assert.match(requests[0],/difficulty=eq.easy/);
-  assert.match(requests[1],/difficulty=eq.fixed/);
+  assert.match(requests[1],/difficulty=eq.beginner/);
   assert.match(requests[1],/order=score.desc&limit=10/);
   assert.ok(requests.every(url=>!url.includes("score=gte.")),"all scores must be eligible regardless of size");
   assert.equal(b.modes[0].attrs["aria-pressed"],"true");
   assert.equal(b.modes[1].attrs["aria-pressed"],"false");
-  assert.equal(b.element("#scores-status").textContent,"No FIXED scores yet");
+  assert.equal(b.element("#scores-status").textContent,"No BEGINNER scores yet");
 });
 test("reopening leaderboard resets the selector to the game difficulty",async()=>{
   const b=setup("hard");
@@ -99,4 +99,13 @@ test("reopening leaderboard resets the selector to the game difficulty",async()=
   assert.match(requests.at(-1),/difficulty=eq.easy/);
   assert.equal(b.modes[1].attrs["aria-pressed"],"true");
   assert.equal(b.modes[0].attrs["aria-pressed"],"false");
+});
+
+test("Beginner tab queries the canonical Beginner database value",async()=>{
+  const b=setup("beginner");
+  b.tap(b.element("high-scores-button"));
+  await b.flush();
+  assert.equal(b.modes[0].attrs["aria-pressed"],"true");
+  assert.match(b.urls.find(url=>url.includes("/sessions?")),/difficulty=eq.beginner/);
+  assert.equal(b.element("#scores-status").textContent,"No BEGINNER scores yet");
 });

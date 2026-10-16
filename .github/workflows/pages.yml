@@ -1,7 +1,11 @@
 name: Deploy Blocks Pages
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
+  workflow_run:
+    workflows: ["Validate Blocks Dev"]
+    types: [completed]
+    branches: [dev]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +19,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -6,11 +6,24 @@
  document.getElementById('high-scores-slot').appendChild(button);
  const overlay=document.createElement('div');
  overlay.id='high-scores-overlay';overlay.hidden=true;
- overlay.innerHTML='<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>MODE</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>';
+ overlay.innerHTML='<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><div id="scores-mode-tabs" class="restart-options scores-mode-tabs" role="group" aria-label="Difficulty"><button type="button" data-mode="fixed" aria-pressed="false">FIXED</button><button type="button" data-mode="easy" aria-pressed="false">EASY</button><button type="button" data-mode="hard" aria-pressed="false">HARD</button></div><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>';
  document.body.appendChild(overlay);
  const rows=overlay.querySelector('#scores-rows');
  const status=overlay.querySelector('#scores-status');
  const retry=overlay.querySelector('#scores-retry');
+ const modes=['fixed','easy','hard'];
+ const modeButtons=Array.from(overlay.querySelectorAll('#scores-mode-tabs button'));
+ let selectedMode='fixed';
+ function selectMode(mode){
+  if(!modes.includes(mode)||selectedMode===mode)return;
+  selectedMode=mode;
+  for(const tab of modeButtons)tab.setAttribute('aria-pressed',String(tab.dataset.mode===mode));
+  if(!overlay.hidden)void load();
+ }
+ function setDefaultMode(){
+  selectedMode=modes.includes(game.difficulty)?game.difficulty:'fixed';
+  for(const tab of modeButtons)tab.setAttribute('aria-pressed',String(tab.dataset.mode===selectedMode));
+ }
  const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
  const headers={apikey:'sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH'};
  let resumeOnClose=false,controller=null;
@@ -18,18 +31,20 @@
  async function load(){
   if(controller)controller.abort();
   controller=new AbortController();
-  const signal=controller.signal;
-  const timeout=setTimeout(()=>controller.abort(),12000);
+  const request=controller;
+  const signal=request.signal;
+  const mode=selectedMode;
+  const timeout=setTimeout(()=>request.abort(),12000);
   status.textContent='Loading scores…';retry.hidden=true;rows.replaceChildren();
   try{
    const [pr,sr]=await Promise.all([
     fetch(API+'players?select=player_id,display_name&limit=1000',{headers,signal}),
-    fetch(API+'sessions?select=player_id,score,lines,difficulty,status,updated_at&score=gte.1000&order=score.desc&limit=10',{headers,signal})
+    fetch(API+'sessions?select=player_id,score,lines,status,updated_at&difficulty=eq.'+mode+'&score=gte.1000&order=score.desc&limit=10',{headers,signal})
    ]);
    if(!pr.ok||!sr.ok)throw Error('HTTP '+pr.status+'/'+sr.status);
    const players=new Map((await pr.json()).map(p=>[p.player_id,p.display_name]));
    const sessions=await sr.json();
-   if(overlay.hidden)return;
+   if(overlay.hidden||controller!==request||signal.aborted)return;
    const now=Date.now();
    sessions.forEach((s,i)=>{
     const tr=document.createElement('tr');
@@ -42,12 +57,12 @@
      dot.setAttribute('aria-label','Game active recently');dot.title='Game in progress (updated within 30 minutes)';
      playerCell.appendChild(dot);
     }
-    [s.score.toLocaleString(),s.lines,(s.difficulty||"fixed").toUpperCase(),new Date(s.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
+    [s.score.toLocaleString(),s.lines,new Date(s.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
     rows.appendChild(tr);
    });
-   status.textContent=sessions.length?'':'No scores yet';
+   status.textContent=sessions.length?'':'No '+mode.toUpperCase()+' scores yet';
   }catch(error){
-   if(overlay.hidden)return;
+   if(overlay.hidden||controller!==request||signal.aborted)return;
    status.textContent='Could not load scores. Check your connection and retry.';
    retry.hidden=false;
   }finally{clearTimeout(timeout);}
@@ -56,7 +71,7 @@
   if(!overlay.hidden)return;
   resumeOnClose=game.phase!=='paused'&&game.phase!=='game_over'&&!session.outcome;
   if(resumeOnClose)togglePause();
-  saveGame(true);overlay.hidden=false;void load();
+  saveGame(true);overlay.hidden=false;setDefaultMode();void load();
  }
  function close(){
   if(overlay.hidden)return;
@@ -70,6 +85,7 @@
   el.addEventListener('click',e=>{if(performance.now()-last<750){e.preventDefault();return;}fn();});
  }
  tap(button,open);tap(overlay.querySelector('#scores-back'),close);tap(retry,()=>void load());
+ for(const tab of modeButtons)tap(tab,()=>selectMode(tab.dataset.mode));
  button.hidden=false;
  document.addEventListener('keydown',e=>{if(!overlay.hidden){if(e.key==='Escape')close();e.preventDefault();e.stopImmediatePropagation();}},true);
 })();

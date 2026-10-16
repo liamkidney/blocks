@@ -661,9 +661,16 @@ body.two-player #player-header{display:none}
 #high-scores-overlay td{font-size:clamp(12px,3.5vw,17px);font-weight:800;border-bottom:1px solid var(--ink);padding:15px 8px}
 #high-scores-overlay th:first-child,#high-scores-overlay td:first-child{width:46px}
 #high-scores-overlay th:nth-child(3),#high-scores-overlay th:nth-child(4),#high-scores-overlay td:nth-child(3),#high-scores-overlay td:nth-child(4){text-align:right}
-#high-scores-overlay th:nth-child(5),#high-scores-overlay td:nth-child(5){text-align:right;white-space:nowrap}
-#high-scores-overlay td:nth-child(5){font-size:clamp(10px,2.8vw,12px);font-weight:700}
+#high-scores-overlay th:nth-child(5),#high-scores-overlay td:nth-child(5){text-align:center;white-space:nowrap}
+#high-scores-overlay th:nth-child(6),#high-scores-overlay td:nth-child(6){text-align:right;white-space:nowrap}
+#high-scores-overlay td:nth-child(5),#high-scores-overlay td:nth-child(6){font-size:clamp(10px,2.8vw,12px);font-weight:700}
 #high-scores-overlay td:nth-child(2){overflow-wrap:anywhere}
+@media (max-width:440px){
+  #high-scores-overlay .scores-panel{padding-left:10px;padding-right:10px}
+  #high-scores-overlay th{padding-left:4px;padding-right:4px;letter-spacing:.5px;font-size:9px}
+  #high-scores-overlay td{padding-left:4px;padding-right:4px;font-size:12px}
+  #high-scores-overlay th:first-child,#high-scores-overlay td:first-child{width:26px}
+}
 #scores-status{font-size:12px;font-weight:700;margin:18px 0}
 #scores-back,#scores-retry{border:2px solid var(--ink);background:var(--ink);color:var(--paper);padding:12px 18px;font:900 12px Helvetica,Arial,sans-serif;letter-spacing:1px;margin:0 0 22px;touch-action:manipulation}
 #scores-retry[hidden]{display:none}

@@ -23,6 +23,8 @@
    pieces_mode:mode,ghost_mode:ghost};
  }
  function queue(status=game.phase==='game_over'?'completed':'active',force=false){
+  // The initial mode chooser is not a played session.
+  if(window.BLOCKS_AWAITING_START)return Promise.resolve();
   const item=capture(status);
   if(!item.player_id)return Promise.resolve();
   const previous=pending.get(item.session_id);

@@ -45,7 +45,7 @@ jobs:
               node --check "$source/$script"
             done
           done
-          node --test development/tests/*.test.cjs
+          (cd development && node --test tests/*.test.cjs)
 
       - name: Build production and development sites
         run: |

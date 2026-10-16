@@ -48,8 +48,16 @@ test("legacy snapshots without difficulty still restore",()=>{
   const game=new Game({difficulty:"easy"});
   const snapshot=game.toSnapshot();
   delete snapshot.difficulty;
-  assert.equal(Game.fromSnapshot(snapshot,{}).difficulty,"fixed");
+  assert.equal(Game.fromSnapshot(snapshot,{}).difficulty,"beginner");
   assert.equal(Game.fromSnapshot(snapshot,{difficulty:"hard"}).tickSeconds,48/60);
+});
+test("old fixed-mode snapshots migrate to Beginner",()=>{
+  const snapshot=new Game({difficulty:"beginner"}).toSnapshot();
+  snapshot.difficulty="fixed";
+  const restored=Game.fromSnapshot(snapshot,{difficulty:"hard"});
+  assert.equal(restored.difficulty,"beginner");
+  assert.equal(restored.tickSeconds,48/60);
+  assert.equal(restored.toSnapshot().difficulty,"beginner");
 });
 test("both players use the selected mode for a new match",()=>{
   const session=new GameSession({playerCount:2,config:{difficulty:"hard"}});
@@ -60,18 +68,18 @@ test("both players use the selected mode for a new match",()=>{
   assert.ok(session.games.every(game=>game.difficulty==="easy"));
 });
 
-test("fixed mode always stays at 0.8 seconds per row",()=>{
-  const game=new Game({difficulty:"fixed"});
+test("beginner mode always stays at 0.8 seconds per row",()=>{
+  const game=new Game({difficulty:"beginner"});
   assert.equal(game.tickSeconds,48/60);
   game.lines=500;
   assert.equal(game.level,0);
   assert.equal(game.tickSeconds,48/60);
 });
-test("fixed difficulty survives a saved game",()=>{
-  const game=new Game({difficulty:"fixed"});
+test("beginner difficulty survives a saved game",()=>{
+  const game=new Game({difficulty:"beginner"});
   game.lines=40;
   const resumed=Game.fromSnapshot(game.toSnapshot(),{difficulty:"hard"});
-  assert.equal(resumed.difficulty,"fixed");
+  assert.equal(resumed.difficulty,"beginner");
   assert.equal(resumed.tickSeconds,48/60);
 });
 test("difficulty is validated when restoring saved games",()=>{

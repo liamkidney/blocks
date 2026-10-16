@@ -70,7 +70,8 @@ class Game {
     if(active&&(!validName(active.name)||!Number.isInteger(active.x)||!Number.isInteger(active.y)||
        !integer(active.orientation)||active.orientation>3))throw new Error("Invalid active piece");
     if(snapshot.difficulty!==undefined&&!Object.hasOwn(START_LEVEL,snapshot.difficulty))throw new Error("Invalid saved difficulty");
-    const game=new Game({...config,difficulty:snapshot.difficulty??config.difficulty});
+    // Saves from before difficulty modes ran at a constant 0.8s per row.
+    const game=new Game({...config,difficulty:snapshot.difficulty??"fixed"});
     game.grid=snapshot.grid.map(row=>[...row]);
     game.phase="paused";
     game.pausedPhase=clearing?"clearing_lines":"falling";

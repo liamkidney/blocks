@@ -80,6 +80,7 @@ test("one touch switches to a separately ranked server-side scoreboard",async()=
   assert.match(requests[0],/difficulty=eq.easy/);
   assert.match(requests[1],/difficulty=eq.fixed/);
   assert.match(requests[1],/order=score.desc&limit=10/);
+  assert.ok(requests.every(url=>!url.includes("score=gte.")),"all scores must be eligible regardless of size");
   assert.equal(b.modes[0].attrs["aria-pressed"],"true");
   assert.equal(b.modes[1].attrs["aria-pressed"],"false");
   assert.equal(b.element("#scores-status").textContent,"No FIXED scores yet");

@@ -1,0 +1,35 @@
+name: Validate Blocks Dev
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout development
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: development
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate JavaScript
+        run: |
+          set -euo pipefail
+          for script in config.js tetrominoes.js game.js session.js app.js multiplayer.js player-name.js score-sync.js high-scores.js sw.js version.js; do
+            node --check "development/$script"
+          done
+
+      - name: Run tests
+        run: |
+          cd development
+          node --test tests/*.test.cjs

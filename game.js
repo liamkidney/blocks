@@ -1,7 +1,7 @@
 // NES gravity curve in 60 Hz frames per row. Easy begins at level 0;
 // Hard begins at level 5. Both advance one level per ten cleared lines.
 const GRAVITY_FRAMES=[48,43,38,33,28,23,18,13,8,6,5,5,5,4,4,4,3,3,3,2,2,2,2,2,2,2,2,2,2,1];
-const START_LEVEL={easy:0,hard:5};
+const START_LEVEL={fixed:0,easy:0,hard:5};
 
 class PieceQueue {
   static DROUGHT_WEIGHT = 0.2;
@@ -37,7 +37,7 @@ class Game {
     const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
     this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
   }
-  get level(){return START_LEVEL[this.difficulty]+Math.floor(this.lines/10);}
+  get level(){return this.difficulty==="fixed"?0:START_LEVEL[this.difficulty]+Math.floor(this.lines/10);}
   get tickSeconds(){return GRAVITY_FRAMES[Math.min(this.level,GRAVITY_FRAMES.length-1)]/60;}
   toSnapshot(){
     return {

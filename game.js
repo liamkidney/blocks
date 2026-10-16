@@ -1,3 +1,8 @@
+// NES gravity curve in 60 Hz frames per row. Easy begins at level 0;
+// Hard begins at level 5. Both advance one level per ten cleared lines.
+const GRAVITY_FRAMES=[48,43,38,33,28,23,18,13,8,6,5,5,5,4,4,4,3,3,3,2,2,2,2,2,2,2,2,2,2,1];
+const START_LEVEL={easy:0,hard:5};
+
 class PieceQueue {
   static DROUGHT_WEIGHT = 0.2;
   constructor(tetrominoes=TETROMINOES){
@@ -26,14 +31,17 @@ class Game {
     this.width=10; this.height=20;
     this.grid=Array.from({length:this.height},()=>Array(this.width).fill(null));
     this.phase="falling"; this.completedRows=[]; this.score=0; this.lines=0;
-    this.tickSeconds=0.8; this.elapsed=0;
+    this.difficulty=Object.hasOwn(START_LEVEL,config.difficulty)?config.difficulty:"easy";
+    this.elapsed=0;
     const allowedNames=config.allowedPieces||TETROMINOES.map(t=>t.name);
     const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
     this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
   }
+  get level(){return START_LEVEL[this.difficulty]+Math.floor(this.lines/10);}
+  get tickSeconds(){return GRAVITY_FRAMES[Math.min(this.level,GRAVITY_FRAMES.length-1)]/60;}
   toSnapshot(){
     return {
-      version:1,grid:this.grid.map(row=>[...row]),phase:this.phase,
+      version:1,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
       pausedPhase:this.pausedPhase||null,completedRows:[...this.completedRows],
       score:this.score,lines:this.lines,elapsed:this.elapsed,
       active:this.active?{name:this.active.tetromino.name,x:this.active.x,y:this.active.y,orientation:this.active.orientation}:null,
@@ -61,7 +69,8 @@ class Game {
     if((!clearing&&!active)||(clearing&&active))throw new Error("Invalid active piece");
     if(active&&(!validName(active.name)||!Number.isInteger(active.x)||!Number.isInteger(active.y)||
        !integer(active.orientation)||active.orientation>3))throw new Error("Invalid active piece");
-    const game=new Game(config);
+    if(snapshot.difficulty!==undefined&&!Object.hasOwn(START_LEVEL,snapshot.difficulty))throw new Error("Invalid saved difficulty");
+    const game=new Game({...config,difficulty:snapshot.difficulty??config.difficulty});
     game.grid=snapshot.grid.map(row=>[...row]);
     game.phase="paused";
     game.pausedPhase=clearing?"clearing_lines":"falling";

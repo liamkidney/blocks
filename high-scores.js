@@ -6,23 +6,23 @@
  document.getElementById('high-scores-slot').appendChild(button);
  const overlay=document.createElement('div');
  overlay.id='high-scores-overlay';overlay.hidden=true;
- overlay.innerHTML='<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><div id="scores-mode-tabs" class="restart-options scores-mode-tabs" role="group" aria-label="Difficulty"><button type="button" data-mode="beginner" aria-pressed="false">BEGINNER</button><button type="button" data-mode="easy" aria-pressed="false">EASY</button><button type="button" data-mode="hard" aria-pressed="false">HARD</button></div><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>';
+ overlay.innerHTML=`<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><div id="scores-mode-tabs" class="restart-options scores-mode-tabs" role="group" aria-label="Difficulty">${GAME_MODE_IDS.map(id=>`<button type="button" data-mode="${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}</div><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>`;
  document.body.appendChild(overlay);
  const rows=overlay.querySelector('#scores-rows');
  const status=overlay.querySelector('#scores-status');
  const retry=overlay.querySelector('#scores-retry');
- const modes=['beginner','easy','hard'];
  const modeButtons=Array.from(overlay.querySelectorAll('#scores-mode-tabs button'));
- let selectedMode='beginner';
+ let selectedMode=0;
  function selectMode(mode){
-  if(!modes.includes(mode)||selectedMode===mode)return;
-  selectedMode=mode;
-  for(const tab of modeButtons)tab.setAttribute('aria-pressed',String(tab.dataset.mode===mode));
+  const parsed=parseGameMode(mode);
+  if(parsed===null||selectedMode===parsed)return;
+  selectedMode=parsed;
+  for(const tab of modeButtons)tab.setAttribute('aria-pressed',String(Number(tab.dataset.mode)===selectedMode));
   if(!overlay.hidden)void load();
  }
  function setDefaultMode(){
-  selectedMode=modes.includes(game.difficulty)?game.difficulty:"beginner";
-  for(const tab of modeButtons)tab.setAttribute('aria-pressed',String(tab.dataset.mode===selectedMode));
+  selectedMode=parseGameMode(game.difficulty)??0;
+  for(const tab of modeButtons)tab.setAttribute('aria-pressed',String(Number(tab.dataset.mode)===selectedMode));
  }
  const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
  const headers={apikey:'sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH'};
@@ -60,7 +60,7 @@
     [s.score.toLocaleString(),s.lines,new Date(s.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
     rows.appendChild(tr);
    });
-   status.textContent=sessions.length?'':'No '+mode.toUpperCase()+' scores yet';
+   status.textContent=sessions.length?'':'No '+GAME_MODES[mode].label.toUpperCase()+' scores yet';
   }catch(error){
    if(overlay.hidden||controller!==request||signal.aborted)return;
    status.textContent='Could not load scores. Check your connection and retry.';

@@ -23,6 +23,7 @@ let game=session.games[0];
 const initialStart=!autoStart&&session.games.some(g=>g.phase!=="paused");
 if(initialStart)session.pause();
 let awaitingInitialStart=initialStart;
+window.BLOCKS_AWAITING_START=initialStart;
 let skipSaveOnNavigation=false;
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
@@ -123,7 +124,7 @@ function closeRestartDialog(){
 }
 function startNewGame(playerCount=TWO_PLAYER?2:1){
   try{localStorage.setItem(DIFFICULTY_KEY,selectedDifficulty)}catch(_){}
-  if(!TWO_PLAYER)window.dispatchEvent(new Event("blocks:restart"));
+  if(!TWO_PLAYER&&!awaitingInitialStart)window.dispatchEvent(new Event("blocks:restart"));
   if(playerCount!==(TWO_PLAYER?2:1)){
     skipSaveOnNavigation=true;
     try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(saveKeyFor(playerCount));}catch(_){}
@@ -136,6 +137,7 @@ function startNewGame(playerCount=TWO_PLAYER?2:1){
   }
   restartDialog.hidden=true;
   awaitingInitialStart=false;
+  window.BLOCKS_AWAITING_START=false;
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
   session.config.difficulty=selectedDifficulty;
   game=session.replaceGame(0);

@@ -19,6 +19,11 @@ for(const name of assets){
   if(!existsSync(from))throw new Error("Missing build asset: "+from);
   copyFileSync(from,join(output,name));
 }
+// New game modes are present in dev only until gameplay is explicitly released.
+if(channel==="dev"&&!existsSync(join(source,"game-modes.js")))
+  throw new Error("Missing dev game-modes.js");
+if(existsSync(join(source,"game-modes.js")))
+  copyFileSync(join(source,"game-modes.js"),join(output,"game-modes.js"));
 const name=channel==="dev"?"Blocks Dev":"Blocks";
 const appPath=channel==="dev"?"/blocks/dev/":"/blocks/";
 const manifest=JSON.parse(readFileSync(join(output,"manifest.json"),"utf8"));

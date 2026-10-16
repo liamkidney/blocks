@@ -5,10 +5,10 @@ const SAVE_KEY=saveKeyFor(TWO_PLAYER?2:1);
 const DIFFICULTY_KEY="blocks:difficulty:v1:"+location.pathname.replace(/index[.]html$/,"");
 const GHOST_KEY="blocks:ghost:v1:"+location.pathname.replace(/index[.]html$/,"");
 const AUTO_START_KEY="blocks:auto-start:v1";
-let selectedDifficulty="easy",autoStart=false;
+let selectedDifficulty=DEFAULT_GAME_MODE,autoStart=false;
 try{
-  const savedMode=localStorage.getItem(DIFFICULTY_KEY)||localStorage.getItem("blocks:difficulty:v1");
-  if(["beginner","easy","hard","fixed"].includes(savedMode))selectedDifficulty=savedMode==="fixed"?"beginner":savedMode;
+  const savedMode=localStorage.getItem(DIFFICULTY_KEY)??localStorage.getItem("blocks:difficulty:v1");
+  selectedDifficulty=parseGameMode(savedMode)??DEFAULT_GAME_MODE;
 }catch(_){}
 // A saved preference takes precedence over the original ?ghost= URL default.
 let selectedGhostPiece=window.BLOCKS_CONFIG?.ghostPiece===true;
@@ -113,9 +113,7 @@ restartDialog.innerHTML=`
     <p id="restart-description">CHOOSE YOUR SETTINGS BEFORE STARTING.</p>
     <div class="restart-mode-label" id="difficulty-label">SPEED</div>
     <div class="restart-options" role="group" aria-labelledby="difficulty-label">
-      <button type="button" id="difficulty-beginner" aria-pressed="false">BEGINNER</button>
-      <button type="button" id="difficulty-easy" aria-pressed="false">EASY</button>
-      <button type="button" id="difficulty-hard" aria-pressed="false">HARD</button>
+      ${GAME_MODE_IDS.map(id=>`<button type="button" id="difficulty-${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}
     </div>
     <div id="difficulty-description" class="restart-hint"></div>
     <div class="restart-mode-label" id="ghost-label">GHOST PIECE</div>
@@ -136,26 +134,19 @@ const cancelRestartButton=document.getElementById("restart-cancel");
 const startGameButton=document.getElementById("restart-start");
 const onePlayerButton=document.getElementById("restart-one");
 const twoPlayerButton=document.getElementById("restart-two");
-const beginnerButton=document.getElementById("difficulty-beginner");
-const easyButton=document.getElementById("difficulty-easy");
-const hardButton=document.getElementById("difficulty-hard");
+const difficultyButtons=GAME_MODE_IDS.map(id=>[id,document.getElementById("difficulty-"+id)]);
 const ghostOffButton=document.getElementById("ghost-off");
 const ghostOnButton=document.getElementById("ghost-on");
 const difficultyDescription=document.getElementById("difficulty-description");
 const restartTitle=document.getElementById("restart-title");
 const restartDescription=document.getElementById("restart-description");
 let selectedPlayers=TWO_PLAYER?2:1;
-const DIFFICULTY_HINTS={
-  beginner:"0.80s per row. Never speeds up.",
-  easy:"Starts at 0.80s per row. Faster every 10 lines.",
-  hard:"Starts at 0.38s per row. Faster every 10 lines."
-};
 function selectDifficulty(difficulty){
-  if(!Object.hasOwn(DIFFICULTY_HINTS,difficulty))return;
-  selectedDifficulty=difficulty;
-  for(const [button,value] of [[beginnerButton,"beginner"],[easyButton,"easy"],[hardButton,"hard"]])
-    button.setAttribute("aria-pressed",String(value===difficulty));
-  difficultyDescription.textContent=DIFFICULTY_HINTS[difficulty];
+  if(!Object.hasOwn(GAME_MODES,difficulty))return;
+  selectedDifficulty=Number(difficulty);
+  for(const [id,button] of difficultyButtons)
+    button.setAttribute("aria-pressed",String(id===selectedDifficulty));
+  difficultyDescription.textContent=GAME_MODES[selectedDifficulty].description;
 }
 function selectGhostPiece(enabled){
   selectedGhostPiece=enabled;
@@ -237,9 +228,8 @@ bindImmediateAction(cancelRestartButton,closeRestartDialog);
 bindImmediateAction(startGameButton,()=>startNewGame());
 bindImmediateAction(onePlayerButton,()=>selectPlayerCount(1));
 bindImmediateAction(twoPlayerButton,()=>selectPlayerCount(2));
-bindImmediateAction(beginnerButton,()=>selectDifficulty("beginner"));
-bindImmediateAction(easyButton,()=>selectDifficulty("easy"));
-bindImmediateAction(hardButton,()=>selectDifficulty("hard"));
+for(const [id,button] of difficultyButtons)
+  bindImmediateAction(button,()=>selectDifficulty(id));
 bindImmediateAction(ghostOffButton,()=>selectGhostPiece(false));
 bindImmediateAction(ghostOnButton,()=>selectGhostPiece(true));
 selectDifficulty(selectedDifficulty);

@@ -26,9 +26,11 @@ c.games[1].grid[19][0]="I";
 c.games[0].onEvent({type:"lines_cleared",count:2});
 assert.equal(c.games[1].phase,"game_over");
 const d=new GameSession({playerCount:2});
+// An active piece is allowed to rise above the visible board. Only locked blocks top out.
 d.games[1].active.y=19;
 d.games[0].onEvent({type:"lines_cleared",count:2});
-assert.equal(d.games[1].phase,"game_over");
+assert.equal(d.games[1].phase,"falling");
+assert.equal(d.games[1].active.y,20);
 const solo=new GameSession();
 solo.games[0].onEvent({type:"lines_cleared",count:4});
 assert.equal(solo.games[0].grid[0].some(Boolean),false);

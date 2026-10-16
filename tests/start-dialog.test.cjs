@@ -39,7 +39,7 @@ function boot(savedMode=null,savedGhost=null){
     URLSearchParams,URL,Event,
   };
   const context=vm.createContext(sandbox);
-  for(const file of ["tetrominoes.js","game.js","session.js","app.js"]){
+  for(const file of ["game-modes.js","tetrominoes.js","game.js","session.js","app.js"]){
     vm.runInContext(fs.readFileSync(path.join(__dirname,"..",file),"utf8"),context,{filename:file});
   }
   function tap(id){
@@ -57,22 +57,22 @@ test("fresh start shows choices without beginning the game",()=>{
   assert.equal(b.evaluate("restartDialog.hidden"),false);
   assert.equal(b.get("restart-cancel").hidden,true);
   assert.equal(b.get("restart-one").attrs["aria-pressed"],"true");
-  b.tap("difficulty-hard");
-  assert.equal(b.get("difficulty-hard").attrs["aria-pressed"],"true");
+  b.tap("difficulty-2");
+  assert.equal(b.get("difficulty-2").attrs["aria-pressed"],"true");
   assert.equal(b.evaluate("game.phase"),"paused"); // Selection alone never starts the game.
   b.tap("restart-start");
   assert.equal(b.evaluate("game.phase"),"falling");
-  assert.equal(b.evaluate("game.difficulty"),"hard");
+  assert.equal(b.evaluate("game.difficulty"),2);
   assert.equal(b.evaluate("restartDialog.hidden"),true);
 });
 test("beginner mode and preference persist into a fresh start",()=>{
   const b=boot("hard");
-  assert.equal(b.get("difficulty-hard").attrs["aria-pressed"],"true");
-  b.tap("difficulty-beginner");
-  assert.equal(b.get("difficulty-beginner").attrs["aria-pressed"],"true");
+  assert.equal(b.get("difficulty-2").attrs["aria-pressed"],"true");
+  b.tap("difficulty-0");
+  assert.equal(b.get("difficulty-0").attrs["aria-pressed"],"true");
   b.tap("restart-start");
-  assert.equal(b.evaluate("game.difficulty"),"beginner");
-  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"beginner");
+  assert.equal(b.evaluate("game.difficulty"),0);
+  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"0");
 });
 test("restarting is a separate confirmation, and cancel preserves game",()=>{
   const b=boot();
@@ -80,8 +80,8 @@ test("restarting is a separate confirmation, and cancel preserves game",()=>{
   const before=b.evaluate("game");
   b.evaluate("restartGame()");
   assert.equal(b.evaluate("restartDialog.hidden"),false);
-  b.tap("difficulty-hard");
-  assert.equal(b.evaluate("game.difficulty"),"easy");
+  b.tap("difficulty-2");
+  assert.equal(b.evaluate("game.difficulty"),1);
   b.tap("restart-cancel");
   assert.equal(b.evaluate("game"),before);
   assert.equal(b.evaluate("game.phase"),"falling");
@@ -120,8 +120,16 @@ test("ghost selection persists and cancelling a restart restores active preferen
 
 test("an old saved fixed difficulty preference opens as Beginner",()=>{
   const b=boot("fixed");
-  assert.equal(b.get("difficulty-beginner").attrs["aria-pressed"],"true");
+  assert.equal(b.get("difficulty-0").attrs["aria-pressed"],"true");
   b.tap("restart-start");
-  assert.equal(b.evaluate("game.difficulty"),"beginner");
-  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"beginner");
+  assert.equal(b.evaluate("game.difficulty"),0);
+  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"0");
+});
+
+test("numeric difficulty preferences are restored as numeric IDs",()=>{
+  const b=boot("2");
+  assert.equal(b.get("difficulty-2").attrs["aria-pressed"],"true");
+  b.tap("restart-start");
+  assert.equal(b.evaluate("game.difficulty"),2);
+  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"2");
 });

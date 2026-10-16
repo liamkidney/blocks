@@ -5,8 +5,10 @@ const fs=require("node:fs");
 const vm=require("node:vm");
 const path=require("node:path");
 
-function boot(savedMode=null){
-  const storage=new Map(savedMode?[["blocks:difficulty:v1:/blocks/dev/",savedMode]]:[]);
+function boot(savedMode=null,savedGhost=null){
+  const storage=new Map();
+  if(savedMode!==null)storage.set("blocks:difficulty:v1:/blocks/dev/",savedMode);
+  if(savedGhost!==null)storage.set("blocks:ghost:v1:/blocks/dev/",String(savedGhost));
   const sessionData=new Map();
   class Element{
     constructor(id=""){this.id=id;this.hidden=false;this.dataset={};this.style={};this.attrs={};this.listeners={};this.children=[];this.classList={contains:()=>false,add:()=>{},remove:()=>{},toggle:()=>{}};}
@@ -84,4 +86,34 @@ test("restarting is a separate confirmation, and cancel preserves game",()=>{
   assert.equal(b.evaluate("game"),before);
   assert.equal(b.evaluate("game.phase"),"falling");
   assert.equal(b.evaluate("restartDialog.hidden"),true);
+});
+
+test("ghost selector applies only when starting a game and remembers On",()=>{
+  const b=boot();
+  assert.equal(b.get("ghost-off").attrs["aria-pressed"],"true");
+  assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),false);
+  b.tap("ghost-on");
+  assert.equal(b.get("ghost-on").attrs["aria-pressed"],"true");
+  assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),false);
+  b.tap("restart-start");
+  assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),true);
+  assert.equal(b.storage.get("blocks:ghost:v1:/blocks/dev/"),"true");
+});
+test("ghost selection persists and cancelling a restart restores active preference",()=>{
+  const b=boot(null,true);
+  assert.equal(b.get("ghost-on").attrs["aria-pressed"],"true");
+  b.tap("restart-start");
+  assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),true);
+  b.evaluate("restartGame()");
+  b.tap("ghost-off");
+  assert.equal(b.get("ghost-off").attrs["aria-pressed"],"true");
+  b.tap("restart-cancel");
+  assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),true);
+  assert.equal(b.get("ghost-on").attrs["aria-pressed"],"true");
+  assert.equal(b.storage.get("blocks:ghost:v1:/blocks/dev/"),"true");
+  b.evaluate("restartGame()");
+  b.tap("ghost-off");
+  b.tap("restart-start");
+  assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),false);
+  assert.equal(b.storage.get("blocks:ghost:v1:/blocks/dev/"),"false");
 });

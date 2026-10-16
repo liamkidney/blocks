@@ -1,7 +1,6 @@
 // NES gravity curve in 60 Hz frames per row. Easy begins at level 0;
 // Hard begins at level 5. Both advance one level per ten cleared lines.
 const GRAVITY_FRAMES=[48,43,38,33,28,23,18,13,8,6,5,5,5,4,4,4,3,3,3,2,2,2,2,2,2,2,2,2,2,1];
-const START_LEVEL={beginner:0,easy:0,hard:5};
 
 class PieceQueue {
   static DROUGHT_WEIGHT = 0.2;
@@ -31,13 +30,13 @@ class Game {
     this.width=10; this.height=20;
     this.grid=Array.from({length:this.height},()=>Array(this.width).fill(null));
     this.phase="falling"; this.completedRows=[]; this.score=0; this.lines=0;
-    this.difficulty=Object.hasOwn(START_LEVEL,config.difficulty)?config.difficulty:"easy";
+    this.difficulty=parseGameMode(config.difficulty)??DEFAULT_GAME_MODE;
     this.elapsed=0;
     const allowedNames=config.allowedPieces||TETROMINOES.map(t=>t.name);
     const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
     this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
   }
-  get level(){return this.difficulty==="beginner"?0:START_LEVEL[this.difficulty]+Math.floor(this.lines/10);}
+  get level(){const mode=GAME_MODES[this.difficulty];return mode.startingLevel+(mode.progressive?Math.floor(this.lines/10):0);}
   get tickSeconds(){return GRAVITY_FRAMES[Math.min(this.level,GRAVITY_FRAMES.length-1)]/60;}
   toSnapshot(){
     return {
@@ -69,9 +68,9 @@ class Game {
     if((!clearing&&!active)||(clearing&&active))throw new Error("Invalid active piece");
     if(active&&(!validName(active.name)||!Number.isInteger(active.x)||!Number.isInteger(active.y)||
        !integer(active.orientation)||active.orientation>3))throw new Error("Invalid active piece");
-    if(snapshot.difficulty!==undefined&&snapshot.difficulty!=="fixed"&&!Object.hasOwn(START_LEVEL,snapshot.difficulty))throw new Error("Invalid saved difficulty");
-    // Legacy snapshots without a mode or with "fixed" use the renamed Beginner mode.
-    const game=new Game({...config,difficulty:snapshot.difficulty==="fixed"?"beginner":snapshot.difficulty??"beginner"});
+    if(snapshot.difficulty!==undefined&&parseGameMode(snapshot.difficulty)===null)throw new Error("Invalid saved difficulty");
+    // Older snapshots without a mode used constant 0.8s gravity (Beginner).
+    const game=new Game({...config,difficulty:snapshot.difficulty===undefined?0:parseGameMode(snapshot.difficulty)});
     game.grid=snapshot.grid.map(row=>[...row]);
     game.phase="paused";
     game.pausedPhase=clearing?"clearing_lines":"falling";

@@ -1,5 +1,5 @@
 const CACHE="blocks-v5-speed-modes";
-const ASSETS=["./","index.html","styles.css","tetrominoes.js","game.js","session.js","app.js","multiplayer.js","config.js","version.js","player-name.js","score-sync.js","high-scores.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
+const ASSETS=["./","index.html","styles.css","game-modes.js","tetrominoes.js","game.js","session.js","app.js","multiplayer.js","config.js","version.js","player-name.js","score-sync.js","high-scores.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
 
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE)

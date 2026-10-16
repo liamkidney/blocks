@@ -65,14 +65,14 @@ test("fresh start shows choices without beginning the game",()=>{
   assert.equal(b.evaluate("game.difficulty"),"hard");
   assert.equal(b.evaluate("restartDialog.hidden"),true);
 });
-test("fixed mode and preference persist into a fresh start",()=>{
+test("beginner mode and preference persist into a fresh start",()=>{
   const b=boot("hard");
   assert.equal(b.get("difficulty-hard").attrs["aria-pressed"],"true");
-  b.tap("difficulty-fixed");
-  assert.equal(b.get("difficulty-fixed").attrs["aria-pressed"],"true");
+  b.tap("difficulty-beginner");
+  assert.equal(b.get("difficulty-beginner").attrs["aria-pressed"],"true");
   b.tap("restart-start");
-  assert.equal(b.evaluate("game.difficulty"),"fixed");
-  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"fixed");
+  assert.equal(b.evaluate("game.difficulty"),"beginner");
+  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"beginner");
 });
 test("restarting is a separate confirmation, and cancel preserves game",()=>{
   const b=boot();
@@ -116,4 +116,12 @@ test("ghost selection persists and cancelling a restart restores active preferen
   b.tap("restart-start");
   assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),false);
   assert.equal(b.storage.get("blocks:ghost:v1:/blocks/dev/"),"false");
+});
+
+test("an old saved fixed difficulty preference opens as Beginner",()=>{
+  const b=boot("fixed");
+  assert.equal(b.get("difficulty-beginner").attrs["aria-pressed"],"true");
+  b.tap("restart-start");
+  assert.equal(b.evaluate("game.difficulty"),"beginner");
+  assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"beginner");
 });

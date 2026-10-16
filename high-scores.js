@@ -6,7 +6,7 @@
  document.getElementById('high-scores-slot').appendChild(button);
  const overlay=document.createElement('div');
  overlay.id='high-scores-overlay';overlay.hidden=true;
- overlay.innerHTML='<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>';
+ overlay.innerHTML='<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>MODE</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>';
  document.body.appendChild(overlay);
  const rows=overlay.querySelector('#scores-rows');
  const status=overlay.querySelector('#scores-status');
@@ -24,7 +24,7 @@
   try{
    const [pr,sr]=await Promise.all([
     fetch(API+'players?select=player_id,display_name&limit=1000',{headers,signal}),
-    fetch(API+'sessions?select=player_id,score,lines,status,updated_at&score=gte.1000&order=score.desc&limit=10',{headers,signal})
+    fetch(API+'sessions?select=player_id,score,lines,difficulty,status,updated_at&score=gte.1000&order=score.desc&limit=10',{headers,signal})
    ]);
    if(!pr.ok||!sr.ok)throw Error('HTTP '+pr.status+'/'+sr.status);
    const players=new Map((await pr.json()).map(p=>[p.player_id,p.display_name]));
@@ -42,7 +42,7 @@
      dot.setAttribute('aria-label','Game active recently');dot.title='Game in progress (updated within 30 minutes)';
      playerCell.appendChild(dot);
     }
-    [s.score.toLocaleString(),s.lines,new Date(s.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
+    [s.score.toLocaleString(),s.lines,(s.difficulty||"fixed").toUpperCase(),new Date(s.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
     rows.appendChild(tr);
    });
    status.textContent=sessions.length?'':'No scores yet';

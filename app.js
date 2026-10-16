@@ -2,10 +2,13 @@ const gameParams=new URLSearchParams(location.search);
 const saveKeyFor=playerCount=>"blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(playerCount===2?":two":"")+(gameParams.get("pieces")?.toUpperCase()==="IO"?":io":"");
 const TWO_PLAYER=gameParams.get("players")==="2";
 const SAVE_KEY=saveKeyFor(TWO_PLAYER?2:1);
-const DIFFICULTY_KEY="blocks:difficulty:v1";
+const DIFFICULTY_KEY="blocks:difficulty:v1:"+location.pathname.replace(/index[.]html$/,"");
 const AUTO_START_KEY="blocks:auto-start:v1";
 let selectedDifficulty="easy",autoStart=false;
-try{if(localStorage.getItem(DIFFICULTY_KEY)==="hard")selectedDifficulty="hard";}catch(_){}
+try{
+  const savedMode=localStorage.getItem(DIFFICULTY_KEY)||localStorage.getItem("blocks:difficulty:v1");
+  if(["fixed","easy","hard"].includes(savedMode))selectedDifficulty=savedMode;
+}catch(_){}
 try{autoStart=sessionStorage.getItem(AUTO_START_KEY)==="1";sessionStorage.removeItem(AUTO_START_KEY);}catch(_){}
 const sessionConfig={...window.BLOCKS_CONFIG,difficulty:selectedDifficulty};
 let session;
@@ -95,25 +98,61 @@ restartDialog.hidden=true;
 restartDialog.setAttribute("role","dialog");
 restartDialog.setAttribute("aria-modal","true");
 restartDialog.setAttribute("aria-labelledby","restart-title");
-restartDialog.innerHTML='<div class="restart-panel"><div id="restart-title">NEW GAME</div><p id="restart-description">CHOOSE DIFFICULTY AND PLAYERS. YOUR CURRENT GAME WILL BE LOST.</p><div class="restart-mode-label">DIFFICULTY</div><div class="restart-choices difficulty-choices"><button type="button" id="difficulty-easy" aria-pressed="true">EASY</button><button type="button" id="difficulty-hard" aria-pressed="false">HARD</button></div><div class="restart-mode-label">PLAYERS</div><div class="restart-choices"><button type="button" id="restart-one">1 PLAYER</button><button type="button" id="restart-two">2 PLAYERS</button></div><button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button></div>';
+
+restartDialog.innerHTML=`
+  <div class="restart-panel">
+    <div id="restart-title">NEW GAME</div>
+    <p id="restart-description">CHOOSE YOUR SETTINGS BEFORE STARTING.</p>
+    <div class="restart-mode-label" id="difficulty-label">SPEED</div>
+    <div class="restart-options" role="group" aria-labelledby="difficulty-label">
+      <button type="button" id="difficulty-fixed" aria-pressed="false">FIXED</button>
+      <button type="button" id="difficulty-easy" aria-pressed="false">EASY</button>
+      <button type="button" id="difficulty-hard" aria-pressed="false">HARD</button>
+    </div>
+    <div id="difficulty-description" class="restart-hint"></div>
+    <div class="restart-mode-label" id="players-label">PLAYERS</div>
+    <div class="restart-options" role="group" aria-labelledby="players-label">
+      <button type="button" id="restart-one" aria-pressed="false">1 PLAYER</button>
+      <button type="button" id="restart-two" aria-pressed="false">2 PLAYERS</button>
+    </div>
+    <button type="button" id="restart-start" class="restart-primary">START GAME</button>
+    <button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button>
+  </div>`;
 document.body.appendChild(restartDialog);
 const cancelRestartButton=document.getElementById("restart-cancel");
+const startGameButton=document.getElementById("restart-start");
 const onePlayerButton=document.getElementById("restart-one");
 const twoPlayerButton=document.getElementById("restart-two");
+const fixedButton=document.getElementById("difficulty-fixed");
 const easyButton=document.getElementById("difficulty-easy");
 const hardButton=document.getElementById("difficulty-hard");
+const difficultyDescription=document.getElementById("difficulty-description");
 const restartTitle=document.getElementById("restart-title");
 const restartDescription=document.getElementById("restart-description");
+let selectedPlayers=TWO_PLAYER?2:1;
+const DIFFICULTY_HINTS={
+  fixed:"0.80s per row. Never speeds up.",
+  easy:"Starts at 0.80s per row. Faster every 10 lines.",
+  hard:"Starts at 0.38s per row. Faster every 10 lines."
+};
 function selectDifficulty(difficulty){
-  if(!["easy","hard"].includes(difficulty))return;
+  if(!Object.hasOwn(DIFFICULTY_HINTS,difficulty))return;
   selectedDifficulty=difficulty;
-  easyButton.setAttribute("aria-pressed",String(difficulty==="easy"));
-  hardButton.setAttribute("aria-pressed",String(difficulty==="hard"));
+  for(const [button,value] of [[fixedButton,"fixed"],[easyButton,"easy"],[hardButton,"hard"]])
+    button.setAttribute("aria-pressed",String(value===difficulty));
+  difficultyDescription.textContent=DIFFICULTY_HINTS[difficulty];
+}
+function selectPlayerCount(count){
+  if(count!==1&&count!==2)return;
+  selectedPlayers=count;
+  onePlayerButton.setAttribute("aria-pressed",String(count===1));
+  twoPlayerButton.setAttribute("aria-pressed",String(count===2));
 }
 let restartWasPaused=false;
 function closeRestartDialog(){
   restartDialog.hidden=true;
   selectDifficulty(game.difficulty);
+  selectPlayerCount(TWO_PLAYER?2:1);
   if(!restartWasPaused&&game.phase==="paused"){
     if(TWO_PLAYER)session.resume();
     else game.resume();
@@ -122,7 +161,7 @@ function closeRestartDialog(){
   saveGame(true);
   restartButton.focus();
 }
-function startNewGame(playerCount=TWO_PLAYER?2:1){
+function startNewGame(playerCount=selectedPlayers){
   try{localStorage.setItem(DIFFICULTY_KEY,selectedDifficulty)}catch(_){}
   if(!TWO_PLAYER&&!awaitingInitialStart)window.dispatchEvent(new Event("blocks:restart"));
   if(playerCount!==(TWO_PLAYER?2:1)){
@@ -152,8 +191,10 @@ function startNewGame(playerCount=TWO_PLAYER?2:1){
 function restartGame(){
   if(!restartDialog.hidden)return;
   selectDifficulty(game.difficulty);
+  selectPlayerCount(TWO_PLAYER?2:1);
   restartTitle.textContent="NEW GAME";
-  restartDescription.textContent="CHOOSE DIFFICULTY AND PLAYERS. YOUR CURRENT GAME WILL BE LOST.";
+  restartDescription.textContent="CHANGING SETTINGS WILL DISCARD THE CURRENT GAME.";
+  startGameButton.textContent="START NEW GAME";
   cancelRestartButton.hidden=false;
   restartWasPaused=game.phase==="paused";
   if(!restartWasPaused){
@@ -163,17 +204,21 @@ function restartGame(){
   restartDialog.hidden=false;
   renderActions();
   saveGame(true);
-  (TWO_PLAYER?twoPlayerButton:onePlayerButton).focus();
+  startGameButton.focus();
 }
 bindImmediateAction(cancelRestartButton,closeRestartDialog);
-bindImmediateAction(onePlayerButton,()=>startNewGame(1));
-bindImmediateAction(twoPlayerButton,()=>startNewGame(2));
+bindImmediateAction(startGameButton,()=>startNewGame());
+bindImmediateAction(onePlayerButton,()=>selectPlayerCount(1));
+bindImmediateAction(twoPlayerButton,()=>selectPlayerCount(2));
+bindImmediateAction(fixedButton,()=>selectDifficulty("fixed"));
 bindImmediateAction(easyButton,()=>selectDifficulty("easy"));
 bindImmediateAction(hardButton,()=>selectDifficulty("hard"));
 selectDifficulty(selectedDifficulty);
+selectPlayerCount(selectedPlayers);
 if(initialStart){
   restartTitle.textContent="START GAME";
-  restartDescription.textContent="CHOOSE DIFFICULTY AND NUMBER OF PLAYERS.";
+  restartDescription.textContent="CHOOSE SPEED AND PLAYER COUNT.";
+  startGameButton.textContent="START GAME";
   cancelRestartButton.hidden=true;
   restartDialog.hidden=false;
 }

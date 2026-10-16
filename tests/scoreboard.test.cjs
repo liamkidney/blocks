@@ -4,7 +4,7 @@ const fs=require("node:fs");
 const vm=require("node:vm");
 const path=require("node:path");
 
-function setup(difficulty="hard"){
+function setup(difficulty=2){
   const urls=[];
   class Element{
     constructor(){
@@ -22,9 +22,9 @@ function setup(difficulty="hard"){
     if(!elements.has(id))elements.set(id,new Element());
     return elements.get(id);
   };
-  const modes=["beginner","easy","hard"].map(mode=>{
+  const modes=[0,1,2].map(mode=>{
     const button=new Element();
-    button.dataset.mode=mode;
+    button.dataset.mode=String(mode);
     return button;
   });
   const overlay=new Element();
@@ -55,6 +55,7 @@ function setup(difficulty="hard"){
   const code=fs.readFileSync(path.join(__dirname,"..","high-scores.js"),"utf8");
   // The overlay element needs to be returned from createElement('div').
   sandbox.document.createElement=()=>overlay;
+  vm.runInContext(fs.readFileSync(path.join(__dirname,"..","game-modes.js"),"utf8"),context,{filename:"game-modes.js"});
   vm.runInContext(code,context,{filename:"high-scores.js"});
   const tap=button=>button.listeners.touchstart({preventDefault(){}});
   const flush=async()=>{await new Promise(resolve=>setImmediate(resolve));};
@@ -62,23 +63,23 @@ function setup(difficulty="hard"){
 }
 
 test("leaderboard opens on the current game's difficulty",async()=>{
-  const b=setup("hard");
+  const b=setup(2);
   b.tap(b.element("high-scores-button"));
   await b.flush();
   assert.equal(b.modes[2].attrs["aria-pressed"],"true");
   assert.equal(b.modes[0].attrs["aria-pressed"],"false");
-  assert.match(b.urls.find(url=>url.includes("/sessions?")),/difficulty=eq.hard/);
+  assert.match(b.urls.find(url=>url.includes("/sessions?")),/difficulty=eq.2/);
   assert.equal(b.element("#scores-status").textContent,"No HARD scores yet");
 });
 test("one touch switches to a separately ranked server-side scoreboard",async()=>{
-  const b=setup("easy");
+  const b=setup(1);
   b.tap(b.element("high-scores-button"));
   await b.flush();
   b.tap(b.modes[0]);
   await b.flush();
   const requests=b.urls.filter(url=>url.includes("/sessions?"));
-  assert.match(requests[0],/difficulty=eq.easy/);
-  assert.match(requests[1],/difficulty=eq.beginner/);
+  assert.match(requests[0],/difficulty=eq.1/);
+  assert.match(requests[1],/difficulty=eq.0/);
   assert.match(requests[1],/order=score.desc&limit=10/);
   assert.ok(requests.every(url=>!url.includes("score=gte.")),"all scores must be eligible regardless of size");
   assert.equal(b.modes[0].attrs["aria-pressed"],"true");
@@ -86,26 +87,26 @@ test("one touch switches to a separately ranked server-side scoreboard",async()=
   assert.equal(b.element("#scores-status").textContent,"No BEGINNER scores yet");
 });
 test("reopening leaderboard resets the selector to the game difficulty",async()=>{
-  const b=setup("hard");
+  const b=setup(2);
   b.tap(b.element("high-scores-button"));
   await b.flush();
   b.tap(b.modes[0]);
   await b.flush();
   b.tap(b.element("#scores-back"));
-  b.game.difficulty="easy";
+  b.game.difficulty=1;
   b.tap(b.element("high-scores-button"));
   await b.flush();
   const requests=b.urls.filter(url=>url.includes("/sessions?"));
-  assert.match(requests.at(-1),/difficulty=eq.easy/);
+  assert.match(requests.at(-1),/difficulty=eq.1/);
   assert.equal(b.modes[1].attrs["aria-pressed"],"true");
   assert.equal(b.modes[0].attrs["aria-pressed"],"false");
 });
 
-test("Beginner tab queries the canonical Beginner database value",async()=>{
-  const b=setup("beginner");
+test("Beginner tab queries canonical integer ID 0",async()=>{
+  const b=setup(0);
   b.tap(b.element("high-scores-button"));
   await b.flush();
   assert.equal(b.modes[0].attrs["aria-pressed"],"true");
-  assert.match(b.urls.find(url=>url.includes("/sessions?")),/difficulty=eq.beginner/);
+  assert.match(b.urls.find(url=>url.includes("/sessions?")),/difficulty=eq.0/);
   assert.equal(b.element("#scores-status").textContent,"No BEGINNER scores yet");
 });

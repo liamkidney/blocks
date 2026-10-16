@@ -3,12 +3,20 @@ const saveKeyFor=playerCount=>"blocks:game:v1:"+location.pathname.replace(/index
 const TWO_PLAYER=gameParams.get("players")==="2";
 const SAVE_KEY=saveKeyFor(TWO_PLAYER?2:1);
 const DIFFICULTY_KEY="blocks:difficulty:v1:"+location.pathname.replace(/index[.]html$/,"");
+const GHOST_KEY="blocks:ghost:v1:"+location.pathname.replace(/index[.]html$/,"");
 const AUTO_START_KEY="blocks:auto-start:v1";
 let selectedDifficulty="easy",autoStart=false;
 try{
   const savedMode=localStorage.getItem(DIFFICULTY_KEY)||localStorage.getItem("blocks:difficulty:v1");
   if(["fixed","easy","hard"].includes(savedMode))selectedDifficulty=savedMode;
 }catch(_){}
+// A saved preference takes precedence over the original ?ghost= URL default.
+let selectedGhostPiece=window.BLOCKS_CONFIG?.ghostPiece===true;
+try{
+  const savedGhost=localStorage.getItem(GHOST_KEY);
+  if(savedGhost==="true"||savedGhost==="false")selectedGhostPiece=savedGhost==="true";
+}catch(_){}
+window.BLOCKS_CONFIG.ghostPiece=selectedGhostPiece;
 try{autoStart=sessionStorage.getItem(AUTO_START_KEY)==="1";sessionStorage.removeItem(AUTO_START_KEY);}catch(_){}
 const sessionConfig={...window.BLOCKS_CONFIG,difficulty:selectedDifficulty};
 let session;
@@ -110,6 +118,11 @@ restartDialog.innerHTML=`
       <button type="button" id="difficulty-hard" aria-pressed="false">HARD</button>
     </div>
     <div id="difficulty-description" class="restart-hint"></div>
+    <div class="restart-mode-label" id="ghost-label">GHOST PIECE</div>
+    <div class="restart-options" role="group" aria-labelledby="ghost-label">
+      <button type="button" id="ghost-off" aria-pressed="false">OFF</button>
+      <button type="button" id="ghost-on" aria-pressed="false">ON</button>
+    </div>
     <div class="restart-mode-label" id="players-label">PLAYERS</div>
     <div class="restart-options" role="group" aria-labelledby="players-label">
       <button type="button" id="restart-one" aria-pressed="false">1 PLAYER</button>
@@ -126,6 +139,8 @@ const twoPlayerButton=document.getElementById("restart-two");
 const fixedButton=document.getElementById("difficulty-fixed");
 const easyButton=document.getElementById("difficulty-easy");
 const hardButton=document.getElementById("difficulty-hard");
+const ghostOffButton=document.getElementById("ghost-off");
+const ghostOnButton=document.getElementById("ghost-on");
 const difficultyDescription=document.getElementById("difficulty-description");
 const restartTitle=document.getElementById("restart-title");
 const restartDescription=document.getElementById("restart-description");
@@ -142,6 +157,11 @@ function selectDifficulty(difficulty){
     button.setAttribute("aria-pressed",String(value===difficulty));
   difficultyDescription.textContent=DIFFICULTY_HINTS[difficulty];
 }
+function selectGhostPiece(enabled){
+  selectedGhostPiece=enabled;
+  ghostOffButton.setAttribute("aria-pressed",String(!enabled));
+  ghostOnButton.setAttribute("aria-pressed",String(enabled));
+}
 function selectPlayerCount(count){
   if(count!==1&&count!==2)return;
   selectedPlayers=count;
@@ -152,6 +172,7 @@ let restartWasPaused=false;
 function closeRestartDialog(){
   restartDialog.hidden=true;
   selectDifficulty(game.difficulty);
+  selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
   selectPlayerCount(TWO_PLAYER?2:1);
   if(!restartWasPaused&&game.phase==="paused"){
     if(TWO_PLAYER)session.resume();
@@ -162,7 +183,10 @@ function closeRestartDialog(){
   restartButton.focus();
 }
 function startNewGame(playerCount=selectedPlayers){
-  try{localStorage.setItem(DIFFICULTY_KEY,selectedDifficulty)}catch(_){}
+  try{
+    localStorage.setItem(DIFFICULTY_KEY,selectedDifficulty);
+    localStorage.setItem(GHOST_KEY,String(selectedGhostPiece));
+  }catch(_){}
   if(!TWO_PLAYER&&!awaitingInitialStart)window.dispatchEvent(new Event("blocks:restart"));
   if(playerCount!==(TWO_PLAYER?2:1)){
     skipSaveOnNavigation=true;
@@ -179,6 +203,8 @@ function startNewGame(playerCount=selectedPlayers){
   window.BLOCKS_AWAITING_START=false;
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
   session.config.difficulty=selectedDifficulty;
+  window.BLOCKS_CONFIG.ghostPiece=selectedGhostPiece;
+  updateVersionLabel();
   game=session.replaceGame(0);
   if(TWO_PLAYER){session.replaceGame(1);session.attackProgress=[0,0];}
   session.drainEvents();
@@ -191,6 +217,7 @@ function startNewGame(playerCount=selectedPlayers){
 function restartGame(){
   if(!restartDialog.hidden)return;
   selectDifficulty(game.difficulty);
+  selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
   selectPlayerCount(TWO_PLAYER?2:1);
   restartTitle.textContent="NEW GAME";
   restartDescription.textContent="CHANGING SETTINGS WILL DISCARD THE CURRENT GAME.";
@@ -213,11 +240,14 @@ bindImmediateAction(twoPlayerButton,()=>selectPlayerCount(2));
 bindImmediateAction(fixedButton,()=>selectDifficulty("fixed"));
 bindImmediateAction(easyButton,()=>selectDifficulty("easy"));
 bindImmediateAction(hardButton,()=>selectDifficulty("hard"));
+bindImmediateAction(ghostOffButton,()=>selectGhostPiece(false));
+bindImmediateAction(ghostOnButton,()=>selectGhostPiece(true));
 selectDifficulty(selectedDifficulty);
+selectGhostPiece(selectedGhostPiece);
 selectPlayerCount(selectedPlayers);
 if(initialStart){
   restartTitle.textContent="START GAME";
-  restartDescription.textContent="CHOOSE SPEED AND PLAYER COUNT.";
+  restartDescription.textContent="CHOOSE SPEED, GHOST PIECE AND PLAYER COUNT.";
   startGameButton.textContent="START GAME";
   cancelRestartButton.hidden=true;
   restartDialog.hidden=false;
@@ -427,7 +457,9 @@ document.addEventListener("contextmenu",e=>e.preventDefault());
 document.addEventListener("selectstart",e=>e.preventDefault());
 
 const versionElement=document.getElementById("version");
-if(versionElement){
-  const version=window.BLOCKS_VERSION||versionElement.textContent;
-  versionElement.textContent=version+(window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
+const baseVersion=window.BLOCKS_VERSION||versionElement?.textContent||"";
+function updateVersionLabel(){
+  if(versionElement)versionElement.textContent=baseVersion+
+    (window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
 }
+updateVersionLabel();

@@ -6,7 +6,7 @@
  const headers={apikey:KEY,'Content-Type':'application/json'};
  const params=new URLSearchParams(location.search);
  const mode=params.get('pieces')?.toUpperCase()==='IO'?'IO':'ALL';
- const ghost=params.get('ghost')==='true';
+
  let id=storedSessionId||crypto.randomUUID();
  window.BLOCKS_SESSION_ID=id;
  const pending=new Map();
@@ -20,16 +20,18 @@
  }
  function capture(status){
   return {session_id:id,player_id:playerId(),score:game.score,lines:game.lines,status,
-   pieces_mode:mode,ghost_mode:ghost};
+   pieces_mode:mode,ghost_mode:window.BLOCKS_CONFIG.ghostPiece===true,difficulty:game.difficulty};
  }
  function queue(status=game.phase==='game_over'?'completed':'active',force=false){
+  // The initial mode chooser is not a played session.
+  if(window.BLOCKS_AWAITING_START)return Promise.resolve();
   const item=capture(status);
   if(!item.player_id)return Promise.resolve();
   const previous=pending.get(item.session_id);
   // A terminal status must never be replaced by an active update.
   if((previous&&previous.status!=='active'&&item.status==='active')||
      (terminal.has(item.session_id)&&item.status==='active'))return Promise.resolve();
-  const signature=JSON.stringify([item.score,item.lines,item.status]);
+  const signature=JSON.stringify([item.score,item.lines,item.status,item.difficulty,item.ghost_mode]);
   if(!previous&&sent.get(item.session_id)===signature)return Promise.resolve();
   pending.set(item.session_id,item);
   return drain(force);
@@ -49,7 +51,7 @@
   }
   const response=await fetch(API+'?session_id=eq.'+sid,{
    method:'PATCH',headers,keepalive:true,
-   body:JSON.stringify({score:item.score,lines:item.lines,status:item.status,updated_at:new Date().toISOString()})
+   body:JSON.stringify({score:item.score,lines:item.lines,status:item.status,difficulty:item.difficulty,ghost_mode:item.ghost_mode,updated_at:new Date().toISOString()})
   });
   if(!response.ok)throw Error('Session update '+response.status);
  }
@@ -64,7 +66,7 @@
     try{
      if(window.BLOCKS_ENSURE_PLAYER)await window.BLOCKS_ENSURE_PLAYER();
      await write(item);
-     sent.set(sid,JSON.stringify([item.score,item.lines,item.status]));
+     sent.set(sid,JSON.stringify([item.score,item.lines,item.status,item.difficulty,item.ghost_mode]));
      if(item.status!=='active')terminal.add(sid);
      // Preserve a newer snapshot queued while the request was in flight.
      if(pending.get(sid)===item)pending.delete(sid);

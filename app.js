@@ -1,22 +1,45 @@
-const SAVE_KEY="blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(new URLSearchParams(location.search).get("players")==="2"?":two":"")+(new URLSearchParams(location.search).get("pieces")?.toUpperCase()==="IO"?":io":"");
-const TWO_PLAYER=new URLSearchParams(location.search).get("players")==="2";
+const gameParams=new URLSearchParams(location.search);
+const saveKeyFor=playerCount=>"blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(playerCount===2?":two":"")+(gameParams.get("pieces")?.toUpperCase()==="IO"?":io":"");
+const TWO_PLAYER=gameParams.get("players")==="2";
+const SAVE_KEY=saveKeyFor(TWO_PLAYER?2:1);
+const DIFFICULTY_KEY="blocks:difficulty:v1:"+location.pathname.replace(/index[.]html$/,"");
+const GHOST_KEY="blocks:ghost:v1:"+location.pathname.replace(/index[.]html$/,"");
+const AUTO_START_KEY="blocks:auto-start:v1";
+let selectedDifficulty=DEFAULT_GAME_MODE,autoStart=false;
+try{
+  const savedMode=localStorage.getItem(DIFFICULTY_KEY)??localStorage.getItem("blocks:difficulty:v1");
+  selectedDifficulty=parseGameMode(savedMode)??DEFAULT_GAME_MODE;
+}catch(_){}
+// A saved preference takes precedence over the original ?ghost= URL default.
+let selectedGhostPiece=window.BLOCKS_CONFIG?.ghostPiece===true;
+try{
+  const savedGhost=localStorage.getItem(GHOST_KEY);
+  if(savedGhost==="true"||savedGhost==="false")selectedGhostPiece=savedGhost==="true";
+}catch(_){}
+window.BLOCKS_CONFIG.ghostPiece=selectedGhostPiece;
+try{autoStart=sessionStorage.getItem(AUTO_START_KEY)==="1";sessionStorage.removeItem(AUTO_START_KEY);}catch(_){}
+const sessionConfig={...window.BLOCKS_CONFIG,difficulty:selectedDifficulty};
 let session;
 let storedSessionId=null;
 try{
   const stored=localStorage.getItem(SAVE_KEY);
   const snapshot=stored?JSON.parse(stored):null;
   storedSessionId=TWO_PLAYER?null:snapshot?.session_id||null;
-  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{},snapshots:TWO_PLAYER?(snapshot?.games||[]):[snapshot],attackProgress:snapshot?.attackProgress||[0,0]});
+  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:sessionConfig,snapshots:TWO_PLAYER?(snapshot?.games||[]):[snapshot],attackProgress:snapshot?.attackProgress||[0,0]});
 }catch(error){
-  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:window.BLOCKS_CONFIG||{}});
+  session=new GameSession({playerCount:TWO_PLAYER?2:1,config:sessionConfig});
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
 }
 let game=session.games[0];
+const initialStart=!autoStart&&session.games.some(g=>g.phase!=="paused");
+if(initialStart)session.pause();
+let awaitingInitialStart=initialStart;
+window.BLOCKS_AWAITING_START=initialStart;
 let skipSaveOnNavigation=false;
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
-  if(skipSaveOnNavigation)return;
+  if(skipSaveOnNavigation||awaitingInitialStart)return;
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
   lastSavedAt=now;
@@ -83,14 +106,65 @@ restartDialog.hidden=true;
 restartDialog.setAttribute("role","dialog");
 restartDialog.setAttribute("aria-modal","true");
 restartDialog.setAttribute("aria-labelledby","restart-title");
-restartDialog.innerHTML='<div class="restart-panel"><div id="restart-title">NEW GAME</div><p>CHOOSE NUMBER OF PLAYERS. YOUR CURRENT GAME WILL BE LOST.</p><div class="restart-choices"><button type="button" id="restart-one">1 PLAYER</button><button type="button" id="restart-two">2 PLAYERS</button></div><button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button></div>';
+
+restartDialog.innerHTML=`
+  <div class="restart-panel">
+    <div id="restart-title">NEW GAME</div>
+    <p id="restart-description">CHOOSE YOUR SETTINGS BEFORE STARTING.</p>
+    <div class="restart-mode-label" id="difficulty-label">SPEED</div>
+    <div class="restart-options" role="group" aria-labelledby="difficulty-label">
+      ${GAME_MODE_IDS.map(id=>`<button type="button" id="difficulty-${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}
+    </div>
+    <div id="difficulty-description" class="restart-hint"></div>
+    <div class="restart-mode-label" id="ghost-label">GHOST PIECE</div>
+    <div class="restart-options" role="group" aria-labelledby="ghost-label">
+      <button type="button" id="ghost-off" aria-pressed="false">OFF</button>
+      <button type="button" id="ghost-on" aria-pressed="false">ON</button>
+    </div>
+    <div class="restart-mode-label" id="players-label">PLAYERS</div>
+    <div class="restart-options" role="group" aria-labelledby="players-label">
+      <button type="button" id="restart-one" aria-pressed="false">1 PLAYER</button>
+      <button type="button" id="restart-two" aria-pressed="false">2 PLAYERS</button>
+    </div>
+    <button type="button" id="restart-start" class="restart-primary">START GAME</button>
+    <button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button>
+  </div>`;
 document.body.appendChild(restartDialog);
 const cancelRestartButton=document.getElementById("restart-cancel");
+const startGameButton=document.getElementById("restart-start");
 const onePlayerButton=document.getElementById("restart-one");
 const twoPlayerButton=document.getElementById("restart-two");
+const difficultyButtons=GAME_MODE_IDS.map(id=>[id,document.getElementById("difficulty-"+id)]);
+const ghostOffButton=document.getElementById("ghost-off");
+const ghostOnButton=document.getElementById("ghost-on");
+const difficultyDescription=document.getElementById("difficulty-description");
+const restartTitle=document.getElementById("restart-title");
+const restartDescription=document.getElementById("restart-description");
+let selectedPlayers=TWO_PLAYER?2:1;
+function selectDifficulty(difficulty){
+  if(!Object.hasOwn(GAME_MODES,difficulty))return;
+  selectedDifficulty=Number(difficulty);
+  for(const [id,button] of difficultyButtons)
+    button.setAttribute("aria-pressed",String(id===selectedDifficulty));
+  difficultyDescription.textContent=GAME_MODES[selectedDifficulty].description;
+}
+function selectGhostPiece(enabled){
+  selectedGhostPiece=enabled;
+  ghostOffButton.setAttribute("aria-pressed",String(!enabled));
+  ghostOnButton.setAttribute("aria-pressed",String(enabled));
+}
+function selectPlayerCount(count){
+  if(count!==1&&count!==2)return;
+  selectedPlayers=count;
+  onePlayerButton.setAttribute("aria-pressed",String(count===1));
+  twoPlayerButton.setAttribute("aria-pressed",String(count===2));
+}
 let restartWasPaused=false;
 function closeRestartDialog(){
   restartDialog.hidden=true;
+  selectDifficulty(game.difficulty);
+  selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
+  selectPlayerCount(TWO_PLAYER?2:1);
   if(!restartWasPaused&&game.phase==="paused"){
     if(TWO_PLAYER)session.resume();
     else game.resume();
@@ -99,11 +173,16 @@ function closeRestartDialog(){
   saveGame(true);
   restartButton.focus();
 }
-function startNewGame(playerCount=TWO_PLAYER?2:1){
-  if(!TWO_PLAYER)window.dispatchEvent(new Event("blocks:restart"));
+function startNewGame(playerCount=selectedPlayers){
+  try{
+    localStorage.setItem(DIFFICULTY_KEY,selectedDifficulty);
+    localStorage.setItem(GHOST_KEY,String(selectedGhostPiece));
+  }catch(_){}
+  if(!TWO_PLAYER&&!awaitingInitialStart)window.dispatchEvent(new Event("blocks:restart"));
   if(playerCount!==(TWO_PLAYER?2:1)){
     skipSaveOnNavigation=true;
-    try{localStorage.removeItem(SAVE_KEY)}catch(_){}
+    try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(saveKeyFor(playerCount));}catch(_){}
+    try{sessionStorage.setItem(AUTO_START_KEY,"1")}catch(_){}
     const url=new URL(location.href);
     if(playerCount===2)url.searchParams.set("players","2");
     else url.searchParams.delete("players");
@@ -111,7 +190,12 @@ function startNewGame(playerCount=TWO_PLAYER?2:1){
     return;
   }
   restartDialog.hidden=true;
+  awaitingInitialStart=false;
+  window.BLOCKS_AWAITING_START=false;
   try{localStorage.removeItem(SAVE_KEY)}catch(_){}
+  session.config.difficulty=selectedDifficulty;
+  window.BLOCKS_CONFIG.ghostPiece=selectedGhostPiece;
+  updateVersionLabel();
   game=session.replaceGame(0);
   if(TWO_PLAYER){session.replaceGame(1);session.attackProgress=[0,0];}
   session.drainEvents();
@@ -123,6 +207,13 @@ function startNewGame(playerCount=TWO_PLAYER?2:1){
 }
 function restartGame(){
   if(!restartDialog.hidden)return;
+  selectDifficulty(game.difficulty);
+  selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
+  selectPlayerCount(TWO_PLAYER?2:1);
+  restartTitle.textContent="NEW GAME";
+  restartDescription.textContent="CHANGING SETTINGS WILL DISCARD THE CURRENT GAME.";
+  startGameButton.textContent="START NEW GAME";
+  cancelRestartButton.hidden=false;
   restartWasPaused=game.phase==="paused";
   if(!restartWasPaused){
     if(TWO_PLAYER)session.pause();
@@ -131,11 +222,26 @@ function restartGame(){
   restartDialog.hidden=false;
   renderActions();
   saveGame(true);
-  (TWO_PLAYER?twoPlayerButton:onePlayerButton).focus();
+  startGameButton.focus();
 }
 bindImmediateAction(cancelRestartButton,closeRestartDialog);
-bindImmediateAction(onePlayerButton,()=>startNewGame(1));
-bindImmediateAction(twoPlayerButton,()=>startNewGame(2));
+bindImmediateAction(startGameButton,()=>startNewGame());
+bindImmediateAction(onePlayerButton,()=>selectPlayerCount(1));
+bindImmediateAction(twoPlayerButton,()=>selectPlayerCount(2));
+for(const [id,button] of difficultyButtons)
+  bindImmediateAction(button,()=>selectDifficulty(id));
+bindImmediateAction(ghostOffButton,()=>selectGhostPiece(false));
+bindImmediateAction(ghostOnButton,()=>selectGhostPiece(true));
+selectDifficulty(selectedDifficulty);
+selectGhostPiece(selectedGhostPiece);
+selectPlayerCount(selectedPlayers);
+if(initialStart){
+  restartTitle.textContent="START GAME";
+  restartDescription.textContent="CHOOSE SPEED, GHOST PIECE AND PLAYER COUNT.";
+  startGameButton.textContent="START GAME";
+  cancelRestartButton.hidden=true;
+  restartDialog.hidden=false;
+}
 function bindImmediateAction(button,action){
   let lastTouchAt=-Infinity;
   button.addEventListener("touchstart",event=>{
@@ -341,7 +447,9 @@ document.addEventListener("contextmenu",e=>e.preventDefault());
 document.addEventListener("selectstart",e=>e.preventDefault());
 
 const versionElement=document.getElementById("version");
-if(versionElement){
-  const version=window.BLOCKS_VERSION||versionElement.textContent;
-  versionElement.textContent=version+(window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
+const baseVersion=window.BLOCKS_VERSION||versionElement?.textContent||"";
+function updateVersionLabel(){
+  if(versionElement)versionElement.textContent=baseVersion+
+    (window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
 }
+updateVersionLabel();

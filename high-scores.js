@@ -52,6 +52,7 @@
    if(overlay.hidden||controller!==request||signal.aborted)return;
    const now=Date.now();
    const myPlayerId=currentPlayerId();
+   let hasLegacyOwnedScores=false;
    sessions.forEach((s,i)=>{
     const tr=document.createElement('tr');
     cell(tr,i+1);
@@ -65,6 +66,8 @@
     }
     [s.score.toLocaleString(),s.lines,new Date(s.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
     const action=cell(tr,'');
+    if(myPlayerId&&s.player_id===myPlayerId&&!ownedIds.has(s.session_id))
+     hasLegacyOwnedScores=true;
     if(myPlayerId&&s.player_id===myPlayerId&&ownedIds.has(s.session_id)){
      const remove=document.createElement('button');
      remove.type='button';
@@ -77,7 +80,9 @@
     }
     rows.appendChild(tr);
    });
-   status.textContent=sessions.length?'':'No '+GAME_MODES[mode].label.toUpperCase()+' scores yet';
+   status.textContent=sessions.length
+    ?(hasLegacyOwnedScores?'Older scores cannot be deleted securely.':'')
+    :'No '+GAME_MODES[mode].label.toUpperCase()+' scores yet';
   }catch(error){
    if(overlay.hidden||controller!==request||signal.aborted)return;
    status.textContent='Could not load scores. Check your connection and retry.';

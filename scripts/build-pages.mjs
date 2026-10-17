@@ -24,6 +24,8 @@ if(channel==="dev"&&!existsSync(join(source,"game-modes.js")))
   throw new Error("Missing dev game-modes.js");
 if(existsSync(join(source,"game-modes.js")))
   copyFileSync(join(source,"game-modes.js"),join(output,"game-modes.js"));
+if(existsSync(join(source,"board-renderer.js")))
+  copyFileSync(join(source,"board-renderer.js"),join(output,"board-renderer.js"));
 
 // Developer-only inspectors are not published under the production PWA.
 if(channel==="dev"){

@@ -84,11 +84,14 @@ gameOver.id="game-over";
 gameOver.textContent="GAME OVER";
 board.parentElement.appendChild(gameOver);
 let lastTime=performance.now(),boardTouch=null;
-const REPEAT_DELAY=220,REPEAT_INTERVAL=80;
+const REPEAT_DELAY=130,REPEAT_INTERVAL=50,DOWN_REPEAT_INTERVAL=35;
 
 for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
   const cell=document.createElement("div");cell.className="cell";board.appendChild(cell);boardCells.push(cell);
 }
+const drawBoard=createBoardRenderer(boardCells);
+const scoreDisplay=document.getElementById("score");
+const linesDisplay=document.getElementById("lines");
 
 function togglePause(){
   if(TWO_PLAYER){
@@ -201,7 +204,7 @@ function startNewGame(playerCount=selectedPlayers){
   session.drainEvents();
   previousPhase=game.phase;
   lastTime=performance.now();
-  for(const button of document.querySelectorAll(".control"))release(button);
+  for(const reset of gameControlResetters)reset();
   renderActions();
   saveGame(true);
 }
@@ -273,38 +276,22 @@ function renderActions(){
   board.parentElement.classList.toggle("game-paused",paused);
   if(TWO_PLAYER)document.body.classList.toggle("match-paused",paused);
 }
-const boardIndex=(x,y)=>(19-y)*10+x;
-function paintBoard(x,y,name){
-  if(x<0||x>=10||y<0||y>=20)return;
-  const cell=boardCells[boardIndex(x,y)];
-  const className=cell.classList.contains("clearing")&&(game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines"))?"cell filled clearing":"cell filled";
-  if(cell.className!==className)cell.className=className;
-  cell.style.backgroundColor=TETROMINO_BY_NAME[name].color;
-}
+let lastPreviewTetromino=null;
 function render(){
-  for(const cell of boardCells){
-    if(!((game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines"))&&cell.classList.contains("clearing")))cell.className="cell";
-    cell.style.background="";
-  }
-  for(let y=0;y<20;y++) for(let x=0;x<10;x++) if(game.grid[y][x]) paintBoard(x,y,game.grid[y][x]);
-  if(game.active&&window.BLOCKS_CONFIG.ghostPiece){
-    const ghostY=game.ghostY;
-    if(ghostY!==game.active.y)for(const [ox,oy] of game.offsets){
-      const x=game.active.x+ox,y=ghostY+oy;
-      if(x>=0&&x<10&&y>=0&&y<20)boardCells[boardIndex(x,y)].classList.add("ghost");
-    }
-  }
-  if(game.active) for(const [ox,oy] of game.offsets) paintBoard(game.active.x+ox,game.active.y+oy,game.active.tetromino.name);
-  document.getElementById("score").textContent=game.score;
-  document.getElementById("lines").textContent=game.lines;
+  drawBoard(game,window.BLOCKS_CONFIG.ghostPiece===true);
+  if(scoreDisplay.textContent!==String(game.score))scoreDisplay.textContent=game.score;
+  if(linesDisplay.textContent!==String(game.lines))linesDisplay.textContent=game.lines;
   renderPreview();
-  gameOver.hidden=TWO_PLAYER||game.phase!=="game_over";
+  const over=!TWO_PLAYER&&game.phase==="game_over";
+  if(gameOver.hidden===over)gameOver.hidden=!over;
   renderActions();
-  if(game.phase==="clearing_lines"||(game.phase==="paused"&&game.pausedPhase==="clearing_lines")) for(const y of game.completedRows) for(let x=0;x<10;x++) boardCells[boardIndex(x,y)].classList.add("clearing");
 }
 function renderPreview(){
+  const t=game.nextTetromino;
+  if(t===lastPreviewTetromino)return;
+  lastPreviewTetromino=t;
   preview.replaceChildren();
-  const t=game.nextTetromino;if(!t)return;
+  if(!t)return;
   const offsets=t.orientations[0],xs=offsets.map(p=>p[0]),ys=offsets.map(p=>p[1]);
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
   const width=maxX-minX+1,height=maxY-minY+1;
@@ -328,9 +315,10 @@ board.addEventListener("animationend",event=>{
   if(game.phase==="clearing_lines"&&event.animationName==="clearFlash"&&event.pseudoElement==="::after"&&event.target.classList.contains("clearing")&&event.target===board.querySelector(".cell.clearing")) {game.presentationComplete();saveGame(true);}
 });
 
-// Each held button owns its repeat timer, so simultaneous presses do not interfere.
+// Held inputs repeat independently; a second finger can steer while Down is held.
 const repeatTimers=new Map();
 const repeatable=new Set(["down","left","right"]);
+const gameControlResetters=[];
 function applyCommand(command,player=0){
   const target=session.games[player];
   if(!target)return;
@@ -343,63 +331,120 @@ function stopRepeat(button){
 }
 function repeat(button){
   if(!repeatTimers.has(button))return;
-  applyCommand(button.dataset.command,Number(button.dataset.player||0));
-  repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_INTERVAL));
+  const command=button.dataset.command;
+  applyCommand(command,Number(button.dataset.player||0));
+  repeatTimers.set(button,setTimeout(()=>repeat(button),
+    command==="down"?DOWN_REPEAT_INTERVAL:REPEAT_INTERVAL));
 }
 function press(button){
   const command=button.dataset.command;
   if(button.classList.contains("pressed"))return;
   button.classList.add("pressed");
   applyCommand(command,Number(button.dataset.player||0));
-  if(repeatable.has(command)){
+  if(repeatable.has(command))
     repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_DELAY));
-  }
 }
 function release(button){
   button.classList.remove("pressed");
   stopRepeat(button);
 }
-// Prefer real touch events on touch devices. Pythonista's WebView emits a
-// second synthetic pointerdown/click after touchend, which must be ignored.
+// Touch events stay targeted to the original button even if the finger slides.
+// Track individual contacts and transfer them to the button under each finger,
+// without releasing another finger's independently held button.
 function bindGameControls(root=document){
-root.querySelectorAll(".control").forEach(button=>{
-  let touchActive=false;
+  const buttons=Array.from(root.querySelectorAll(".control"));
+  const allowed=new Set(buttons);
+  const contacts=new Map();
+  const users=new Map();
   let lastTouchAt=-Infinity;
-  const suppressSyntheticPointer=e=>e.pointerType==="touch"||performance.now()-lastTouchAt<750;
-  button.addEventListener("touchstart",e=>{
-    e.preventDefault();
-    lastTouchAt=performance.now();
-    if(touchActive)return;
-    touchActive=true;
-    press(button);
-  },{passive:false});
-  button.addEventListener("touchend",e=>{
-    e.preventDefault();
-    lastTouchAt=performance.now();
-    if(touchActive)release(button);
-    touchActive=false;
-  },{passive:false});
-  button.addEventListener("touchcancel",e=>{
-    e.preventDefault();
-    lastTouchAt=performance.now();
-    if(touchActive)release(button);
-    touchActive=false;
-  },{passive:false});
-  button.addEventListener("pointerdown",e=>{
-    if(suppressSyntheticPointer(e)){e.preventDefault();return;}
-    e.preventDefault();
-    button.setPointerCapture(e.pointerId);
-    press(button);
+  function buttonAt(x,y){
+    if(typeof document.elementFromPoint!=="function")return null;
+    const direct=document.elementFromPoint(x,y)?.closest?.(".control");
+    if(allowed.has(direct))return direct;
+    // Small hit slop lets fingers pass through gaps between controls.
+    let nearest=null,distanceSquared=12*12;
+    for(const button of buttons){
+      const r=button.getBoundingClientRect?.();
+      if(!r)continue;
+      const dx=Math.max(r.left-x,0,x-r.right);
+      const dy=Math.max(r.top-y,0,y-r.bottom);
+      const d=dx*dx+dy*dy;
+      if(d<distanceSquared){distanceSquared=d;nearest=button;}
+    }
+    return nearest;
+  }
+  function moveContact(id,next){
+    const previous=contacts.get(id);
+    if(previous===next)return;
+    if(previous){
+      const owners=users.get(previous);
+      owners.delete(id);
+      if(!owners.size){users.delete(previous);release(previous);}
+      contacts.delete(id);
+    }
+    if(next&&allowed.has(next)){
+      if(!users.has(next))users.set(next,new Set());
+      const owners=users.get(next);
+      const wasEmpty=owners.size===0;
+      owners.add(id);
+      contacts.set(id,next);
+      if(wasEmpty)press(next);
+    }
+  }
+  function clearContacts(){
+    for(const id of [...contacts.keys()])moveContact(id,null);
+  }
+  gameControlResetters.push(clearContacts);
+  window.addEventListener("blur",clearContacts);
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="hidden")clearContacts();
   });
-  button.addEventListener("pointerup",e=>{
-    if(suppressSyntheticPointer(e)){e.preventDefault();return;}
-    e.preventDefault();
-    release(button);
-  });
-  button.addEventListener("pointercancel",()=>{
-    if(!touchActive)release(button);
-  });
-});
+  for(const button of buttons){
+    button.addEventListener("touchstart",e=>{
+      e.preventDefault();
+      lastTouchAt=performance.now();
+      for(const touch of e.changedTouches)
+        moveContact("touch:"+touch.identifier,button);
+    },{passive:false});
+    button.addEventListener("touchmove",e=>{
+      e.preventDefault();
+      lastTouchAt=performance.now();
+      for(const touch of e.changedTouches){
+        const id="touch:"+touch.identifier;
+        if(contacts.has(id))
+          moveContact(id,buttonAt(touch.clientX,touch.clientY)??(document.elementFromPoint?null:contacts.get(id)));
+      }
+    },{passive:false});
+    for(const eventName of ["touchend","touchcancel"])
+      button.addEventListener(eventName,e=>{
+        e.preventDefault();
+        lastTouchAt=performance.now();
+        for(const touch of e.changedTouches)moveContact("touch:"+touch.identifier,null);
+      },{passive:false});
+
+    button.addEventListener("pointerdown",e=>{
+      if(e.pointerType==="touch"||performance.now()-lastTouchAt<750){
+        e.preventDefault();return;
+      }
+      if(e.pointerType==="mouse"&&e.button!==0)return;
+      e.preventDefault();
+      button.setPointerCapture?.(e.pointerId);
+      moveContact("pointer:"+e.pointerId,button);
+    });
+    button.addEventListener("pointermove",e=>{
+      const id="pointer:"+e.pointerId;
+      if(contacts.has(id)){
+        e.preventDefault();
+        moveContact(id,buttonAt(e.clientX,e.clientY)??(document.elementFromPoint?null:contacts.get(id)));
+      }
+    });
+    for(const eventName of ["pointerup","pointercancel","lostpointercapture"])
+      button.addEventListener(eventName,e=>{
+        if(e.pointerType==="touch")return;
+        if(eventName!=="lostpointercapture")e.preventDefault();
+        moveContact("pointer:"+e.pointerId,null);
+      });
+  }
 }
 bindGameControls();
 board.addEventListener("pointerdown",e=>{e.preventDefault();board.setPointerCapture(e.pointerId);boardTouch={x:e.clientX,y:e.clientY}});

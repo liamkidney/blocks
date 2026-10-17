@@ -42,8 +42,10 @@
    const lookup=await fetch(API+'?select=session_id&session_id=eq.'+sid,{headers});
    if(!lookup.ok)throw Error('Session lookup '+lookup.status);
    if(!(await lookup.json()).length){
+    const ownerHash=await window.BLOCKS_SCORE_OWNER?.hash();
+    const payload=ownerHash?{...item,delete_key_hash:ownerHash}:item;
     const created=await fetch(API,{method:'POST',headers,
-     body:JSON.stringify(item),keepalive:true});
+     body:JSON.stringify(payload),keepalive:true});
     if(!created.ok&&created.status!==409)throw Error('Session create '+created.status);
     if(created.ok){registered.add(item.session_id);return;}
    }

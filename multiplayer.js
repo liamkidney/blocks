@@ -84,14 +84,10 @@
   }
   const preview2=second.querySelector(".second-preview");
   const getGame2=()=>session.games[1];
-  const boardIndex2=(x,y)=>(19-y)*10+x;
-  function paint(x,y,name,clearing){
-    if(x<0||x>=10||y<0||y>=20)return;
-    const cell=cells[boardIndex2(x,y)];
-    const cls=clearing?"cell filled clearing":"cell filled";
-    if(cell.className!==cls)cell.className=cls;
-    cell.style.backgroundColor=TETROMINO_BY_NAME[name].color;
-  }
+  const drawBoard2=createBoardRenderer(cells);
+  const score2=second.querySelector(".second-score");
+  const lines2=second.querySelector(".second-lines");
+  const resultTitle=result.querySelector("#match-result-title");
   function drawPreview(){
     preview2.replaceChildren();
     const t=getGame2().nextTetromino;
@@ -115,31 +111,19 @@
   let previousNext=null;
   function renderSecond(){
     const game2=getGame2();
-    const clearing=game2.phase==="clearing_lines"||(game2.phase==="paused"&&game2.pausedPhase==="clearing_lines");
-    for(const cell of cells){
-      if(!(clearing&&cell.classList.contains("clearing")))cell.className="cell";
-      cell.style.background="";
-    }
-    for(let y=0;y<20;y++)for(let x=0;x<10;x++){
-      const name=game2.grid[y][x];
-      if(name)paint(x,y,name,clearing&&game2.completedRows.includes(y));
-    }
-    if(game2.active&&window.BLOCKS_CONFIG.ghostPiece){
-      const ghostY=game2.ghostY;
-      if(ghostY!==game2.active.y)for(const [ox,oy] of game2.offsets){
-        const x=game2.active.x+ox,y=ghostY+oy;
-        if(x>=0&&x<10&&y>=0&&y<20)cells[boardIndex2(x,y)].classList.add("ghost");
-      }
-    }
-    if(game2.active)for(const [ox,oy] of game2.offsets)
-      paint(game2.active.x+ox,game2.active.y+oy,game2.active.tetromino.name,false);
-    second.querySelector(".second-score").textContent=game2.score;
-    second.querySelector(".second-lines").textContent=game2.lines;
+    drawBoard2(game2,window.BLOCKS_CONFIG.ghostPiece===true);
+    if(score2.textContent!==String(game2.score))score2.textContent=game2.score;
+    if(lines2.textContent!==String(game2.lines))lines2.textContent=game2.lines;
     if(previousNext!==game2.nextTetromino){previousNext=game2.nextTetromino;drawPreview();}
     const outcome=session.resolveOutcome();
-    result.hidden=!outcome;
-    if(outcome)result.querySelector("#match-result-title").textContent=outcome==="draw"?"DRAW":outcome==="player1"?"PLAYER 1 WINS":"PLAYER 2 WINS";
-    second.classList.toggle("second-game-over",game2.phase==="game_over"&&!outcome);
+    if(result.hidden===Boolean(outcome))result.hidden=!outcome;
+    if(outcome){
+      const label=outcome==="draw"?"DRAW":outcome==="player1"?"PLAYER 1 WINS":"PLAYER 2 WINS";
+      if(resultTitle.textContent!==label)resultTitle.textContent=label;
+    }
+    const over=game2.phase==="game_over"&&!outcome;
+    if(second.classList.contains("second-game-over")!==over)
+      second.classList.toggle("second-game-over",over);
     requestAnimationFrame(renderSecond);
   }
   board2.addEventListener("animationend",event=>{

@@ -348,103 +348,176 @@ function release(button){
   button.classList.remove("pressed");
   stopRepeat(button);
 }
-// Touch events stay targeted to the original button even if the finger slides.
-// Track individual contacts and transfer them to the button under each finger,
-// without releasing another finger's independently held button.
+// Track touches at document level, not at the originally touched button.
+// This allows a finger to leave every hit target and later reacquire one,
+// and recognises touches that begin in the gaps between buttons.
+const controlGroups=[];
+const controlContacts=new Map();
+const controlOwners=new Map();
+const CONTROL_HIT_SLOP=40; // Covers the middle of the landscape left/right gap.
+let lastControlTouchAt=-Infinity;
+let controlEventsInstalled=false;
+
+function nearestControl(buttons,x,y){
+  let closest=null,bestDistance=CONTROL_HIT_SLOP*CONTROL_HIT_SLOP;
+  for(const button of buttons){
+    const r=button.getBoundingClientRect?.();
+    if(!r||r.width===0||r.height===0)continue;
+    const dx=Math.max(r.left-x,0,x-r.right);
+    const dy=Math.max(r.top-y,0,y-r.bottom);
+    const distance=dx*dx+dy*dy;
+    if(distance<bestDistance){bestDistance=distance;closest=button;}
+  }
+  return closest;
+}
+function findControlStart(target,x,y){
+  const direct=target?.closest?.(".control");
+  if(direct){
+    const group=controlGroups.find(item=>item.buttons.includes(direct));
+    return group?{group,button:direct}:null;
+  }
+  // Never turn a press on a game board, dialog, or another button into
+  // a movement, even if it lies near the control pad.
+  if(target?.closest?.("button,a,input,select,textarea,[role='dialog'],#board-frame,.player-board-wrap,.player-board-frame,#high-scores-overlay,#player-dialog"))
+    return null;
+
+  const pad=target?.closest?.("#controls,#player-two-controls");
+  const owningGroup=controlGroups.find(item=>item.pad===pad&&pad);
+  if(owningGroup){
+    // Remember even a far-away gap touch so sliding onto a control works.
+    return {group:owningGroup,button:nearestControl(owningGroup.buttons,x,y)};
+  }
+
+  let best=null,bestDistance=CONTROL_HIT_SLOP*CONTROL_HIT_SLOP;
+  for(const group of controlGroups)for(const button of group.buttons){
+    const r=button.getBoundingClientRect?.();
+    if(!r||r.width===0||r.height===0)continue;
+    const dx=Math.max(r.left-x,0,x-r.right);
+    const dy=Math.max(r.top-y,0,y-r.bottom);
+    const distance=dx*dx+dy*dy;
+    if(distance<bestDistance){
+      bestDistance=distance;
+      best={group,button};
+    }
+  }
+  return best;
+}
+function assignControl(id,next){
+  const contact=controlContacts.get(id);
+  if(!contact||contact.button===next)return;
+  if(contact.button){
+    const owners=controlOwners.get(contact.button);
+    owners.delete(id);
+    if(!owners.size){
+      controlOwners.delete(contact.button);
+      release(contact.button);
+    }
+  }
+  contact.button=next;
+  if(next){
+    if(!controlOwners.has(next))controlOwners.set(next,new Set());
+    const owners=controlOwners.get(next),wasEmpty=owners.size===0;
+    owners.add(id);
+    if(wasEmpty)press(next);
+  }
+}
+function endControl(id){
+  if(!controlContacts.has(id))return;
+  assignControl(id,null);
+  controlContacts.delete(id);
+}
+function clearControlContacts(){
+  for(const id of [...controlContacts.keys()])endControl(id);
+}
 function bindGameControls(root=document){
   const buttons=Array.from(root.querySelectorAll(".control"));
-  const allowed=new Set(buttons);
-  const contacts=new Map();
-  const users=new Map();
-  let lastTouchAt=-Infinity;
-  function buttonAt(x,y){
-    if(typeof document.elementFromPoint!=="function")return null;
-    const direct=document.elementFromPoint(x,y)?.closest?.(".control");
-    if(allowed.has(direct))return direct;
-    // Small hit slop lets fingers pass through gaps between controls.
-    let nearest=null,distanceSquared=12*12;
-    for(const button of buttons){
-      const r=button.getBoundingClientRect?.();
-      if(!r)continue;
-      const dx=Math.max(r.left-x,0,x-r.right);
-      const dy=Math.max(r.top-y,0,y-r.bottom);
-      const d=dx*dx+dy*dy;
-      if(d<distanceSquared){distanceSquared=d;nearest=button;}
-    }
-    return nearest;
-  }
-  function moveContact(id,next){
-    const previous=contacts.get(id);
-    if(previous===next)return;
-    if(previous){
-      const owners=users.get(previous);
-      owners.delete(id);
-      if(!owners.size){users.delete(previous);release(previous);}
-      contacts.delete(id);
-    }
-    if(next&&allowed.has(next)){
-      if(!users.has(next))users.set(next,new Set());
-      const owners=users.get(next);
-      const wasEmpty=owners.size===0;
-      owners.add(id);
-      contacts.set(id,next);
-      if(wasEmpty)press(next);
-    }
-  }
-  function clearContacts(){
-    for(const id of [...contacts.keys()])moveContact(id,null);
-  }
-  gameControlResetters.push(clearContacts);
-  window.addEventListener("blur",clearContacts);
+  if(!buttons.length)return;
+  const pad=buttons[0].closest?.("#controls,#player-two-controls")||
+    (root===document?document.getElementById("controls"):root);
+  controlGroups.push({buttons,pad});
+  if(controlEventsInstalled)return;
+  controlEventsInstalled=true;
+  gameControlResetters.push(clearControlContacts);
+  window.addEventListener("blur",clearControlContacts);
   document.addEventListener("visibilitychange",()=>{
-    if(document.visibilityState==="hidden")clearContacts();
+    if(document.visibilityState==="hidden")clearControlContacts();
   });
-  for(const button of buttons){
-    button.addEventListener("touchstart",e=>{
+
+  document.addEventListener("touchstart",e=>{
+    let handled=false;
+    for(const touch of e.changedTouches){
+      const id="touch:"+touch.identifier;
+      if(controlContacts.has(id))continue;
+      const hit=findControlStart(e.target,touch.clientX,touch.clientY);
+      if(!hit)continue;
+      controlContacts.set(id,{group:hit.group,button:null});
+      assignControl(id,hit.button);
+      handled=true;
+    }
+    if(handled){
       e.preventDefault();
-      lastTouchAt=performance.now();
-      for(const touch of e.changedTouches)
-        moveContact("touch:"+touch.identifier,button);
-    },{passive:false});
-    button.addEventListener("touchmove",e=>{
-      e.preventDefault();
-      lastTouchAt=performance.now();
+      lastControlTouchAt=performance.now();
+    }
+  },{capture:true,passive:false});
+
+  document.addEventListener("touchmove",e=>{
+    let handled=false;
+    for(const touch of e.changedTouches){
+      const id="touch:"+touch.identifier;
+      const contact=controlContacts.get(id);
+      if(!contact)continue;
+      // The contact stays tracked while outside all controls. It can
+      // reacquire the same button (or another) without lifting.
+      assignControl(id,nearestControl(contact.group.buttons,touch.clientX,touch.clientY));
+      handled=true;
+    }
+    if(handled){e.preventDefault();lastControlTouchAt=performance.now();}
+  },{capture:true,passive:false});
+
+  for(const name of ["touchend","touchcancel"])
+    document.addEventListener(name,e=>{
+      let handled=false;
       for(const touch of e.changedTouches){
         const id="touch:"+touch.identifier;
-        if(contacts.has(id))
-          moveContact(id,buttonAt(touch.clientX,touch.clientY)??(document.elementFromPoint?null:contacts.get(id)));
+        if(!controlContacts.has(id))continue;
+        endControl(id);
+        handled=true;
       }
-    },{passive:false});
-    for(const eventName of ["touchend","touchcancel"])
-      button.addEventListener(eventName,e=>{
-        e.preventDefault();
-        lastTouchAt=performance.now();
-        for(const touch of e.changedTouches)moveContact("touch:"+touch.identifier,null);
-      },{passive:false});
+      if(handled){e.preventDefault();lastControlTouchAt=performance.now();}
+    },{capture:true,passive:false});
 
-    button.addEventListener("pointerdown",e=>{
-      if(e.pointerType==="touch"||performance.now()-lastTouchAt<750){
-        e.preventDefault();return;
-      }
-      if(e.pointerType==="mouse"&&e.button!==0)return;
-      e.preventDefault();
-      button.setPointerCapture?.(e.pointerId);
-      moveContact("pointer:"+e.pointerId,button);
-    });
-    button.addEventListener("pointermove",e=>{
+  // Pointer events are for mouse/pen; native touches use the touch path.
+  // The 750ms guard only suppresses emulated mouse events following a touch.
+  document.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="touch"||
+       (e.pointerType==="mouse"&&performance.now()-lastControlTouchAt<750))return;
+    if(e.pointerType==="mouse"&&e.button!==0)return;
+    const id="pointer:"+e.pointerId;
+    if(controlContacts.has(id))return;
+    const hit=findControlStart(e.target,e.clientX,e.clientY);
+    if(!hit)return;
+    controlContacts.set(id,{group:hit.group,button:null});
+    assignControl(id,hit.button);
+    e.preventDefault();
+    const captureTarget=e.target?.closest?.(".control")||e.target;
+    captureTarget?.setPointerCapture?.(e.pointerId);
+  },true);
+
+  document.addEventListener("pointermove",e=>{
+    const contact=controlContacts.get("pointer:"+e.pointerId);
+    if(!contact)return;
+    assignControl("pointer:"+e.pointerId,
+      nearestControl(contact.group.buttons,e.clientX,e.clientY));
+    e.preventDefault();
+  },true);
+
+  for(const name of ["pointerup","pointercancel","lostpointercapture"])
+    document.addEventListener(name,e=>{
       const id="pointer:"+e.pointerId;
-      if(contacts.has(id)){
-        e.preventDefault();
-        moveContact(id,buttonAt(e.clientX,e.clientY)??(document.elementFromPoint?null:contacts.get(id)));
-      }
-    });
-    for(const eventName of ["pointerup","pointercancel","lostpointercapture"])
-      button.addEventListener(eventName,e=>{
-        if(e.pointerType==="touch")return;
-        if(eventName!=="lostpointercapture")e.preventDefault();
-        moveContact("pointer:"+e.pointerId,null);
-      });
-  }
+      if(!controlContacts.has(id))return;
+      endControl(id);
+      if(name!=="lostpointercapture")e.preventDefault();
+    },true);
 }
 bindGameControls();
 board.addEventListener("pointerdown",e=>{e.preventDefault();board.setPointerCapture(e.pointerId);boardTouch={x:e.clientX,y:e.clientY}});

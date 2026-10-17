@@ -151,7 +151,7 @@ test("two fingers on one button do not release each other's hold",()=>{
 test("sliding through the gap between buttons uses a forgiving hit area",()=>{
   const b=boot(),[left,right]=b.buttons;
   b.send(left,"touchstart",1,25);
-  b.send(left,"touchmove",1,65); // 5px left of the Right button
+  b.send(left,"touchmove",1,67); // In the gap, closer to Right than Left
   assert.equal(count(b.logs,"left"),1);
   assert.equal(count(b.logs,"right"),1);
 });

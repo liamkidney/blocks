@@ -6,7 +6,9 @@ const vm=require("node:vm");
 
 function runInspector(){
   const html=fs.readFileSync(path.join(__dirname,"..","scores-test.html"),"utf8");
-  const script=html.match(/<script>([\\s\\S]*?)<\\/script>/)?.[1];
+  const opening=html.indexOf("<script>");
+  const closing=html.indexOf("</script>",opening);
+  const script=opening>=0&&closing>opening?html.slice(opening+8,closing):null;
   assert.ok(script,"inspector should contain executable JavaScript");
   class Element{
     constructor(){this.children=[];this.textContent="";this.value="";this.listeners={};this.classList={add(){}};}

@@ -166,6 +166,8 @@ test("trash icon needs BOTH matching player ID and verified key; older scores ha
   const buttons=b.deleteButtons();
   assert.equal(buttons.length,1);
   assert.match(buttons[0].attrs["aria-label"],/Delete your score of 1,000 points/);
+  assert.equal(b.element("#scores-status").textContent,
+    "Older scores cannot be deleted securely.");
 });
 
 test("confirmed delete removes owned score and refills leaderboard; declined delete does not",async()=>{

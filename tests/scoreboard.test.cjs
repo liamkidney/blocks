@@ -80,7 +80,11 @@ function setup(difficulty=2,options={}){
   };
   const context=vm.createContext(sandbox);
   const code=fs.readFileSync(path.join(__dirname,"..","high-scores.js"),"utf8");
-  sandbox.document.createElement=()=>overlay;
+  let firstElement=true;
+  sandbox.document.createElement=()=>{
+    if(firstElement){firstElement=false;return overlay;}
+    return new Element();
+  };
   vm.runInContext(fs.readFileSync(path.join(__dirname,"..","game-modes.js"),"utf8"),context,{filename:"game-modes.js"});
   vm.runInContext(code,context,{filename:"high-scores.js"});
   const tap=button=>{

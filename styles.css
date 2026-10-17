@@ -665,6 +665,22 @@ body.two-player #player-header{display:none}
 #high-scores-overlay th:nth-child(5),#high-scores-overlay td:nth-child(5){text-align:right;white-space:nowrap}
 #high-scores-overlay td:nth-child(5){font-size:clamp(10px,2.8vw,12px);font-weight:700}
 #high-scores-overlay td:nth-child(2){overflow-wrap:anywhere}
+#high-scores-overlay th:last-child,#high-scores-overlay td:last-child{
+  width:34px;min-width:34px;text-align:right;padding-right:0
+}
+#high-scores-overlay .score-delete-button{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:34px;padding:5px;
+  border:0;border-radius:4px;background:transparent;color:var(--ink);
+  touch-action:manipulation;cursor:pointer;
+}
+#high-scores-overlay .score-delete-button svg{
+  width:21px;height:21px;fill:none;stroke:currentColor;
+  stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round
+}
+#high-scores-overlay .score-delete-button:disabled{opacity:.35}
+#high-scores-overlay .score-delete-button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
 @media (max-width:440px){
   #high-scores-overlay .scores-panel{padding-left:10px;padding-right:10px}
   #high-scores-overlay th{padding-left:4px;padding-right:4px;letter-spacing:.5px;font-size:9px}

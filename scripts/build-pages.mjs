@@ -24,6 +24,15 @@ if(channel==="dev"&&!existsSync(join(source,"game-modes.js")))
   throw new Error("Missing dev game-modes.js");
 if(existsSync(join(source,"game-modes.js")))
   copyFileSync(join(source,"game-modes.js"),join(output,"game-modes.js"));
+
+// Developer-only inspectors are not published under the production PWA.
+if(channel==="dev"){
+  for(const name of ["scores-test.html","players-test.html","leaderboard-test.html"]){
+    const sourcePath=join(source,name);
+    if(!existsSync(sourcePath))throw new Error("Missing dev inspector: "+sourcePath);
+    copyFileSync(sourcePath,join(output,name));
+  }
+}
 if(existsSync(join(source,"score-ownership.js")))
   copyFileSync(join(source,"score-ownership.js"),join(output,"score-ownership.js"));
 const name=channel==="dev"?"Blocks Dev":"Blocks";

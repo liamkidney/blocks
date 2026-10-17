@@ -43,7 +43,10 @@ function setup(difficulty=2,options={}){
     },
     window:{
       BLOCKS_SCORE_OWNER:{
-        ownedScoreIds:async()=>new Set(options.ownedIds||[]),
+        ownedScoreIds:async()=>{
+          if(options.ownershipFails)throw Error("Ownership service unavailable");
+          return new Set(options.ownedIds||[]);
+        },
         removeScore:async id=>{
           removed.push(id);
           if(options.deleteFails)throw Error("Unauthorized");
@@ -197,4 +200,17 @@ test("failed removal preserves row and allows retry",async()=>{
   assert.equal(b.rows.children.length,1);
   assert.equal(b.deleteButtons()[0].disabled,false);
   assert.match(b.element("#scores-status").textContent,/Could not delete/);
+});
+
+test("ownership lookup failure does not block scores or mislabel them as legacy",async()=>{
+  const b=setup(2,{sessions:[
+    entry("33333333-3333-4333-8333-333333333333",
+      "11111111-1111-4111-8111-111111111111",1000)
+  ],ownershipFails:true});
+  b.tap(b.element("high-scores-button"));
+  await b.flush();
+  assert.equal(b.rows.children.length,1);
+  assert.equal(b.deleteButtons().length,0);
+  assert.equal(b.element("#scores-status").textContent,
+    "Delete controls are temporarily unavailable.");
 });

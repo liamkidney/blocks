@@ -41,10 +41,12 @@
   const timeout=setTimeout(()=>request.abort(),12000);
   status.textContent='Loading scores…';retry.hidden=true;rows.replaceChildren();
   try{
-   const [pr,sr,ownedIds]=await Promise.all([
+   const [pr,sr,ownership]=await Promise.all([
     fetch(API+'players?select=player_id,display_name&limit=1000',{headers,signal}),
     fetch(API+'sessions?select=session_id,player_id,score,lines,status,updated_at&difficulty=eq.'+mode+'&order=score.desc&limit=10',{headers,signal}),
-    window.BLOCKS_SCORE_OWNER.ownedScoreIds().catch(()=>new Set())
+    window.BLOCKS_SCORE_OWNER.ownedScoreIds()
+     .then(ids=>({ids,available:true}))
+     .catch(()=>({ids:new Set(),available:false}))
    ]);
    if(!pr.ok||!sr.ok)throw Error('HTTP '+pr.status+'/'+sr.status);
    const players=new Map((await pr.json()).map(p=>[p.player_id,p.display_name]));
@@ -52,7 +54,9 @@
    if(overlay.hidden||controller!==request||signal.aborted)return;
    const now=Date.now();
    const myPlayerId=currentPlayerId();
+   const ownedIds=ownership.ids;
    let hasLegacyOwnedScores=false;
+   let hasMyScores=false;
    sessions.forEach((s,i)=>{
     const tr=document.createElement('tr');
     cell(tr,i+1);
@@ -66,8 +70,10 @@
     }
     [s.score.toLocaleString(),s.lines,new Date(s.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})].forEach(v=>cell(tr,v));
     const action=cell(tr,'');
-    if(myPlayerId&&s.player_id===myPlayerId&&!ownedIds.has(s.session_id))
-     hasLegacyOwnedScores=true;
+    if(myPlayerId&&s.player_id===myPlayerId){
+     hasMyScores=true;
+     if(ownership.available&&!ownedIds.has(s.session_id))hasLegacyOwnedScores=true;
+    }
     if(myPlayerId&&s.player_id===myPlayerId&&ownedIds.has(s.session_id)){
      const remove=document.createElement('button');
      remove.type='button';
@@ -81,7 +87,8 @@
     rows.appendChild(tr);
    });
    status.textContent=sessions.length
-    ?(hasLegacyOwnedScores?'Older scores cannot be deleted securely.':'')
+    ?(hasMyScores&&!ownership.available?'Delete controls are temporarily unavailable.'
+      :hasLegacyOwnedScores?'Older scores cannot be deleted securely.':'')
     :'No '+GAME_MODES[mode].label.toUpperCase()+' scores yet';
   }catch(error){
    if(overlay.hidden||controller!==request||signal.aborted)return;

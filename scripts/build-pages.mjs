@@ -35,7 +35,8 @@ if(channel==="dev"){
     copyFileSync(sourcePath,join(output,name));
   }
 }
-
+if(existsSync(join(source,"score-ownership.js")))
+  copyFileSync(join(source,"score-ownership.js"),join(output,"score-ownership.js"));
 const name=channel==="dev"?"Blocks Dev":"Blocks";
 const appPath=channel==="dev"?"/blocks/dev/":"/blocks/";
 const manifest=JSON.parse(readFileSync(join(output,"manifest.json"),"utf8"));

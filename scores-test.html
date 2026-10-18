@@ -14,7 +14,7 @@ th{position:sticky;top:0;background:#f3efe3;border-bottom:3px solid #111}
 th.numeric,td.numeric{text-align:right;font-variant-numeric:tabular-nums}
 </style></head><body>
 <h1>SESSIONS — RAW DATA</h1>
-<p>Read-only Supabase sessions with player names. Scroll sideways for all columns.</p>
+<p>Read-only public session fields with player names. Deleted scores remain hidden. Scroll sideways for all columns.</p>
 <div class="controls"><button id="refresh">REFRESH</button>
 <select id="filter"><option value="">All statuses</option><option value="active">Active</option><option value="completed">Completed</option><option value="abandoned">Abandoned</option></select>
 <select id="sort"><option value="updated">Latest updated</option><option value="score">Highest score</option></select></div>
@@ -25,7 +25,13 @@ th.numeric,td.numeric{text-align:right;font-variant-numeric:tabular-nums}
 const BASE='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
 const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
 const headers={apikey:KEY};
-const primary=['display_name','score','lines','pieces_mode','ghost_mode','status','updated_at'];
+// Publicly readable columns only. SELECT * fails because sessions includes
+// a private ownership-hash field with no anonymous SELECT permission.
+const TABLE_COLUMNS=Object.freeze({
+ sessions:['session_id','player_id','score','lines','pieces_mode','ghost_mode','status','started_at','updated_at','difficulty'],
+ players:['player_id','display_name','created_at','updated_at']
+});
+const primary=['display_name','score','lines','difficulty','pieces_mode','ghost_mode','status','updated_at'];
 const hidden=new Set(['session_id','player_id']);
 const $=id=>document.getElementById(id);
 function displayValue(name,value){
@@ -40,7 +46,8 @@ let sessions=[],columns=primary.slice();
 async function fetchAll(table,order){
  const result=[],limit=1000;
  for(let offset=0;;offset+=limit){
-  const q=new URLSearchParams({select:'*',order,limit:String(limit),offset:String(offset)});
+  if(!Object.hasOwn(TABLE_COLUMNS,table))throw Error('Unexpected table '+table);
+  const q=new URLSearchParams({select:TABLE_COLUMNS[table].join(','),order,limit:String(limit),offset:String(offset)});
   const response=await fetch(BASE+table+'?'+q,{headers});
   if(!response.ok)throw Error(table+' HTTP '+response.status+': '+(await response.text()).slice(0,180));
   const page=await response.json();result.push(...page);
@@ -73,7 +80,7 @@ async function load(){
   const [scores,players]=await Promise.all([fetchAll('sessions','updated_at.desc'),fetchAll('players','created_at.desc')]);
   const names=new Map(players.map(p=>[p.player_id,p.display_name]));
   sessions=scores.map(s=>({...s,display_name:names.get(s.player_id)??'Unknown'}));
-  columns=[...new Set([...primary,...scores.flatMap(s=>Object.keys(s))])].filter(name=>!hidden.has(name));
+  columns=[...new Set([...primary,...TABLE_COLUMNS.sessions])].filter(name=>!hidden.has(name));
   $('head').replaceChildren();
   for(const name of columns){const th=document.createElement('th');th.textContent=name;if(name==='score'||name==='lines')th.classList.add('numeric');$('head').appendChild(th);}
   render();

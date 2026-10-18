@@ -39,7 +39,7 @@ function boot(savedMode=null,savedGhost=null){
     URLSearchParams,URL,Event,
   };
   const context=vm.createContext(sandbox);
-  for(const file of ["game-modes.js","tetrominoes.js","game.js","session.js","app.js"]){
+  for(const file of ["game-modes.js","tetrominoes.js","game.js","session.js","board-renderer.js","app.js"]){
     vm.runInContext(fs.readFileSync(path.join(__dirname,"..",file),"utf8"),context,{filename:file});
   }
   function tap(id){

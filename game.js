@@ -2,6 +2,30 @@
 // Hard begins at level 5. Both advance one level per ten cleared lines.
 const GRAVITY_FRAMES=[48,43,38,33,28,23,18,13,8,6,5,5,5,4,4,4,3,3,3,2,2,2,2,2,2,2,2,2,2,1];
 
+// Guideline Super Rotation System (SRS), using x right and y up.
+// Transition state numbers: 0=spawn, 1=R, 2=reverse, 3=L.
+// Each transition tests up to five positions, in priority order.
+const SRS_KICKS_JLSTZ={
+  "0>1":[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  "1>0":[[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  "1>2":[[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  "2>1":[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  "2>3":[[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  "3>2":[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  "3>0":[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  "0>3":[[0,0],[1,0],[1,1],[0,-2],[1,-2]]
+};
+const SRS_KICKS_I={
+  "0>1":[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
+  "1>0":[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
+  "1>2":[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],
+  "2>1":[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
+  "2>3":[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
+  "3>2":[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
+  "3>0":[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
+  "0>3":[[0,0],[-1,0],[2,0],[-1,2],[2,-1]]
+};
+
 class PieceQueue {
   static DROUGHT_WEIGHT = 0.2;
   constructor(tetrominoes=TETROMINOES){
@@ -40,7 +64,7 @@ class Game {
   get tickSeconds(){return GRAVITY_FRAMES[Math.min(this.level,GRAVITY_FRAMES.length-1)]/60;}
   toSnapshot(){
     return {
-      version:1,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
+      version:3,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
       pausedPhase:this.pausedPhase||null,completedRows:[...this.completedRows],
       score:this.score,lines:this.lines,elapsed:this.elapsed,
       active:this.active?{name:this.active.tetromino.name,x:this.active.x,y:this.active.y,orientation:this.active.orientation}:null,
@@ -53,7 +77,7 @@ class Game {
     const byName=Object.fromEntries(allowed.map(t=>[t.name,t]));
     const validName=name=>typeof name==="string"&&Object.hasOwn(byName,name);
     const integer=n=>Number.isSafeInteger(n)&&n>=0;
-    if(!snapshot||snapshot.version!==1||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
+    if(!snapshot||![1,2,3].includes(snapshot.version)||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
        !snapshot.grid.every(row=>Array.isArray(row)&&row.length===10&&row.every(v=>v===null||validName(v)))||
        !["falling","clearing_lines","paused"].includes(snapshot.phase)||
        !integer(snapshot.score)||!integer(snapshot.lines)||
@@ -80,6 +104,15 @@ class Game {
     game.queue.droughts=Object.fromEntries(allowed.map(t=>[t.name,snapshot.droughts[t.name]]));
     game.nextTetromino=game.queue.next();
     game.active=active?{tetromino:byName[active.name],x:active.x,y:active.y,orientation:active.orientation}:null;
+    // S/Z had offset pivots in snapshots v1 and v2. Preserve the
+    // occupied board cells when restoring into the corrected v3 SRS
+    // orientations; only the anchor changes, never the visible piece.
+    if(snapshot.version<3&&game.active&&["S","Z"].includes(active.name)){
+      if(active.orientation===0)game.active.y--;
+      else if(active.orientation===1)game.active.x--;
+      else if(snapshot.version===2&&active.orientation===2)game.active.y++;
+      else if(snapshot.version===2&&active.orientation===3)game.active.x++;
+    }
     if(game.active&&!game.canPlace(game.offsets,game.active.x,game.active.y))throw new Error("Invalid active position");
     return game;
   }
@@ -179,10 +212,22 @@ class Game {
     this.active.x=x;this.active.y=y;return true;
   }
   tryRotate(direction){
-    if(!this.active) return;
-    const orientation=(this.active.orientation+direction+4)%4;
-    const offsets=this.active.tetromino.orientations[orientation];
-    if(this.canPlace(offsets,this.active.x,this.active.y)) this.active.orientation=orientation;
+    if(!this.active||(direction!==1&&direction!==-1))return false;
+    const piece=this.active;
+    const orientation=(piece.orientation+direction+4)%4;
+    const offsets=piece.tetromino.orientations[orientation];
+    const transition=piece.orientation+">"+orientation;
+    const kicks=piece.tetromino.name==="O"?[[0,0]]:
+      (piece.tetromino.name==="I"?SRS_KICKS_I:SRS_KICKS_JLSTZ)[transition];
+    // Never move or rotate unless a candidate fits; a blocked rotation
+    // must leave the active piece untouched.
+    for(const [dx,dy] of kicks){
+      const x=piece.x+dx,y=piece.y+dy;
+      if(!this.canPlace(offsets,x,y))continue;
+      piece.x=x;piece.y=y;piece.orientation=orientation;
+      return true;
+    }
+    return false;
   }
   canPlace(offsets,x,y){
     return offsets.every(([ox,oy])=>{

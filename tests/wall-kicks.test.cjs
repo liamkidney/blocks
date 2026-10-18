@@ -24,10 +24,10 @@ function occupied(game){
 }
 function occupiedFrom(name,orientation,x,y,legacy=false){
   let offsets=TETROMINO_BY_NAME[name].orientations[orientation];
-  if(legacy&&["S","Z"].includes(name)&&orientation===2)
-    offsets=TETROMINO_BY_NAME[name].orientations[0];
-  if(legacy&&["S","Z"].includes(name)&&orientation===3)
-    offsets=TETROMINO_BY_NAME[name].orientations[1];
+  if(legacy&&["S","Z"].includes(name)&&orientation===0)
+    offsets=TETROMINO_BY_NAME[name].orientations[2];
+  if(legacy&&["S","Z"].includes(name)&&orientation===1)
+    offsets=TETROMINO_BY_NAME[name].orientations[3];
   return offsets.map(([dx,dy])=>[x+dx,y+dy].join(",")).sort();
 }
 
@@ -156,7 +156,7 @@ test("saved version-2 games keep the kicked position on restore",()=>{
   const game=setPiece(new Game({difficulty:2}),"T",0,4,-1);
   assert.equal(game.tryRotate(1),true);
   const snapshot=game.toSnapshot();
-  assert.equal(snapshot.version,2);
+  assert.equal(snapshot.version,3);
   const restored=Game.fromSnapshot(snapshot);
   assert.equal(restored.phase,"paused");
   assert.equal(restored.difficulty,2);
@@ -175,7 +175,7 @@ test("legacy v1 S/Z rotations 2 and 3 restore to the same four cells",()=>{
       assert.deepEqual(occupied(restored),
         occupiedFrom(name,orientation,4,8,true),
         name+" legacy orientation "+orientation);
-      assert.equal(restored.toSnapshot().version,2);
+      assert.equal(restored.toSnapshot().version,3);
     }
   }
 });
@@ -205,4 +205,56 @@ test("pause and game over reject player rotation requests",()=>{
   game.press("rotate_cw");
   assert.equal(game.phase,"game_over");
   assert.equal(game.active,null);
+});
+
+test("all wall rotations work for all pieces in both directions",()=>{
+  for(const name of ["I","J","L","O","S","T","Z"]){
+    for(let from=0;from<4;from++){
+      for(const direction of [-1,1]){
+        for(const wall of ["left","right"]){
+          const game=new Game();
+          const offsets=TETROMINO_BY_NAME[name].orientations[from];
+          const xs=offsets.map(([x])=>x);
+          const x=wall==="left"?-Math.min(...xs):9-Math.max(...xs);
+          setPiece(game,name,from,x,8);
+          assert.equal(game.tryRotate(direction),true,
+            name+" "+from+" -> "+((from+direction+4)%4)+" at "+wall+" wall");
+          assert.ok(game.canPlace(game.offsets,game.active.x,game.active.y));
+        }
+      }
+    }
+  }
+});
+
+test("S/Z wall kicks on right and left use SRS offsets",()=>{
+  for(const name of ["S","Z"]){
+    for(const to of [0,2]){
+      const right=setPiece(new Game(),name,1,8,8);
+      assert.equal(right.tryRotate(to===2?1:-1),true);
+      assert.equal(right.active.orientation,to);
+      assert.equal(right.active.x,7);
+      const left=setPiece(new Game(),name,3,-1,8);
+      assert.equal(left.tryRotate(to===0?1:-1),true);
+      assert.equal(left.active.orientation,to);
+      assert.equal(left.active.x,0);
+    }
+  }
+});
+
+test("v2 S/Z saved games preserve occupied cells in all orientations",()=>{
+  for(const name of ["S","Z"])for(let orientation=0;orientation<4;orientation++){
+    const game=setPiece(new Game(),name,orientation,4,8);
+    const snapshot=game.toSnapshot();
+    snapshot.version=2;
+    snapshot.active.x=4;snapshot.active.y=8;
+    const oldOffsets=TETROMINO_BY_NAME[name].orientations[orientation].map(([x,y])=>{
+      if(orientation===0)return [x,y-1];
+      if(orientation===1)return [x-1,y];
+      if(orientation===2)return [x,y+1];
+      return [x+1,y];
+    });
+    const expected=oldOffsets.map(([x,y])=>[x+4,y+8].join(",")).sort();
+    const restored=Game.fromSnapshot(snapshot);
+    assert.deepEqual(occupied(restored),expected,name+" v2 orientation "+orientation);
+  }
 });

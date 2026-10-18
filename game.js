@@ -64,7 +64,7 @@ class Game {
   get tickSeconds(){return GRAVITY_FRAMES[Math.min(this.level,GRAVITY_FRAMES.length-1)]/60;}
   toSnapshot(){
     return {
-      version:2,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
+      version:3,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
       pausedPhase:this.pausedPhase||null,completedRows:[...this.completedRows],
       score:this.score,lines:this.lines,elapsed:this.elapsed,
       active:this.active?{name:this.active.tetromino.name,x:this.active.x,y:this.active.y,orientation:this.active.orientation}:null,
@@ -77,7 +77,7 @@ class Game {
     const byName=Object.fromEntries(allowed.map(t=>[t.name,t]));
     const validName=name=>typeof name==="string"&&Object.hasOwn(byName,name);
     const integer=n=>Number.isSafeInteger(n)&&n>=0;
-    if(!snapshot||![1,2].includes(snapshot.version)||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
+    if(!snapshot||![1,2,3].includes(snapshot.version)||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
        !snapshot.grid.every(row=>Array.isArray(row)&&row.length===10&&row.every(v=>v===null||validName(v)))||
        !["falling","clearing_lines","paused"].includes(snapshot.phase)||
        !integer(snapshot.score)||!integer(snapshot.lines)||
@@ -104,12 +104,14 @@ class Game {
     game.queue.droughts=Object.fromEntries(allowed.map(t=>[t.name,snapshot.droughts[t.name]]));
     game.nextTetromino=game.queue.next();
     game.active=active?{tetromino:byName[active.name],x:active.x,y:active.y,orientation:active.orientation}:null;
-    // v1 snapshots used only two repeated S/Z silhouettes. In v2 their
-    // orientations 2 and 3 have canonical SRS pivots. Offset the anchor
-    // so the four occupied cells stay in precisely the same squares.
-    if(snapshot.version===1&&game.active&&["S","Z"].includes(active.name)){
-      if(active.orientation===2)game.active.y--;
-      else if(active.orientation===3)game.active.x--;
+    // S/Z had offset pivots in snapshots v1 and v2. Preserve the
+    // occupied board cells when restoring into the corrected v3 SRS
+    // orientations; only the anchor changes, never the visible piece.
+    if(snapshot.version<3&&game.active&&["S","Z"].includes(active.name)){
+      if(active.orientation===0)game.active.y--;
+      else if(active.orientation===1)game.active.x--;
+      else if(snapshot.version===2&&active.orientation===2)game.active.y++;
+      else if(snapshot.version===2&&active.orientation===3)game.active.x++;
     }
     if(game.active&&!game.canPlace(game.offsets,game.active.x,game.active.y))throw new Error("Invalid active position");
     return game;

@@ -229,11 +229,11 @@ test("all wall rotations work for all pieces in both directions",()=>{
 test("S/Z wall kicks on right and left use SRS offsets",()=>{
   for(const name of ["S","Z"]){
     for(const to of [0,2]){
-      const right=setPiece(new Game(),name,1,8,8);
+      const right=setPiece(new Game(),name,1,7,8);
       assert.equal(right.tryRotate(to===2?1:-1),true);
       assert.equal(right.active.orientation,to);
       assert.equal(right.active.x,7);
-      const left=setPiece(new Game(),name,3,-1,8);
+      const left=setPiece(new Game(),name,3,0,8);
       assert.equal(left.tryRotate(to===0?1:-1),true);
       assert.equal(left.active.orientation,to);
       assert.equal(left.active.x,0);

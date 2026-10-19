@@ -553,7 +553,7 @@ if("serviceWorker" in navigator){
       const registration=await navigator.serviceWorker.register("sw.js",{updateViaCache:"none"});
       // A worker that was already waiting when the new page launched can
       // safely replace this build. New downloads wait until a later launch.
-      if(hadController&&registration.waiting){
+      if(hadController&&registration.waiting&&(awaitingInitialStart||game.phase==="paused"||game.phase==="game_over")){
         activatingAtLaunch=true;
         saveGame(true);
         registration.waiting.postMessage({type:"BLOCKS_ACTIVATE_UPDATE"});

@@ -89,7 +89,7 @@ test("both release channels receive separate versioned caches and PWA scopes",()
   }finally{fs.rmSync(tmp,{recursive:true,force:true})}
 });
 
-async function runRegistration(waitingAtLaunch,hadController=true){
+async function runRegistration(waitingAtLaunch,hadController=true,isPlaying=false){
   const code=fs.readFileSync(path.join(root,"app.js"),"utf8");
   const start=code.indexOf('if("serviceWorker" in navigator){');
   const end=code.indexOf('document.addEventListener("contextmenu"',start);
@@ -110,6 +110,7 @@ async function runRegistration(waitingAtLaunch,hadController=true){
     document:{addEventListener:(type,cb)=>{documentEvents[type]=cb}},
     location:{reload:()=>{reloads++}},
     saveGame:()=>{saves++},
+    game:{phase:isPlaying?"falling":"paused"},awaitingInitialStart:!isPlaying,
     console
   };
   vm.runInNewContext(code.slice(start,end),sandbox);
@@ -132,4 +133,11 @@ test("a previously downloaded update activates on a fresh launch",async()=>{
   r.workerEvents.controllerchange();
   assert.equal(r.get().reloads,1);
   assert.ok(r.get().saves>=1);
+});
+
+test("a waiting update does not replace the app when gameplay has already started",async()=>{
+  const r=await runRegistration(true,true,true);
+  assert.equal(r.get().messages,0);
+  r.workerEvents.controllerchange();
+  assert.equal(r.get().reloads,0);
 });

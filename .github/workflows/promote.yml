@@ -1,0 +1,72 @@
+name: Promote validated Dev to Main
+
+# Run manually from the Actions tab only after reviewing the live dev app.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linear-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out development commit
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Verify linear Git history
+        id: sha
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main dev
+          PROD_SHA=$(git rev-parse origin/main)
+          DEV_SHA=$(git rev-parse origin/dev)
+          test "$(git rev-parse HEAD)" = "$DEV_SHA"
+          git merge-base --is-ancestor "$PROD_SHA" "$DEV_SHA" || {
+            echo "::error::main is not an ancestor of dev. Reconcile in dev first."
+            exit 1
+          }
+          echo "dev_sha=$DEV_SHA" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$PROD_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Test and build the exact development commit
+        shell: bash
+        env:
+          DEV_SHA: ${{ steps.sha.outputs.dev_sha }}
+        run: |
+          set -euo pipefail
+          node --test tests/*.test.cjs
+          node scripts/build-pages.mjs . "$RUNNER_TEMP/release-build" dev "${DEV_SHA:0:8}"
+          test -s "$RUNNER_TEMP/release-build/index.html"
+
+      - name: Fast-forward main to the validated SHA
+        shell: bash
+        env:
+          DEV_SHA: ${{ steps.sha.outputs.dev_sha }}
+          OLD_MAIN_SHA: ${{ steps.sha.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin main dev
+          test "$(git rev-parse origin/dev)" = "$DEV_SHA" || {
+            echo "::error::dev changed during validation."
+            exit 1
+          }
+          test "$(git rev-parse origin/main)" = "$OLD_MAIN_SHA" || {
+            echo "::error::main changed during validation."
+            exit 1
+          }
+          git push origin "$DEV_SHA:refs/heads/main"
+          echo "Promoted commit $DEV_SHA without creating a new commit."

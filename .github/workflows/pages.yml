@@ -3,9 +3,9 @@ on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["Validate Blocks Dev"]
+    workflows: ["Validate Blocks Dev", "Promote validated Dev to Main"]
     types: [completed]
-    branches: [dev]
+    branches: [dev, main]
   workflow_dispatch:
 
 permissions:
@@ -29,13 +29,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
           path: production
 
       - name: Checkout development
         uses: actions/checkout@v4
         with:
           ref: dev
+          fetch-depth: 0
           path: development
+
+      - name: Require main to be promoted from dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA=$(git -C production rev-parse HEAD)
+          DEV_SHA=$(git -C development rev-parse HEAD)
+          git -C development merge-base --is-ancestor "$MAIN_SHA" "$DEV_SHA" || {
+            echo "::error::Production has commits not in development. Reconcile branches before deploying."
+            exit 1
+          }
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -51,6 +64,7 @@ jobs:
             done
           done
           (cd development && node --test tests/*.test.cjs)
+          (cd production && node --test tests/*.test.cjs)
 
       - name: Build production and development sites
         run: |
@@ -58,7 +72,7 @@ jobs:
           PROD_SHA=$(git -C production rev-parse --short=8 HEAD)
           DEV_SHA=$(git -C development rev-parse --short=8 HEAD)
           node production/scripts/build-pages.mjs production _site prod "$PROD_SHA"
-          node production/scripts/build-pages.mjs development _site/dev dev "$DEV_SHA"
+          node development/scripts/build-pages.mjs development _site/dev dev "$DEV_SHA"
           touch _site/.nojekyll
           test -s _site/index.html
           test -s _site/dev/index.html

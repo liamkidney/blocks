@@ -7,7 +7,7 @@
   const headers={apikey:KEY,'Content-Type':'application/json'};
   const mode=new URLSearchParams(location.search).get('pieces')?.toUpperCase()==='IO'?'IO':'ALL';
   const OUTBOX_KEY='blocks:score-outbox:v1:'+location.pathname.replace(/index[.]html$/,'');
-  const pending=new Map(),registered=new Set(),sent=new Map(),terminal=new Set();
+  const pending=new Map(),registered=new Set(),sent=new Map(),terminal=new Map();
   let busy=false,lastAttempt=0;
   let id=storedSessionId||crypto.randomUUID();
   window.BLOCKS_SESSION_ID=id;
@@ -23,7 +23,7 @@
       if(!item||typeof item.session_id!=='string'||!item.player_id||!Number.isSafeInteger(item.score)||
         !Number.isSafeInteger(item.lines)||!['active','completed','abandoned'].includes(item.status))continue;
       pending.set(item.session_id,item);
-      if(item.status!=='active')terminal.add(item.session_id);
+      if(item.status!=='active')terminal.set(item.session_id,item.status);
     }
   }catch(error){console.warn('Blocks score outbox could not be read:',error)}
   function playerId(){
@@ -40,13 +40,13 @@
     if(!item.player_id)return Promise.resolve();
     const previous=pending.get(item.session_id);
     // Once a game has ended it must never turn active again.
-    if((previous&&previous.status!=='active'&&item.status==='active')||
-       (terminal.has(item.session_id)&&item.status==='active'))return Promise.resolve();
+    if((previous&&previous.status!=='active'&&item.status!==previous.status)||
+       (terminal.has(item.session_id)&&terminal.get(item.session_id)!==item.status))return Promise.resolve();
     const signature=JSON.stringify([item.score,item.lines,item.status,item.difficulty,item.ghost_mode]);
     if(!previous&&sent.get(item.session_id)===signature)return Promise.resolve();
     if(previous&&JSON.stringify(previous)===JSON.stringify(item))return drain(force);
     pending.set(item.session_id,item);
-    if(item.status!=='active')terminal.add(item.session_id);
+    if(item.status!=='active')terminal.set(item.session_id,item.status);
     persist(); // Before any network attempt, including when offline.
     return drain(force);
   }
@@ -91,7 +91,7 @@
     }finally{busy=false}
   }
   window.addEventListener('blocks:restart',()=>{
-    void queue('abandoned',true);
+    void queue(game.phase==='game_over'?'completed':'abandoned',true);
     id=crypto.randomUUID();
     window.BLOCKS_SESSION_ID=id;
   });

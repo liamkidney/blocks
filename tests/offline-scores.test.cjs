@@ -86,3 +86,17 @@ test("failed uploads remain durable and can be retried later",async()=>{
   assert.equal(instance.outbox()[0].score,125);
   assert.equal(instance.outbox()[0].status,"completed");
 });
+
+
+test("restarting a completed game preserves its completed result",()=>{
+  const storage=new Map([[playerKey,JSON.stringify({player_id:"player-one"})]]);
+  const instance=boot(storage);
+  const oldId=instance.window.BLOCKS_SESSION_ID;
+  instance.game.phase="game_over";
+  instance.game.score=725;
+  instance.window.BLOCKS_QUEUE_SCORE("completed",true);
+  instance.events["blocks:restart"]();
+  const completed=instance.outbox().find(item=>item.session_id===oldId);
+  assert.equal(completed.status,"completed");
+  assert.equal(completed.score,725);
+});

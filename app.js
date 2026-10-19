@@ -308,7 +308,7 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-function loop(now){session.update(Math.min((now-lastTime)/1000,.25));session.drainEvents();lastTime=now;render();saveGame(game.phase==="game_over"&&previousPhase!=="game_over");previousPhase=game.phase;requestAnimationFrame(loop)}
+function loop(now){session.update(Math.min((now-lastTime)/1000,.25));session.drainEvents();lastTime=now;render();const finished=game.phase==="game_over"&&previousPhase!=="game_over";saveGame(finished);if(finished)window.BLOCKS_QUEUE_SCORE?.("completed",true);previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{
@@ -540,22 +540,31 @@ document.addEventListener("keydown",e=>{
 if("serviceWorker" in navigator){
   window.addEventListener("load",async()=>{
     const hadController=Boolean(navigator.serviceWorker.controller);
-    let refreshing=false;
+    let activatingAtLaunch=false,refreshing=false;
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      if(!hadController||refreshing)return;
+      // Reload only after deliberately activating an update at launch.
+      // Never reload an ongoing game just because a background update arrived.
+      if(!activatingAtLaunch||refreshing)return;
       refreshing=true;
       saveGame(true);
       location.reload();
     });
     try{
       const registration=await navigator.serviceWorker.register("sw.js",{updateViaCache:"none"});
+      // A worker that was already waiting when the new page launched can
+      // safely replace this build. New downloads wait until a later launch.
+      if(hadController&&registration.waiting){
+        activatingAtLaunch=true;
+        saveGame(true);
+        registration.waiting.postMessage({type:"BLOCKS_ACTIVATE_UPDATE"});
+      }
       const checkForUpdate=()=>registration.update().catch(()=>{});
-      checkForUpdate();
+      void checkForUpdate();
       document.addEventListener("visibilitychange",()=>{
-        if(document.visibilityState==="visible")checkForUpdate();
+        if(document.visibilityState==="visible")void checkForUpdate();
       });
       window.addEventListener("pageshow",event=>{
-        if(event.persisted)checkForUpdate();
+        if(event.persisted)void checkForUpdate();
       });
     }catch(error){console.warn("Service worker registration failed",error);}
   });

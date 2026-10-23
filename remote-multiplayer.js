@@ -1,101 +1,214 @@
-// Two-phone match transport. One local board per device; attack rules remain in session.js.
-// Loaded only for ?remote=1. Requires the blocks_* Supabase RPC migration.
+// Two-phone multiplayer transport: independent local boards, durable attack outbox.
+// Only activated in ?remote=1; solo and single-phone multiplayer remain unchanged.
 (()=>{
   if(new URLSearchParams(location.search).get('remote')!=='1')return;
   const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/rpc/';
   const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
-  const headers={'apikey':KEY,'Content-Type':'application/json'};
-  const storageKey='blocks:remote-match:'+location.pathname;
-  let match=null, cursor=0, pending=[], polling=false, sending=false, timer=null;
-  const rpc=async(name,args={})=>{
-    const response=await fetch(API+name,{method:'POST',headers,body:JSON.stringify(args)});
-    if(!response.ok)throw Error((await response.text()).slice(0,240));
+  const STORAGE_KEY='blocks:remote-match:'+location.pathname;
+  const headers={apikey:KEY,'Content-Type':'application/json'};
+  const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}};
+  const saved=read();
+  let match=saved&&saved.id&&saved.token&&[1,2].includes(saved.player)?saved:null;
+  let busy=false,sending=false,ready=false,finished=false,interval=null;
+
+  const lobby=document.createElement('div');
+  lobby.id='remote-lobby';
+  lobby.innerHTML='<section class="remote-panel" role="dialog" aria-label="Two-phone multiplayer">'+
+    '<div class="remote-kicker">BLOCKS · TWO PHONES</div>'+
+    '<h2 id="remote-title">Play on two phones</h2>'+
+    '<p id="remote-status">Each player has a separate board. Clearing two lines sends one junk line to your opponent.</p>'+
+    '<div id="remote-code" aria-live="polite"></div>'+
+    '<input id="remote-input" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="SIX-LETTER CODE" aria-label="Room code">'+
+    '<div class="remote-actions"><button type="button" id="remote-create">CREATE MATCH</button>'+
+    '<button type="button" id="remote-join">JOIN MATCH</button></div>'+
+    '<button type="button" id="remote-resume" hidden>RECONNECT</button>'+
+    '<button type="button" id="remote-new" hidden>NEW MATCH</button>'+
+    '<button type="button" id="remote-back">SOLO PLAY</button>'+
+    '<p id="remote-error" role="alert"></p></section>';
+  document.body.append(lobby);
+  const $=id=>lobby.querySelector('#'+id);
+  const title=$('remote-title'),status=$('remote-status'),room=$('remote-code'),input=$('remote-input');
+  const create=$('remote-create'),join=$('remote-join'),resume=$('remote-resume');
+  const newMatch=$('remote-new'),back=$('remote-back'),error=$('remote-error');
+  const bar=document.createElement('div');
+  bar.id='remote-match-bar';
+  bar.hidden=true;
+  bar.innerHTML='<span id="remote-match-label"></span><button type="button" id="remote-leave">FORFEIT</button>';
+  document.getElementById('console').prepend(bar);
+  const show=visible=>{lobby.hidden=!visible;document.body.classList.toggle('remote-waiting',visible)};
+  const setError=e=>{error.textContent=e?.message||String(e);};
+  const updateRoom=()=>{room.textContent=match?.code||'';};
+  const persist=()=>{
+    if(!match)return;
+    const state=window.BLOCKS_REMOTE_CAPTURE?.();
+    if(state){match.snapshot=state.snapshot;match.progress=state.progress;}
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(match))}catch(e){console.warn('Remote match save:',e);}
+  };
+  async function rpc(name,args={}){
+    const response=await fetch(API+name,{method:'POST',headers,body:JSON.stringify(args),cache:'no-store'});
+    if(!response.ok){
+      const body=await response.json().catch(()=>null);
+      throw Error(body?.message||'Connection failed ('+response.status+')');
+    }
     return response.json();
-  };
-  const overlay=document.createElement('div');
-  overlay.id='remote-lobby';
-  overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:#f3efe3;display:grid;place-items:center;padding:20px;color:#222;font:inherit';
-  overlay.innerHTML='<div style="width:min(360px,100%);text-align:center"><h2>TWO PHONES</h2><p id="remote-status">Create a match or join with a six-letter code.</p><p id="remote-code" style="font-size:32px;letter-spacing:5px;font-weight:bold"></p><input id="remote-input" maxlength="6" autocapitalize="characters" placeholder="ROOM CODE" style="font-size:20px;text-transform:uppercase;width:90%;padding:12px;text-align:center"><div style="display:flex;gap:10px;justify-content:center;margin:16px"><button id="remote-create">CREATE</button><button id="remote-join">JOIN</button></div><button id="remote-resume" hidden>RECONNECT</button><p id="remote-error" role="alert"></p></div>';
-  document.body.append(overlay);
-  const hideLobby=hide=>{overlay.style.display=hide?'none':'grid'};
-  const status=overlay.querySelector('#remote-status'),code=overlay.querySelector('#remote-code'),error=overlay.querySelector('#remote-error');
-  const create=overlay.querySelector('#remote-create'),join=overlay.querySelector('#remote-join'),resume=overlay.querySelector('#remote-resume');
-  const input=overlay.querySelector('#remote-input');
-  const stored=(()=>{try{return JSON.parse(localStorage.getItem(storageKey)||'null')}catch(_){return null}})();
-  if(stored?.id&&stored?.token){resume.hidden=false;resume.onclick=()=>connect(stored);}
-  function persist(){try{localStorage.setItem(storageKey,JSON.stringify(match))}catch(_){}}
-  function setError(e){error.textContent=e?.message||String(e)}
-  async function connect(value){
-    match=value;persist();error.textContent='';
-    code.textContent=match.code||'';
-    status.textContent='Connecting…';
-    create.disabled=join.disabled=true;
-    await poll();
-    timer=setInterval(poll,650);
   }
-  create.onclick=async()=>{
-    create.disabled=join.disabled=true;
-    try{
-      const rows=await rpc('blocks_create_match');
-      const r=rows[0];
-      await connect({id:r.match_id,token:r.player_token,code:r.room_code,player:1});
-    }catch(e){setError(e);create.disabled=join.disabled=false;}
-  };
-  join.onclick=async()=>{
-    const room=input.value.trim().toUpperCase();
-    if(!/^[A-Z]{6}$/.test(room)){setError('Enter a six-letter code.');return;}
-    create.disabled=join.disabled=true;
-    try{
-      const rows=await rpc('blocks_join_match',{p_code:room});
-      const r=rows[0];
-      await connect({id:r.match_id,token:r.player_token,code:room,player:2});
-    }catch(e){setError(e);create.disabled=join.disabled=false;}
-  };
+  function readyUI(){
+    if(ready||finished)return;
+    ready=true;
+    show(false);
+    bar.hidden=false;
+    bar.querySelector('#remote-match-label').textContent='ROOM '+match.code+' · PLAYER '+match.player;
+    window.dispatchEvent(new CustomEvent('blocks:remote-ready'));
+  }
+  function finish(winner){
+    if(finished)return;
+    finished=true;
+    ready=false;
+    if(interval){clearInterval(interval);interval=null;}
+    window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner}}));
+    bar.hidden=true;
+    title.textContent=winner===match.player?'YOU WIN':winner===0?'DRAW':'YOU LOSE';
+    status.textContent='Match finished.';
+    input.hidden=true;create.hidden=true;join.hidden=true;resume.hidden=true;
+    newMatch.hidden=false;
+    updateRoom();show(true);
+    match.finished=true;persist();
+  }
   async function poll(){
-    if(!match||polling)return;
-    polling=true;
+    if(!match||busy||finished||navigator.onLine===false)return;
+    busy=true;
     try{
-      const data=await rpc('blocks_match_poll',{p_match:match.id,p_token:match.token,p_after:cursor});
-      for(const event of data.events||[]){
-        if(event.id<=cursor)continue;
-        cursor=event.id;
+      const result=await rpc('blocks_match_poll',{
+        p_match:match.id,p_token:match.token,p_after:match.cursor||0
+      });
+      if(result.status==='playing')readyUI();
+      else if(result.status==='waiting'){
+        status.textContent='Waiting for Player 2. Share this code:';
+        updateRoom();show(true);
+      }
+      for(const event of result.events||[]){
+        if(event.id<=(match.cursor||0))continue;
         if(event.sender!==match.player){
-          if(event.type==='attack')window.dispatchEvent(new CustomEvent('blocks:remote-attack',{detail:{rows:event.rows}}));
-          if(event.type==='lost')window.dispatchEvent(new CustomEvent('blocks:remote-win'));
+          window.dispatchEvent(new CustomEvent('blocks:remote-event',{detail:event}));
         }
+        match.cursor=event.id;
+        // Atomically persist cursor and the board updated by the event handler.
+        persist();
       }
-      if(data.status==='playing'){
-        hideLobby(true);
-        window.dispatchEvent(new CustomEvent('blocks:remote-ready'));
-      }else if(data.status==='waiting'){
-        hideLobby(false);status.textContent='Waiting for the other player. Share this code:';
-      }else if(data.status==='finished'){
-        window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner:data.winner}}));
-        clearInterval(timer);
-      }
+      if(result.status==='finished')finish(result.winner);
       error.textContent='';
+      if(ready)void flush();
     }catch(e){setError(e)}
-    finally{polling=false}
+    finally{busy=false;}
   }
   async function flush(){
-    if(sending||!match||!pending.length)return;
+    if(!match||sending||finished||navigator.onLine===false)return;
     sending=true;
     try{
-      while(pending.length){
-        const item=pending[0];
-        await rpc('blocks_match_send',{p_match:match.id,p_token:match.token,p_type:item.type,p_rows:item.rows});
-        pending.shift();
+      while(match?.outbox?.length){
+        const current=match;
+        const event=current.outbox[0];
+        await rpc('blocks_match_send',{
+          p_match:current.id,p_token:current.token,
+          p_type:event.type,p_rows:event.rows,p_key:event.key
+        });
+        if(match!==current)break;
+        current.outbox.shift();
+        persist();
       }
     }catch(e){setError(e)}
     finally{sending=false}
   }
+  async function connect(value,fresh=false){
+    if(interval)clearInterval(interval);
+    match=fresh?{...value,cursor:0,outbox:[],progress:0,snapshot:null}:value;
+    ready=false;finished=false;
+    if(fresh)window.BLOCKS_REMOTE_RESET?.();
+    persist();
+    updateRoom();
+    title.textContent='Connecting';
+    status.textContent='Checking the room…';
+    create.hidden=true;join.hidden=true;input.hidden=true;resume.hidden=true;
+    show(true);error.textContent='';
+    await poll();
+    interval=setInterval(()=>{void poll();void flush();},700);
+    void flush();
+  }
+  async function newRoom(kind){
+    create.disabled=join.disabled=true;
+    error.textContent='';
+    try{
+      let value;
+      if(kind==='create'){
+        const rows=await rpc('blocks_create_match');
+        const row=rows[0];
+        value={id:row.match_id,token:row.player_token,code:row.room_code,player:1};
+      }else{
+        const code=input.value.trim().toUpperCase();
+        if(!/^[A-Z]{6}$/.test(code))throw Error('Enter a six-letter room code.');
+        const rows=await rpc('blocks_join_match',{p_code:code});
+        const row=rows[0];
+        value={id:row.match_id,token:row.player_token,code,player:2};
+      }
+      await connect(value,true);
+    }catch(e){setError(e);create.disabled=join.disabled=false}
+  }
+  create.onclick=()=>{void newRoom('create')};
+  join.onclick=()=>{void newRoom('join')};
+  input.addEventListener('input',()=>{input.value=input.value.toUpperCase().replace(/[^A-Z]/g,'')});
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')void newRoom('join')});
+  resume.onclick=()=>{if(match)void connect(match)};
+  newMatch.onclick=()=>{
+    if(interval)clearInterval(interval);
+    try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
+    const url=new URL(location.href);url.searchParams.set('remote','1');location.href=url.href;
+  };
+  back.onclick=()=>{
+    const url=new URL(location.href);
+    url.searchParams.delete('remote');url.searchParams.delete('players');
+    location.href=url.href;
+  };
+  bar.querySelector('#remote-leave').onclick=()=>{
+    if(!window.confirm('Forfeit this match?'))return;
+    window.BLOCKS_REMOTE?.reportLoss();
+    status.textContent='Forfeiting match…';
+    bar.hidden=true;show(true);
+  };
+
   window.BLOCKS_REMOTE={
     get active(){return Boolean(match)},
+    get ready(){return ready},
     get player(){return match?.player||null},
-    sendAttack(rows){if(!Number.isInteger(rows)||rows<1)return;pending.push({type:'attack',rows});void flush()},
-    reportLoss(){pending.push({type:'lost',rows:null});void flush()},
-    poll(){return poll()}
+    persist,
+    sendAttack(rows){
+      if(!ready||!Number.isInteger(rows)||rows<1||rows>20)return;
+      match.outbox ||= [];
+      match.outbox.push({key:crypto.randomUUID(),type:'attack',rows});
+      persist();void flush();
+    },
+    reportLoss(){
+      if(!match||finished||!ready)return;
+      ready=false;
+      match.outbox ||= [];
+      match.outbox.push({key:crypto.randomUUID(),type:'lost',rows:null});
+      persist();void flush();
+    }
   };
   window.addEventListener('online',()=>{void poll();void flush()});
-  setInterval(flush,1500);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){void poll();void flush();}
+    else persist();
+  });
+  window.addEventListener('pagehide',persist);
+
+  if(match&&!match.finished){
+    title.textContent='Resume match?';
+    status.textContent='A previous match is saved on this device.';
+    create.hidden=true;join.hidden=true;input.hidden=true;
+    resume.hidden=false;updateRoom();
+  }else if(match?.finished){
+    match=null;
+    try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
+  }
+  show(true);
 })();

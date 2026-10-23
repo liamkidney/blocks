@@ -17,6 +17,7 @@
   overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:#f3efe3;display:grid;place-items:center;padding:20px;color:#222;font:inherit';
   overlay.innerHTML='<div style="width:min(360px,100%);text-align:center"><h2>TWO PHONES</h2><p id="remote-status">Create a match or join with a six-letter code.</p><p id="remote-code" style="font-size:32px;letter-spacing:5px;font-weight:bold"></p><input id="remote-input" maxlength="6" autocapitalize="characters" placeholder="ROOM CODE" style="font-size:20px;text-transform:uppercase;width:90%;padding:12px;text-align:center"><div style="display:flex;gap:10px;justify-content:center;margin:16px"><button id="remote-create">CREATE</button><button id="remote-join">JOIN</button></div><button id="remote-resume" hidden>RECONNECT</button><p id="remote-error" role="alert"></p></div>';
   document.body.append(overlay);
+  const hideLobby=hide=>{overlay.style.display=hide?'none':'grid'};
   const status=overlay.querySelector('#remote-status'),code=overlay.querySelector('#remote-code'),error=overlay.querySelector('#remote-error');
   const create=overlay.querySelector('#remote-create'),join=overlay.querySelector('#remote-join'),resume=overlay.querySelector('#remote-resume');
   const input=overlay.querySelector('#remote-input');
@@ -64,10 +65,10 @@
         }
       }
       if(data.status==='playing'){
-        overlay.hidden=true;
+        hideLobby(true);
         window.dispatchEvent(new CustomEvent('blocks:remote-ready'));
       }else if(data.status==='waiting'){
-        overlay.hidden=false;status.textContent='Waiting for the other player. Share this code:';
+        hideLobby(false);status.textContent='Waiting for the other player. Share this code:';
       }else if(data.status==='finished'){
         window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner:data.winner}}));
         clearInterval(timer);

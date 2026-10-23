@@ -612,18 +612,41 @@ test('Play Together X returns to the main New Game selector without creating a r
   assert.equal(f.rooms.size,0);
 });
 
-test('Play Together X only appears on the initial Create / Join menu',async()=>{
+test('Join Game X returns to Play Together without attempting to join',async()=>{
   const f=fixture(),phone=f.browser();
   const exit=phone.get('remote-menu-exit');
   assert.equal(exit.hidden,false);
   phone.get('remote-join').onclick();
-  assert.equal(exit.hidden,true);
-  phone.get('remote-entry-back').onclick();
   assert.equal(exit.hidden,false);
+  assert.equal(exit.attrs['aria-label'],'Back to Play Together');
+  assert.equal(phone.get('remote-entry').hidden,false);
+  assert.equal(phone.get('remote-input').focused,true);
+  exit.onclick();
+  assert.equal(phone.get('remote-input').focused,false);
+  assert.equal(phone.get('remote-actions').hidden,false);
+  assert.equal(phone.get('remote-entry').hidden,true);
+  assert.equal(exit.hidden,false);
+  assert.equal(exit.attrs['aria-label'],'Back to New Game');
+  assert.equal(f.joins,0);
+  assert.equal(f.rooms.size,0);
+});
+
+test('Room Created shows its own cancellation X in place of menu X',async()=>{
+  const f=fixture(),phone=f.browser();
   phone.get('remote-create').onclick();
   await settle();
   assert.equal(phone.get('remote-code-panel').hidden,false);
-  assert.equal(exit.hidden,true);
+  assert.equal(phone.get('remote-menu-exit').hidden,true);
+  assert.equal(phone.get('remote-code-exit').hidden,false);
+  assert.equal(phone.get('remote-status').textContent,
+    'Share this code with Player 2. Once they join, each player taps Start Game.');
+});
+
+test('Create, Join and Room Created X buttons share viewport corner placement',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.match(css,/#remote-lobby #remote-menu-exit,\s*#remote-lobby #remote-code-exit\s*\{/);
+  assert.match(css,/position:fixed;\s*top:calc\(env\(safe-area-inset-top, 0px\) \+ 16px\);/);
+  assert.match(css,/right:calc\(env\(safe-area-inset-right, 0px\) \+ 16px\);/);
 });
 
 test('New Game screen launch flag is consumed by the main app',()=>{

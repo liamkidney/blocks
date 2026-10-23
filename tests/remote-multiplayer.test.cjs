@@ -14,17 +14,20 @@ function fixture(){
     const name=url.split('/').pop(),a=JSON.parse(opts.body);
     const success=data=>({ok:true,json:async()=>data});
     const failure=message=>({ok:false,status:400,json:async()=>({message})});
-    if(name==='blocks_create_match'){
+    if(name==='blocks_create_match'||name==='blocks_create_match_config'){
       const id=randomUUID(),hostToken=randomUUID(),code='ABCDEF';
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
-        round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,events:[]});
+        round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,
+        difficulty:a.p_difficulty??1,piece_set:a.p_piece_set??'ALL',events:[]});
       return success([{match_id:id,room_code:code,player_token:hostToken}]);
     }
-    if(name==='blocks_join_match'){
+    if(name==='blocks_join_match'||name==='blocks_join_match_v2'){
       joins++;
-      const m=[...rooms.values()].find(m=>m.code===a.p_code&&m.status==='waiting');
+      const m=[...rooms.values()].find(m=>m.code===a.p_code&&
+        (m.status==='waiting'||m.guestToken===a.p_join_token&&
+         ['ready','playing','finished'].includes(m.status)));
       if(!m)return failure('Room already joined');
-      m.guestToken=randomUUID();m.status='ready';
+      if(m.status==='waiting'){m.guestToken=a.p_join_token||randomUUID();m.status='ready';}
       return success([{match_id:m.id,player_token:m.guestToken}]);
     }
     const m=rooms.get(a.p_match);
@@ -33,6 +36,7 @@ function fixture(){
       status:m.status,winner:m.winner,round:m.round,
       host_ready:m.host_ready,guest_ready:m.guest_ready,
       host_wins:m.host_wins,guest_wins:m.guest_wins,
+      difficulty:m.difficulty,piece_set:m.piece_set,
       events:m.events.filter(e=>e.round===m.round&&e.id>(a.p_after||0))
     });
     if(name==='blocks_match_start'){
@@ -75,7 +79,7 @@ function fixture(){
       return success(event.id);
     }
     if(name==='blocks_match_exit'){
-      if(a.p_round>m.round)return failure('Invalid match round');
+      if(m.status!=='cancelled'&&a.p_round!==m.round)return failure('Stale match round');
       if(!['waiting','ready','finished','playing','cancelled'].includes(m.status))
         return failure('Match cannot be exited');
       m.status='cancelled';m.host_ready=false;m.guest_ready=false;
@@ -123,6 +127,7 @@ function fixture(){
     let intervalId=0,resetCount=0;
     const attacks=[],results=[],rounds=[];
     const window={
+      BLOCKS_REMOTE_LOCAL_CONFIG:{difficulty:1,piece_set:'ALL'},
       BLOCKS_REMOTE_CAPTURE:()=>({snapshot:{applied:attacks.length},progress:0}),
       BLOCKS_REMOTE_RESET:()=>{resetCount++;attacks.length=0;},
       addEventListener(name,fn){handlers.set(name,[...(handlers.get(name)||[]),fn])},

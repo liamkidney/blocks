@@ -15,8 +15,8 @@ Run tests and validate the development PWA before releasing. To promote, run Git
 Play at https://liamkidney.github.io/blocks/dev/?remote=1 on both phones,
 or choose **2 players · two phones** in the development new-game selector.
 
-1. **Create game** displays a six-letter room code, with a loading indicator while the room is created.
-2. **Join game** displays six empty letter positions. Entering the sixth letter joins automatically, without a separate submit step.
+1. **Create game** displays a **three-consonant code** with a three-minute countdown. A small server-side denylist excludes offensive abbreviations; codes use the 21 letters B–Z excluding A, E, I, O and U.
+2. **Join game** displays three empty letter positions. Entering the third consonant joins automatically, without a submit button. Vowels are ignored. A code can be used only once and must be joined within three minutes.
 3. After joining, **both devices display Ready to Start** with the session's current wins tally. The first Start press marks that player as ready and waits for the second; the game begins only after **both players press Start**.
 4. Each player controls **their own independent board**. Clearing two lines sends one junk line to the other player, with odd-line progress carried forward exactly as in the one-phone mode.
 5. The finished board remains on screen behind a **You win / You lose** result panel, which shows **matches won: You vs Opponent**. Each completed round increments the winner's tally once.
@@ -35,7 +35,15 @@ Multiplayer scores never enter the solo leaderboard.
   stored by Supabase. The guest's board adopts the same speed and piece set;
   optional visual preferences remain local.
 - Guest joins carry a random idempotency token. An interrupted HTTP reply can
-  be safely retried, including after reloading the app.
+  be safely retried, including after reloading the app. Three-letter join attempts
+  are throttled to five per detected client address in three minutes and forty
+  attempts globally per minute, with only hashed client identifiers retained.
+- **Short invitation ≠ match lifetime.** Each code expires three minutes after
+  issuance and is consumed on join. The host sees a countdown; if a code
+  expires without a guest joining, the room returns to matchmaking. A successful
+  join remains valid through games and rematches, independently of code expiry.
+  The backend keeps six-letter internal room identifiers and unchanged legacy
+  RPCs to support the production release.
 - The waiting-for-player code screen has an **×** that cancels the room.
   A stale exit from an earlier round is rejected, so it cannot end a rematch.
 - Opt-in heartbeat tracking for new rooms pauses both local boards if either
@@ -65,9 +73,12 @@ Migrations:
 - `supabase/migrations/20261023_match_presence_and_ttl.sql`
 - `supabase/migrations/20261023_room_pruning_and_rate_cap.sql`
 - `supabase/migrations/20261023_schedule_room_cleanup.sql`
+- `supabase/migrations/20261023_short_consonant_invites.sql`
+- `supabase/migrations/20261023_expire_short_invite.sql`
 
 Tests: `node --test tests/*.test.cjs`, including
 `tests/remote-multiplayer.test.cjs`. Run
-`supabase/tests/multiplayer_smoke.sql` in the Supabase SQL editor for a
-transactional integration check. Development is promoted to production
+`supabase/tests/multiplayer_smoke.sql` and
+`supabase/tests/short_invites_smoke.sql` in the Supabase SQL editor for
+transactional integration checks. Development is promoted to production
 only using the validated linear `dev` → `main` workflow.

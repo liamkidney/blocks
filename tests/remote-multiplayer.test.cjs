@@ -9,7 +9,7 @@ const source=fs.readFileSync(path.join(__dirname,'..','remote-multiplayer.js'),'
 
 function fixture(){
   const rooms=new Map(),allEvents=[];
-  let nextId=0,failAcknowledgement=false,joins=0,rematches=0;
+  let nextId=0,failAcknowledgement=false,joins=0,starts=0,rematches=0;
   async function fetch(url,opts){
     const name=url.split('/').pop(),a=JSON.parse(opts.body);
     const success=data=>({ok:true,json:async()=>data});
@@ -17,14 +17,14 @@ function fixture(){
     if(name==='blocks_create_match'){
       const id=randomUUID(),hostToken=randomUUID(),code='ABCDEF';
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
-        round:1,host_ready:false,guest_ready:false,events:[]});
+        round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,events:[]});
       return success([{match_id:id,room_code:code,player_token:hostToken}]);
     }
     if(name==='blocks_join_match'){
       joins++;
       const m=[...rooms.values()].find(m=>m.code===a.p_code&&m.status==='waiting');
       if(!m)return failure('Room already joined');
-      m.guestToken=randomUUID();m.status='playing';
+      m.guestToken=randomUUID();m.status='ready';
       return success([{match_id:m.id,player_token:m.guestToken}]);
     }
     const m=rooms.get(a.p_match);
@@ -32,8 +32,27 @@ function fixture(){
     if(name==='blocks_match_poll')return success({
       status:m.status,winner:m.winner,round:m.round,
       host_ready:m.host_ready,guest_ready:m.guest_ready,
+      host_wins:m.host_wins,guest_wins:m.guest_wins,
       events:m.events.filter(e=>e.round===m.round&&e.id>(a.p_after||0))
     });
+    if(name==='blocks_match_start'){
+      starts++;
+      if(a.p_round!==m.round)return failure('Match round has changed');
+      if(m.status==='playing')return success({
+        status:m.status,round:m.round,host_ready:m.host_ready,guest_ready:m.guest_ready,
+        host_wins:m.host_wins,guest_wins:m.guest_wins
+      });
+      if(m.status!=='ready')return failure('Match not ready to start');
+      if(a.p_token===m.hostToken)m.host_ready=true;
+      else m.guest_ready=true;
+      if(m.host_ready&&m.guest_ready){
+        m.status='playing';m.host_ready=false;m.guest_ready=false;
+      }
+      return success({
+        status:m.status,round:m.round,host_ready:m.host_ready,guest_ready:m.guest_ready,
+        host_wins:m.host_wins,guest_wins:m.guest_wins
+      });
+    }
     if(name==='blocks_match_send'){
       const sender=a.p_token===m.hostToken?1:2;
       let event=m.events.find(e=>e.key===a.p_key&&e.sender===sender);
@@ -44,6 +63,8 @@ function fixture(){
         m.events.push(event);allEvents.push(event);
         if(event.type==='lost'){
           m.status='finished';m.winner=3-sender;
+          if(m.winner===1)m.host_wins++;
+          else m.guest_wins++;
           m.host_ready=false;m.guest_ready=false;
         }
       }
@@ -55,7 +76,7 @@ function fixture(){
     }
     if(name==='blocks_match_exit'){
       if(a.p_round>m.round)return failure('Invalid match round');
-      if(!['finished','playing','cancelled'].includes(m.status))
+      if(!['waiting','ready','finished','playing','cancelled'].includes(m.status))
         return failure('Match cannot be exited');
       m.status='cancelled';m.host_ready=false;m.guest_ready=false;
       return success({status:'cancelled',round:m.round});
@@ -151,7 +172,7 @@ function fixture(){
   }
   return {
     browser,rooms,allEvents,setDropAck:()=>{failAcknowledgement=true},
-    get joins(){return joins},get rematches(){return rematches}
+    get joins(){return joins},get starts(){return starts},get rematches(){return rematches}
   };
 }
 async function settle(){for(let i=0;i<60;i++)await Promise.resolve();}
@@ -178,6 +199,28 @@ async function matched(f){
   await settle();
   await host.tick();await settle();
   assert.equal(f.joins,1);
+  assert.equal(f.starts,0,'Entering the room code must not start the game');
+  assert.equal(f.rooms.values().next().value.status,'ready');
+  for(const phone of [host,guest]){
+    assert.equal(phone.window.BLOCKS_REMOTE.ready,false);
+    assert.equal(phone.popup('remote-result').hidden,false);
+    assert.equal(phone.get('remote-result-title').textContent,'READY TO START');
+    assert.equal(phone.get('remote-score-you').textContent,'0');
+    assert.equal(phone.get('remote-score-opponent').textContent,'0');
+    assert.equal(phone.get('remote-restart').textContent,'START GAME');
+  }
+  host.get('remote-restart').onclick();
+  await settle();await host.tick();await guest.tick();await settle();
+  assert.equal(f.rooms.values().next().value.status,'ready');
+  assert.equal(host.window.BLOCKS_REMOTE.ready,false,'First Start only marks readiness');
+  assert.equal(host.get('remote-restart').disabled,true);
+  assert.match(host.get('remote-rematch-status').textContent,/Waiting for the other player/);
+  assert.equal(guest.get('remote-restart').textContent,'START GAME');
+  assert.match(guest.get('remote-rematch-status').textContent,/Opponent is ready/);
+  guest.get('remote-restart').onclick();
+  await settle();await host.tick();await guest.tick();await settle();
+  assert.equal(f.starts,2);
+  assert.equal(f.rooms.values().next().value.status,'playing');
   assert.equal(host.window.BLOCKS_REMOTE.ready,true);
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
   return {host,guest};

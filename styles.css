@@ -933,3 +933,48 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
   font-size:clamp(27px,9vw,37px);
   letter-spacing:5px;
 }
+
+/* iOS Safari/PWA virtual keyboard shrinks the visual viewport, but does not
+   reliably resize fixed position overlays. Size the code-entry dialog to the
+   *visible* region and let it scroll instead of hiding behind the keyboard. */
+#remote-lobby.remote-keyboard-open{
+  inset:auto;
+  top:var(--remote-visible-top,0px);
+  left:var(--remote-visible-left,0px);
+  width:var(--remote-visible-width,100%);
+  height:var(--remote-visible-height,100dvh);
+  min-height:0;
+  padding:10px 16px max(12px,env(safe-area-inset-bottom));
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:stretch;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+#remote-lobby.remote-keyboard-open .remote-panel{
+  flex:0 0 auto;
+  width:min(390px,100%);
+  margin:auto;
+  padding:8px 0;
+}
+#remote-lobby.remote-keyboard-open h2{
+  font-size:clamp(28px,8vw,37px);
+  margin:5px 0 8px;
+}
+#remote-lobby.remote-keyboard-open p{
+  font-size:13px;
+  margin-bottom:10px;
+}
+#remote-lobby.remote-keyboard-open .remote-code-label{
+  margin-top:11px;
+}
+#remote-lobby.remote-keyboard-open .remote-code-entry{
+  margin:10px auto 8px;
+}
+#remote-lobby.remote-keyboard-open #remote-slots{
+  padding:13px 3px;
+}

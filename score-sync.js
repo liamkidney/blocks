@@ -1,7 +1,7 @@
 // Durable, idempotent score synchronization. The local outbox is authoritative
 // until Supabase acknowledges each score (including completed/abandoned games).
 (()=>{
-  if(TWO_PLAYER||REMOTE_PLAYER)return;
+  if(TWO_PLAYER || (typeof REMOTE_PLAYER !== 'undefined' && REMOTE_PLAYER))return;
   const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/sessions';
   const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
   const headers={apikey:KEY,'Content-Type':'application/json'};

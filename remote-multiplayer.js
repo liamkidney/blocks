@@ -17,6 +17,7 @@
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
   let creating=false,joining=false,startSending=false,rematchSending=false,exiting=false;
   let held=false,heartbeatInFlight=false,lastHeartbeatAt=0;
+  let inviteTicker=null,checkingInvite=false,lastInviteCheckAt=0;
 
   const lobby=document.createElement('div');
   lobby.id='remote-lobby';
@@ -32,14 +33,15 @@
     '<div id="remote-code-panel" hidden>'+
       '<button id="remote-code-exit" type="button" aria-label="Cancel room" title="Cancel room">×</button>'+
       '<div class="remote-code-label">YOUR ROOM CODE</div>'+
-      '<div id="remote-code" aria-live="polite"></div>'+
+      '<div id="remote-code" aria-live="polite"></div>'+ 
+      '<p id="remote-code-expires" aria-live="off"></p>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
     '</div>'+
     '<div id="remote-entry" hidden>'+
-      '<div class="remote-code-label">ENTER THE SIX-LETTER CODE</div>'+
+      '<div class="remote-code-label">ENTER THE THREE-LETTER CODE</div>'+
       '<div class="remote-code-entry">'+
-        '<div id="remote-slots" aria-hidden="true">— — — — — —</div>'+
-        '<input id="remote-input" type="text" inputmode="text" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="Six-letter room code">'+
+        '<div id="remote-slots" aria-hidden="true">— — —</div>'+
+        '<input id="remote-input" type="text" inputmode="text" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="Three-letter room code">'+
       '</div>'+
       '<button type="button" id="remote-entry-back">BACK</button>'+
     '</div>'+
@@ -51,6 +53,7 @@
   const actions=$('remote-actions'),create=$('remote-create'),join=$('remote-join');
   const menuExit=$('remote-menu-exit');
   const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),codeExit=$('remote-code-exit');
+  const codeExpiry=$('remote-code-expires');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots'),entryBack=$('remote-entry-back');
 
   const resultPanel=document.createElement('div');
@@ -111,22 +114,62 @@
     lobbyStep('code');
     title.textContent='Game created';
     status.textContent='Share this code with Player 2. You will both press Start when they join.';
+    codeExpiry.hidden=!match?.inviteExpiresAt;
     showLobby(true);
+    updateInviteCountdown();
   }
   function displaySlots(){
-    const value=input.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,6);
+    const value=input.value.toUpperCase().replace(/[^BCDFGHJKLMNPQRSTVWXYZ]/g,'').slice(0,3);
     input.value=value;
-    slots.textContent=Array.from({length:6},(_,i)=>value[i]||'—').join(' ');
+    slots.textContent=Array.from({length:3},(_,i)=>value[i]||'—').join(' ');
     return value;
   }
   function enterCode(){
     lobbyStep('entry');
     title.textContent='Join a game';
-    status.textContent='Enter the six-letter room code.';
+    status.textContent='Enter the three-letter room code. Use consonants only.';
     input.value='';
     displaySlots();
     input.disabled=false;
     input.focus();
+  }
+  // The short invitation expires independently of the match session.
+  // Display a countdown, but let the server make the authoritative expiry
+  // decision. In particular, a last-second successful join must not be
+  // cancelled by the creator's clock running fast.
+  function updateInviteCountdown(){
+    if(!match||!match.inviteExpiresAt||match.player!==1||
+       match.code?.length!==3||codePanel.hidden)return;
+    const remaining=Math.max(0,Math.ceil(
+      (Date.parse(match.inviteExpiresAt)-Date.now())/1000));
+    codeExpiry.textContent=remaining?
+      'Code expires in '+Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):
+      'Code expired · checking the room…';
+    if(remaining===0)void expireInvite();
+  }
+  async function expireInvite(){
+    if(!match||match.player!==1||checkingInvite||ready||staging||finished||
+       exiting||navigator.onLine===false)return;
+    if(Date.now()-lastInviteCheckAt<4000)return;
+    lastInviteCheckAt=Date.now();
+    checkingInvite=true;
+    const current=match;
+    try{
+      const state=await rpc('blocks_expire_short_invite',{
+        p_match:current.id,p_token:current.token
+      });
+      if(match!==current)return;
+      if(state.status==='expired'){
+        returnToNewGame('Room code expired. Create a new game.');
+      }else if(state.status==='waiting'){
+        if(state.expires_at)current.inviteExpiresAt=state.expires_at;
+        persist();
+      }else{
+        void poll(); // Another phone joined just before expiry.
+      }
+    }catch(e){
+      if(match===current)codeExpiry.textContent='Cannot check expiry. Reconnecting…';
+    }finally{checkingInvite=false;}
   }
   function menu(){
     lobbyStep('menu');
@@ -306,6 +349,7 @@
   // released, instead of waiting forever for the person who exited.
   function returnToNewGame(message=''){
     if(interval){clearInterval(interval);interval=null;}
+    if(inviteTicker){clearInterval(inviteTicker);inviteTicker=null;}
     closeSocket();
     match=null;
     busy=false;ready=false;staging=false;finished=false;forfeiting=false;
@@ -411,6 +455,7 @@
   }
   async function connect(value,fresh=false){
     if(interval){clearInterval(interval);interval=null;}
+    if(inviteTicker){clearInterval(inviteTicker);inviteTicker=null;}
     closeSocket();
     match=fresh?{...value,round:1,cursor:0,outbox:[],snapshot:null,progress:0,finished:false}:
       {...value,round:value.round||1,outbox:value.outbox||[]};
@@ -426,6 +471,7 @@
     await heartbeat(true);
     await poll();
     interval=setInterval(()=>{void heartbeat();void poll();void flush();},1600);
+    inviteTicker=setInterval(updateInviteCountdown,1000);
     void flush();
   }
   async function createRoom(){
@@ -434,16 +480,17 @@
     setCreating(true);error.textContent='';
     try{
       const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||{difficulty:1,piece_set:'ALL'};
-      const rows=await rpc('blocks_create_match_config',{
+      const row=await rpc('blocks_create_match_short',{
         p_difficulty:config.difficulty,p_piece_set:config.piece_set
       });
-      const row=rows[0];
-      await connect({id:row.match_id,token:row.player_token,code:row.room_code,player:1,...config},true);
+      if(!row?.match_id||!row?.code_expires_at)throw Error('Could not create room.');
+      await connect({id:row.match_id,token:row.player_token,code:row.room_code,
+        inviteExpiresAt:row.code_expires_at,player:1,...config},true);
     }catch(e){setError(e);menu();setError(e)}
     finally{setCreating(false)}
   }
   async function joinRoom(code){
-    if(joining||creating||!(/^[A-Z]{6}$/.test(code)))return;
+    if(joining||creating||!(/^[BCDFGHJKLMNPQRSTVWXYZ]{3}$/.test(code)))return;
     joining=true;input.disabled=true;
     entry.classList.add('is-loading');error.textContent='';
     try{
@@ -453,10 +500,11 @@
         attempt={code,token:crypto.randomUUID()};
         localStorage.setItem(PENDING_JOIN_KEY,JSON.stringify(attempt));
       }
-      const rows=await rpc('blocks_join_match_v2',{
+      const row=await rpc('blocks_join_match_short',{
         p_code:code,p_join_token:attempt.token
       });
-      const row=rows[0];
+      if(row?.error)throw Error(row.error);
+      if(!row?.match_id||!row?.player_token)throw Error('Room unavailable.');
       await connect({id:row.match_id,token:row.player_token,code,player:2},true);
       localStorage.removeItem(PENDING_JOIN_KEY);
     }catch(e){
@@ -530,7 +578,7 @@
   }};
   input.addEventListener('input',()=>{
     const value=displaySlots();
-    if(value.length===6&&!joining)void joinRoom(value);
+    if(value.length===3&&!joining)void joinRoom(value);
   });
   copy.onclick=async()=>{
     if(!match)return;

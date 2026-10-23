@@ -109,7 +109,11 @@
 
   function lobbyStep(step){
     if(step!=='entry'&&document.activeElement===input)input.blur();
-    menuExit.hidden=step!=='menu';
+    // The menu and code-entry steps share the same top-right close control.
+    // The room screen has its own control because cancelling it also ends the room.
+    menuExit.hidden=step==='code';
+    menuExit.setAttribute('aria-label',step==='entry'?'Back to Play Together':'Back to New Game');
+    menuExit.title=step==='entry'?'Back to Play Together':'Back to New Game';
     actions.hidden=step!=='menu';
     codePanel.hidden=step!=='code';
     entry.hidden=step!=='entry';
@@ -120,7 +124,7 @@
     room.textContent=match?.code||'';
     lobbyStep('code');
     title.textContent='Game created';
-    status.textContent='Share this code with Player 2. You will both press Start when they join.';
+    status.textContent='Share this code with Player 2. Once they join, each player taps Start Game.';
     codeExpiry.hidden=!match?.inviteExpiresAt;
     showLobby(true);
     updateInviteCountdown();
@@ -597,7 +601,14 @@
     }
   }
 
+  function returnFromCodeEntry(){
+    if(joining)return;
+    try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
+    menu();
+  }
   menuExit.onclick=()=>{
+    // On the join screen, close the keyboard and return to Create / Join.
+    if(!entry.hidden){returnFromCodeEntry();return;}
     // There is no match on the Play Together menu. Return to the full
     // New Game selector, not to an automatically resumed solo board.
     if(match||creating||joining)return;
@@ -613,10 +624,7 @@
   };
   create.onclick=()=>{void createRoom()};
   join.onclick=()=>{enterCode()};
-  entryBack.onclick=()=>{if(!joining){
-    try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
-    menu();
-  }};
+  entryBack.onclick=returnFromCodeEntry;
   input.addEventListener('input',()=>{
     const value=displaySlots();
     if(value.length===3&&!joining)void joinRoom(value);

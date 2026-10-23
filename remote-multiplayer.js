@@ -131,8 +131,35 @@
     input.value='';
     displaySlots();
     input.disabled=false;
-    input.focus();
+    input.focus({preventScroll:true});
+    syncCodeEntryViewport();
   }
+  // On iOS, a fixed full-screen overlay otherwise stays as tall as the
+  // *layout* viewport when the software keyboard obscures its lower half.
+  // Keep the entry panel inside visualViewport and allow its contents to
+  // scroll when the remaining height is small (including landscape).
+  function syncCodeEntryViewport(){
+    const active=!lobby.hidden&&!entry.hidden&&document.activeElement===input;
+    lobby.classList.toggle('remote-keyboard-open',active);
+    const visible=window.visualViewport;
+    if(active){
+      lobby.style?.setProperty('--remote-visible-top',(visible?.offsetTop||0)+'px');
+      lobby.style?.setProperty('--remote-visible-left',(visible?.offsetLeft||0)+'px');
+      lobby.style?.setProperty('--remote-visible-height',
+        (visible?.height||window.innerHeight)+'px');
+      lobby.style?.setProperty('--remote-visible-width',
+        (visible?.width||window.innerWidth)+'px');
+    }else{
+      for(const name of ['--remote-visible-top','--remote-visible-left',
+                         '--remote-visible-height','--remote-visible-width']){
+        lobby.style?.removeProperty(name);
+      }
+    }
+  }
+  input.addEventListener('focus',syncCodeEntryViewport);
+  input.addEventListener('blur',syncCodeEntryViewport);
+  window.visualViewport?.addEventListener('resize',syncCodeEntryViewport);
+  window.visualViewport?.addEventListener('scroll',syncCodeEntryViewport);
   // The short invitation expires independently of the match session.
   // Display a countdown, but let the server make the authoritative expiry
   // decision. In particular, a last-second successful join must not be
@@ -483,10 +510,14 @@
     setCreating(true);error.textContent='';
     try{
       const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||{difficulty:1,piece_set:'ALL'};
-      const row=await rpc('blocks_create_match_short',{
+      const response=await rpc('blocks_create_match_short',{
         p_difficulty:config.difficulty,p_piece_set:config.piece_set
       });
-      if(!row?.match_id||!row?.code_expires_at)throw Error('Could not create room.');
+      // RETURNS TABLE is a set-returning PostgreSQL function. PostgREST
+      // therefore sends an array even when SQL returns exactly one room.
+      const row=Array.isArray(response)?response[0]:response;
+      if(!row?.match_id||!row?.player_token||!row?.code_expires_at)
+        throw Error('Invalid room response. Please try again.');
       await connect({id:row.match_id,token:row.player_token,code:row.room_code,
         inviteExpiresAt:row.code_expires_at,player:1,...config},true);
     }catch(e){setError(e);menu();setError(e)}

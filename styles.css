@@ -775,3 +775,7 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #player-mode-options{grid-auto-flow:row;grid-auto-columns:unset;grid-template-columns:1fr}
 #player-mode-options button{border-left:0;border-top:1px solid var(--ink);min-height:40px}
 #player-mode-options button:first-child{border-top:0}
+
+#remote-lobby #remote-copy{min-height:33px;padding:7px 12px;margin:-5px 0 13px;
+  background:transparent;color:var(--ink);font-size:10px;border-width:1px}
+#remote-lobby #remote-copy[hidden]{display:none}

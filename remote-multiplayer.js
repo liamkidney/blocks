@@ -468,8 +468,11 @@
     if(match.player===2){codePanel.hidden=true;}
     showLobby(true);showResult(false);
     openSocket();
+    const current=match;
     await heartbeat(true);
+    if(match!==current)return;
     await poll();
+    if(match!==current)return;
     interval=setInterval(()=>{void heartbeat();void poll();void flush();},1600);
     inviteTicker=setInterval(updateInviteCountdown,1000);
     void flush();

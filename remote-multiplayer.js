@@ -137,10 +137,10 @@
     create.setAttribute('aria-busy',String(on));
   }
 
-  let socket=null,heartbeat=null,reconnectTimer=null,reference=0;
+  let socket=null,wsHeartbeat=null,reconnectTimer=null,reference=0;
   function closeSocket(){
     if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
-    if(heartbeat){clearInterval(heartbeat);heartbeat=null;}
+    if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
     const old=socket;socket=null;
     if(old){old.onclose=null;old.close();}
   }
@@ -157,7 +157,7 @@
       };
       ws.onopen=()=>{
         send('phx_join',{config:{broadcast:{ack:false,self:false}}});
-        heartbeat=setInterval(()=>send('heartbeat',{},'phoenix'),25000);
+        wsHeartbeat=setInterval(()=>send('heartbeat',{},'phoenix'),25000);
       };
       ws.onmessage=event=>{
         try{
@@ -168,7 +168,7 @@
       ws.onclose=()=>{
         if(socket!==ws)return;
         socket=null;
-        if(heartbeat){clearInterval(heartbeat);heartbeat=null;}
+        if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
         if(match?.id===id)reconnectTimer=setTimeout(openSocket,3000);
       };
       ws.onerror=()=>{}; // Polling is the reliable fallback.

@@ -1,8 +1,6 @@
 -- Two-phone Blocks match protocol (development).
 -- Apply to the shared Supabase project before enabling the client UI.
 -- Players keep their boards locally; only attacks and match state are persisted.
-create extension if not exists pgcrypto;
-
 create table if not exists public.blocks_matches (
   id uuid primary key default gen_random_uuid(),
   code text not null unique check (code ~ '^[A-Z]{6}$'),
@@ -17,6 +15,7 @@ create table if not exists public.blocks_matches (
 );
 create table if not exists public.blocks_match_events (
   id bigint generated always as identity primary key,
+  event_key uuid not null,
   match_id uuid not null references public.blocks_matches(id) on delete cascade,
   sender smallint not null check (sender in (1,2)),
   event_type text not null check (event_type in ('attack','lost')),
@@ -24,6 +23,8 @@ create table if not exists public.blocks_match_events (
   created_at timestamptz not null default now(),
   check ((event_type='attack' and rows is not null) or (event_type='lost' and rows is null))
 );
+create unique index if not exists blocks_match_events_idempotency
+  on public.blocks_match_events(match_id,sender,event_key);
 create index if not exists blocks_match_events_match_id_id
   on public.blocks_match_events(match_id,id);
 create index if not exists blocks_matches_expires_at on public.blocks_matches(expires_at);
@@ -41,8 +42,8 @@ as $$
 declare m public.blocks_matches%rowtype; candidate text; attempt integer;
 begin
   for attempt in 1..20 loop
-    select string_agg(substr('ABCDEFGHJKLMNPQRSTUVWXYZ', 1 + (get_byte(gen_random_bytes(1),0) % 24), 1),'')
-      into candidate from generate_series(1,6);
+    select string_agg(substr('ABCDEFGHJKLMNPQRSTUVWXYZ', 1 + (get_byte(decode(replace(gen_random_uuid()::text,'-',''),'hex'),n) % 24), 1),'')
+      into candidate from generate_series(0,5) n;
     insert into public.blocks_matches(code) values(candidate)
       on conflict(code) do nothing returning * into m;
     exit when m.id is not null;
@@ -81,7 +82,7 @@ begin
   );
 end $$;
 
-create or replace function public.blocks_match_send(p_match uuid,p_token uuid,p_type text,p_rows integer default null)
+create or replace function public.blocks_match_send(p_match uuid,p_token uuid,p_type text,p_rows integer default null,p_key uuid default null)
 returns bigint
 language plpgsql security definer set search_path = ''
 as $$
@@ -91,10 +92,17 @@ begin
     and (host_token=p_token or guest_token=p_token) and expires_at>now() for update;
   if m.id is null or m.status<>'playing' then raise exception 'Match not active'; end if;
   sender_no := case when m.host_token=p_token then 1 else 2 end;
+  if p_key is null then raise exception 'Missing event id'; end if;
   if not ((p_type='attack' and p_rows between 1 and 20) or (p_type='lost' and p_rows is null))
     then raise exception 'Invalid event'; end if;
-  insert into public.blocks_match_events(match_id,sender,event_type,rows)
-    values(p_match,sender_no,p_type,p_rows) returning id into event_id;
+  insert into public.blocks_match_events(match_id,sender,event_type,rows,event_key)
+    values(p_match,sender_no,p_type,p_rows,p_key)
+    on conflict(match_id,sender,event_key) do nothing returning id into event_id;
+  if event_id is null then
+    select id into event_id from public.blocks_match_events
+      where match_id=p_match and sender=sender_no and event_key=p_key;
+    return event_id;
+  end if;
   if p_type='lost' then
     update public.blocks_matches set status='finished',winner=3-sender_no,updated_at=now() where id=p_match;
   end if;
@@ -104,7 +112,7 @@ end $$;
 revoke all on function public.blocks_create_match() from public;
 revoke all on function public.blocks_join_match(text) from public;
 revoke all on function public.blocks_match_poll(uuid,uuid,bigint) from public;
-revoke all on function public.blocks_match_send(uuid,uuid,text,integer) from public;
+revoke all on function public.blocks_match_send(uuid,uuid,text,integer,uuid) from public;
 grant execute on function public.blocks_create_match() to anon,authenticated;
 grant execute on function public.blocks_join_match(text) to anon,authenticated;
 grant execute on function public.blocks_match_poll(uuid,uuid,bigint) to anon,authenticated;

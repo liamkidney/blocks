@@ -38,7 +38,7 @@
       '<button type="button" id="remote-copy">COPY CODE</button>'+
     '</div>'+
     '<div id="remote-entry" hidden>'+
-      '<div class="remote-code-label">ENTER THE THREE-LETTER CODE</div>'+
+      '<div class="remote-code-label">ROOM CODE</div>'+
       '<div class="remote-code-entry">'+
         '<div id="remote-slots" aria-hidden="true">— — —</div>'+
         '<input id="remote-input" type="text" inputmode="text" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="Three-letter room code">'+
@@ -117,6 +117,7 @@
     actions.hidden=step!=='menu';
     codePanel.hidden=step!=='code';
     entry.hidden=step!=='entry';
+    status.hidden=step==='entry';
     error.textContent='';
     syncCodeEntryViewport();
   }
@@ -138,7 +139,7 @@
   function enterCode(){
     lobbyStep('entry');
     title.textContent='Join a game';
-    status.textContent='Enter the three-letter room code. Use consonants only.';
+    status.textContent='';
     input.value='';
     displaySlots();
     input.disabled=false;

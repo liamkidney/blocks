@@ -17,7 +17,8 @@
     '<div class="remote-kicker">BLOCKS · TWO PHONES</div>'+
     '<h2 id="remote-title">Play on two phones</h2>'+
     '<p id="remote-status">Each player has a separate board. Clearing two lines sends one junk line to your opponent.</p>'+
-    '<div id="remote-code" aria-live="polite"></div>'+\n    '<button type="button" id="remote-copy" hidden>COPY CODE</button>'+
+    '<div id="remote-code" aria-live="polite"></div>'+ 
+    '<button type="button" id="remote-copy" hidden>COPY CODE</button>'+
     '<input id="remote-input" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="SIX-LETTER CODE" aria-label="Room code">'+
     '<div class="remote-actions"><button type="button" id="remote-create">CREATE MATCH</button>'+
     '<button type="button" id="remote-join">JOIN MATCH</button></div>'+

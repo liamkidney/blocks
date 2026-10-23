@@ -116,4 +116,4 @@ revoke all on function public.blocks_match_send(uuid,uuid,text,integer,uuid) fro
 grant execute on function public.blocks_create_match() to anon,authenticated;
 grant execute on function public.blocks_join_match(text) to anon,authenticated;
 grant execute on function public.blocks_match_poll(uuid,uuid,bigint) to anon,authenticated;
-grant execute on function public.blocks_match_send(uuid,uuid,text,integer) to anon,authenticated;
+grant execute on function public.blocks_match_send(uuid,uuid,text,integer,uuid) to anon,authenticated;

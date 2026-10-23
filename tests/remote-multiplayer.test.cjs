@@ -14,27 +14,46 @@ function fixture(){
     const name=url.split('/').pop(),a=JSON.parse(opts.body);
     const success=data=>({ok:true,json:async()=>data});
     const failure=message=>({ok:false,status:400,json:async()=>({message})});
-    if(name==='blocks_create_match'||name==='blocks_create_match_config'){
-      const id=randomUUID(),hostToken=randomUUID(),code='ABCDEF';
+    if(name==='blocks_create_match'||name==='blocks_create_match_config'||
+       name==='blocks_create_match_short'){
+      const id=randomUUID(),hostToken=randomUUID();
+      const code=name==='blocks_create_match_short'?'BRT':'BRT';
+      const code_expires_at=new Date(Date.now()+180000).toISOString();
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
         round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,
         difficulty:a.p_difficulty??1,piece_set:a.p_piece_set??'ALL',
-        presence_enabled:name==='blocks_create_match_config',
+        presence_enabled:name==='blocks_create_match_config'||name==='blocks_create_match_short',
+        code_expires_at,
         host_online:true,guest_online:true,events:[]});
+      if(name==='blocks_create_match_short')
+        return success({match_id:id,room_code:code,player_token:hostToken,code_expires_at});
       return success([{match_id:id,room_code:code,player_token:hostToken}]);
     }
-    if(name==='blocks_join_match'||name==='blocks_join_match_v2'){
+    if(name==='blocks_join_match'||name==='blocks_join_match_v2'||
+       name==='blocks_join_match_short'){
       joins++;
       const m=[...rooms.values()].find(m=>m.code===a.p_code&&
         (m.status==='waiting'||m.guestToken===a.p_join_token&&
          ['ready','playing','finished'].includes(m.status)));
-      if(!m)return failure('Room already joined');
+      if(!m||m.status==='waiting'&&Date.parse(m.code_expires_at)<=Date.now())
+        return name==='blocks_join_match_short'?
+          success({error:'Room not found or code expired.'}):
+          failure('Room already joined');
       if(m.status==='waiting'){m.guestToken=a.p_join_token||randomUUID();m.status='ready';}
       if(dropJoinAck){dropJoinAck=false;return failure('Connection dropped after join');}
+      if(name==='blocks_join_match_short')
+        return success({match_id:m.id,player_token:m.guestToken});
       return success([{match_id:m.id,player_token:m.guestToken}]);
     }
     const m=rooms.get(a.p_match);
     if(!m||![m.hostToken,m.guestToken].includes(a.p_token))return failure('Access denied');
+    if(name==='blocks_expire_short_invite'){
+      if(m.status!=='waiting')return success({status:m.status});
+      if(Date.now()<Date.parse(m.code_expires_at))
+        return success({status:'waiting',expires_at:m.code_expires_at});
+      m.status='cancelled';
+      return success({status:'expired'});
+    }
     if(name==='blocks_match_heartbeat'){
       if(a.p_round!==m.round)return failure('Match round has changed');
       if(a.p_token===m.hostToken)m.host_online=true;
@@ -198,7 +217,8 @@ function fixture(){
   return {
     browser,rooms,allEvents,setDropAck:()=>{failAcknowledgement=true},
     setDropJoinAck:()=>{dropJoinAck=true},
-    get joins(){return joins},get starts(){return starts},get rematches(){return rematches}
+    get joins(){return joins},get starts(){return starts},get rematches(){return rematches},
+    expireCode(){for(const m of rooms.values())m.code_expires_at=new Date(Date.now()-30000).toISOString()}
   };
 }
 async function settle(){for(let i=0;i<60;i++)await Promise.resolve();}
@@ -212,15 +232,15 @@ async function matched(f){
   assert.equal(host.get('remote-create').attrs['aria-busy'],'true');
   await settle();
   assert.equal(host.get('remote-create').classList.contains('is-loading'),false);
-  assert.match(host.get('remote-code').textContent,/^[A-Z]{6}$/);
+  assert.match(host.get('remote-code').textContent,/^[BCDFGHJKLMNPQRSTVWXYZ]{3}$/);
   guest.get('remote-join').onclick();
   assert.equal(guest.get('remote-entry').hidden,false);
-  assert.equal(guest.get('remote-slots').textContent,'— — — — — —');
-  guest.get('remote-input').value='abcde';
+  assert.equal(guest.get('remote-slots').textContent,'— — —');
+  guest.get('remote-input').value='br';
   guest.get('remote-input').listeners.input();
-  assert.equal(f.joins,0,'Do not attempt a join before six letters');
-  assert.equal(guest.get('remote-slots').textContent,'A B C D E —');
-  guest.get('remote-input').value='abcdef';
+  assert.equal(f.joins,0,'Do not attempt a join before three consonants');
+  assert.equal(guest.get('remote-slots').textContent,'B R —');
+  guest.get('remote-input').value='brt';
   guest.get('remote-input').listeners.input(); // Auto-submits without Enter.
   await settle();
   await host.tick();await settle();
@@ -252,7 +272,7 @@ async function matched(f){
   return {host,guest};
 }
 
-test('two-button lobby creates rooms with a spinner and joins after six letters',async()=>{
+test('two-button lobby creates rooms with a spinner and joins after three consonants',async()=>{
   const f=fixture(),{host,guest}=await matched(f);
   assert.equal(host.get('remote-lobby')?.hidden,false); // Fake DOM nodes only.
   assert.equal(guest.window.BLOCKS_REMOTE.player,2);
@@ -396,7 +416,7 @@ test('a finished room can be exited and a fresh room created without reloading',
   host.get('remote-create').onclick();await settle();
   assert.equal(f.rooms.size,2);
   assert.equal(host.window.BLOCKS_REMOTE.active,true);
-  assert.equal(host.get('remote-code').textContent,'ABCDEF');
+  assert.equal(host.get('remote-code').textContent,'BRT');
 });
 
 
@@ -441,7 +461,7 @@ test('ready screen survives reconnect and preserves first player Start readiness
   const host=f.browser(),guest=f.browser();
   host.get('remote-create').onclick();await settle();
   guest.get('remote-join').onclick();
-  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();
   await settle();await host.tick();await settle();
 
@@ -469,7 +489,7 @@ test('close X on initial ready screen cancels the room for both players',async()
   const host=f.browser(),guest=f.browser();
   host.get('remote-create').onclick();await settle();
   guest.get('remote-join').onclick();
-  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();
   await settle();await host.tick();await settle();
   assert.equal(host.get('remote-result-title').textContent,'READY TO START');
@@ -503,7 +523,7 @@ test('room difficulty and allowed pieces are enforced on the joining phone',asyn
   const guest=f.browser(new Map(),{difficulty:0,piece_set:'ALL'});
   host.get('remote-create').onclick();await settle();
   guest.get('remote-join').onclick();
-  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();await settle();
   await host.tick();await guest.tick();await settle();
   const room=[...f.rooms.values()][0];
@@ -520,14 +540,14 @@ test('lost join acknowledgement retries with the same token and starts a single 
   host.get('remote-create').onclick();await settle();
   guest.get('remote-join').onclick();
   f.setDropJoinAck();
-  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();await settle();
   const pending=JSON.parse(guest.storage.get('blocks:remote-pending-join:/blocks/dev/'));
-  assert.equal(pending.code,'ABCDEF');
+  assert.equal(pending.code,'BRT');
   assert.equal(typeof pending.token,'string');
   assert.equal(f.rooms.size,1);
   assert.equal([...f.rooms.values()][0].guestToken,pending.token);
-  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();await settle();
   assert.equal(f.rooms.size,1);
   assert.equal(guest.storage.has('blocks:remote-pending-join:/blocks/dev/'),false);

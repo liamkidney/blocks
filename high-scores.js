@@ -34,12 +34,13 @@
   const request=controller;
   const signal=request.signal;
   const mode=selectedMode;
+  const piecesMode=new URLSearchParams(location.search).get('pieces')?.toUpperCase()==='IO'?'IO':'ALL';
   const timeout=setTimeout(()=>request.abort(),12000);
   status.textContent='Loading scores…';retry.hidden=true;rows.replaceChildren();
   try{
    const [pr,sr]=await Promise.all([
     fetch(API+'players?select=player_id,display_name&limit=1000',{headers,signal}),
-    fetch(API+'sessions?select=player_id,score,lines,status,updated_at&difficulty=eq.'+mode+'&order=score.desc&limit=10',{headers,signal})
+    fetch(API+'sessions?select=player_id,score,lines,status,updated_at&difficulty=eq.'+mode+'&pieces_mode=eq.'+piecesMode+'&order=score.desc&limit=10',{headers,signal})
    ]);
    if(!pr.ok||!sr.ok)throw Error('HTTP '+pr.status+'/'+sr.status);
    const players=new Map((await pr.json()).map(p=>[p.player_id,p.display_name]));

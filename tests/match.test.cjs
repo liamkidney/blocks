@@ -32,4 +32,11 @@ assert.equal(draw.resolveOutcome(),"draw");
 const other=new GameSession({playerCount:2});
 other.games[1].phase="game_over";
 assert.equal(other.resolveOutcome(),"player1");
+// Both multiplayer transports must use the same two-lines-per-junk rule.
+const outcomes=[[0,1,0,1],[1,1,1,0],[0,2,1,0],[1,4,2,1]];
+for(const [progress,cleared,rows,remainder] of outcomes){
+  const attack=GameSession.attackForLines(progress,cleared);
+  assert.equal(attack.rows,rows);
+  assert.equal(attack.remainder,remainder);
+}
 console.log("Match tests passed");

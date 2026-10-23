@@ -12,7 +12,7 @@
   let match=saved?.id&&saved?.token&&[1,2].includes(saved.player)?saved:null;
   if(match){match.round=match.round||1;match.cursor ||= 0;match.outbox ||= [];}
   let busy=false,sending=false,ready=false,finished=false,forfeiting=false,interval=null;
-  let creating=false,joining=false,rematchSending=false;
+  let creating=false,joining=false,rematchSending=false,exiting=false;
 
   const lobby=document.createElement('div');
   lobby.id='remote-lobby';
@@ -50,6 +50,7 @@
   resultPanel.id='remote-result';
   resultPanel.hidden=true;
   resultPanel.innerHTML='<section class="remote-result-panel" role="dialog" aria-label="Match result" aria-modal="true">'+
+    '<button type="button" id="remote-result-exit" aria-label="Exit to new game" title="Exit to new game">×</button>'+
     '<div class="remote-kicker">MATCH COMPLETE</div>'+
     '<h2 id="remote-result-title"></h2>'+
     '<p id="remote-result-detail"></p>'+
@@ -60,6 +61,7 @@
   const resultTitle=resultPanel.querySelector('#remote-result-title');
   const resultDetail=resultPanel.querySelector('#remote-result-detail');
   const restart=resultPanel.querySelector('#remote-restart');
+  const exitResult=resultPanel.querySelector('#remote-result-exit');
   const rematchStatus=resultPanel.querySelector('#remote-rematch-status');
 
   const bar=document.createElement('div');
@@ -167,7 +169,7 @@
   }
 
   function readyUI(){
-    if(ready||finished||forfeiting)return;
+    if(ready||finished||forfeiting||exiting)return;
     ready=true;
     bar.hidden=false;
     bar.querySelector('#remote-match-label').textContent='ROOM '+match.code+' · PLAYER '+match.player;
@@ -175,7 +177,7 @@
     window.dispatchEvent(new CustomEvent('blocks:remote-ready',{detail:{round:match.round}}));
   }
   function rematchView(state){
-    if(!finished)return;
+    if(!finished||exiting)return;
     const mine=match.player===1?state.host_ready:state.guest_ready;
     const theirs=match.player===1?state.guest_ready:state.host_ready;
     restart.disabled=Boolean(mine)||rematchSending;
@@ -185,6 +187,7 @@
       theirs?'Your opponent wants a rematch.':'Both players can choose to play again.';
   }
   function finish(winner,state){
+    if(exiting)return;
     if(!finished){
       finished=true;ready=false;forfeiting=false;
       match.finished=true;match.winner=winner;
@@ -203,20 +206,57 @@
     match.round=round;
     match.cursor=0;match.outbox=[];match.snapshot=null;match.progress=0;
     match.finished=false;match.winner=null;
-    ready=false;finished=false;forfeiting=false;rematchSending=false;
+    ready=false;finished=false;forfeiting=false;rematchSending=false;exiting=false;
     bar.hidden=true;showResult(false);
     window.dispatchEvent(new CustomEvent('blocks:remote-new-round',{detail:{round}}));
     persist(); // A late attack can no longer be delivered to this round.
   }
+  // Leaving a finished match invalidates the shared room, not merely this
+  // device's local storage. A player who already requested a rematch is also
+  // released, instead of waiting forever for the person who exited.
+  function returnToNewGame(message=''){
+    if(interval){clearInterval(interval);interval=null;}
+    closeSocket();
+    match=null;
+    busy=false;ready=false;finished=false;forfeiting=false;
+    rematchSending=false;exiting=false;
+    try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
+    window.BLOCKS_REMOTE_RESET?.();
+    bar.hidden=true;showResult(false);
+    exitResult.disabled=false;
+    menu();showLobby(true);
+    if(message)status.textContent=message;
+  }
+  async function exitToNewGame(){
+    if(!match||!finished||exiting)return;
+    exiting=true;exitResult.disabled=true;
+    rematchStatus.textContent='Leaving the room…';
+    const current=match;
+    try{
+      await rpc('blocks_match_exit',{
+        p_match:current.id,p_token:current.token,p_round:current.round
+      });
+      if(match===current)returnToNewGame();
+    }catch(e){
+      if(match!==current)return;
+      exiting=false;exitResult.disabled=false;
+      rematchStatus.textContent='Could not leave the room. Try again.';
+      console.warn('Blocks match exit failed:',e);
+    }
+  }
   async function poll(){
-    if(!match||busy||navigator.onLine===false)return;
+    if(!match||busy||exiting||navigator.onLine===false)return;
     const current=match;
     busy=true;
     try{
       const data=await rpc('blocks_match_poll',{
         p_match:current.id,p_token:current.token,p_after:current.cursor||0
       });
-      if(current!==match)return;
+      if(current!==match||exiting)return;
+      if(data.status==='cancelled'){
+        returnToNewGame('The other player left the room. Create or join a new game.');
+        return;
+      }
       if(data.round>current.round){
         nextRound(data.round);
         // The request's cursor belonged to the previous round. Its response
@@ -239,15 +279,12 @@
       error.textContent='';
       if(ready)void flush();
     }catch(e){
-      if(current!==match)return;
+      if(current!==match||exiting)return;
       setError(e);
       if(/not found|access denied|expired/i.test(e.message)){
         // Abandon only this device's expired match, not the unrelated solo save.
-        match=null;ready=false;finished=false;
-        try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
-        showResult(false);menu();showLobby(true);
+        returnToNewGame('That game has expired. Create or join another game.');
         title.textContent='Room unavailable';
-        status.textContent='That game has expired. Create or join another game.';
       }
     }finally{busy=false}
   }
@@ -312,7 +349,7 @@
     }finally{joining=false;entry.classList.remove('is-loading');}
   }
   async function requestRematch(){
-    if(!match||!finished||rematchSending)return;
+    if(!match||!finished||rematchSending||exiting)return;
     rematchSending=true;restart.disabled=true;
     restart.classList.add('is-loading');rematchStatus.textContent='Requesting rematch…';
     try{
@@ -320,7 +357,7 @@
       const status=await rpc('blocks_match_rematch',{
         p_match:current.id,p_token:current.token,p_round:current.round
       });
-      if(current!==match)return;
+      if(current!==match||exiting)return;
       if(status.round>match.round)nextRound(status.round);
       else rematchView(status);
       void poll();
@@ -346,6 +383,7 @@
     catch(_){setError('Copy the code shown above.')}
   };
   restart.onclick=()=>{void requestRematch()};
+  exitResult.onclick=()=>{void exitToNewGame()};
   bar.querySelector('#remote-leave').onclick=()=>{
     if(!window.confirm('Forfeit this match?'))return;
     window.BLOCKS_REMOTE?.reportLoss();

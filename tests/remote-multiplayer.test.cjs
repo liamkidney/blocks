@@ -18,7 +18,9 @@ function fixture(){
       const id=randomUUID(),hostToken=randomUUID(),code='ABCDEF';
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
         round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,
-        difficulty:a.p_difficulty??1,piece_set:a.p_piece_set??'ALL',events:[]});
+        difficulty:a.p_difficulty??1,piece_set:a.p_piece_set??'ALL',
+        presence_enabled:name==='blocks_create_match_config',
+        host_online:true,guest_online:true,events:[]});
       return success([{match_id:id,room_code:code,player_token:hostToken}]);
     }
     if(name==='blocks_join_match'||name==='blocks_join_match_v2'){
@@ -32,11 +34,18 @@ function fixture(){
     }
     const m=rooms.get(a.p_match);
     if(!m||![m.hostToken,m.guestToken].includes(a.p_token))return failure('Access denied');
+    if(name==='blocks_match_heartbeat'){
+      if(a.p_round!==m.round)return failure('Match round has changed');
+      if(a.p_token===m.hostToken)m.host_online=true;
+      else m.guest_online=true;
+      return success({status:m.status,round:m.round});
+    }
     if(name==='blocks_match_poll')return success({
       status:m.status,winner:m.winner,round:m.round,
       host_ready:m.host_ready,guest_ready:m.guest_ready,
       host_wins:m.host_wins,guest_wins:m.guest_wins,
       difficulty:m.difficulty,piece_set:m.piece_set,
+      presence_enabled:m.presence_enabled,host_online:m.host_online,guest_online:m.guest_online,
       events:m.events.filter(e=>e.round===m.round&&e.id>(a.p_after||0))
     });
     if(name==='blocks_match_start'){
@@ -125,7 +134,7 @@ function fixture(){
     }
     const handlers=new Map(),intervals=new Map();
     let intervalId=0,resetCount=0;
-    const attacks=[],results=[],rounds=[];
+    const attacks=[],results=[],rounds=[],holds=[],unholds=[];
     const window={
       BLOCKS_REMOTE_LOCAL_CONFIG:{difficulty:1,piece_set:'ALL'},
       BLOCKS_REMOTE_CAPTURE:()=>({snapshot:{applied:attacks.length},progress:0}),
@@ -134,6 +143,8 @@ function fixture(){
       dispatchEvent(ev){for(const fn of handlers.get(ev.type)||[])fn(ev)},
       confirm:()=>true
     };
+    window.addEventListener('blocks:remote-hold',()=>holds.push('hold'));
+    window.addEventListener('blocks:remote-unhold',()=>unholds.push('unhold'));
     window.addEventListener('blocks:remote-event',e=>{
       if(e.detail.type==='attack')attacks.push(e.detail.rows);
     });
@@ -167,7 +178,7 @@ function fixture(){
     };
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
-      window,get,attacks,results,rounds,storage,bodyElements,
+      window,get,attacks,results,rounds,holds,unholds,storage,bodyElements,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();

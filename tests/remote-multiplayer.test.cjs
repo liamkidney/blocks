@@ -9,7 +9,7 @@ const source=fs.readFileSync(path.join(__dirname,'..','remote-multiplayer.js'),'
 
 function fixture(){
   const rooms=new Map(),allEvents=[];
-  let nextId=0,failAcknowledgement=false,joins=0,starts=0,rematches=0;
+  let nextId=0,failAcknowledgement=false,dropJoinAck=false,joins=0,starts=0,rematches=0;
   async function fetch(url,opts){
     const name=url.split('/').pop(),a=JSON.parse(opts.body);
     const success=data=>({ok:true,json:async()=>data});
@@ -30,6 +30,7 @@ function fixture(){
          ['ready','playing','finished'].includes(m.status)));
       if(!m)return failure('Room already joined');
       if(m.status==='waiting'){m.guestToken=a.p_join_token||randomUUID();m.status='ready';}
+      if(dropJoinAck){dropJoinAck=false;return failure('Connection dropped after join');}
       return success([{match_id:m.id,player_token:m.guestToken}]);
     }
     const m=rooms.get(a.p_match);
@@ -110,7 +111,7 @@ function fixture(){
     return failure('Unknown RPC');
   }
 
-  function browser(storage=new Map()){
+  function browser(storage=new Map(),config={difficulty:1,piece_set:'ALL'}){
     const nodes=new Map(),bodyElements=[];
     const get=id=>{
       if(!nodes.has(id))nodes.set(id,node(id));
@@ -134,15 +135,16 @@ function fixture(){
     }
     const handlers=new Map(),intervals=new Map();
     let intervalId=0,resetCount=0;
-    const attacks=[],results=[],rounds=[],holds=[],unholds=[];
+    const attacks=[],results=[],rounds=[],holds=[],unholds=[],configs=[];
     const window={
-      BLOCKS_REMOTE_LOCAL_CONFIG:{difficulty:1,piece_set:'ALL'},
+      BLOCKS_REMOTE_LOCAL_CONFIG:config,
       BLOCKS_REMOTE_CAPTURE:()=>({snapshot:{applied:attacks.length},progress:0}),
       BLOCKS_REMOTE_RESET:()=>{resetCount++;attacks.length=0;},
       addEventListener(name,fn){handlers.set(name,[...(handlers.get(name)||[]),fn])},
       dispatchEvent(ev){for(const fn of handlers.get(ev.type)||[])fn(ev)},
       confirm:()=>true
     };
+    window.addEventListener('blocks:remote-config',e=>configs.push(e.detail));
     window.addEventListener('blocks:remote-hold',()=>holds.push('hold'));
     window.addEventListener('blocks:remote-unhold',()=>unholds.push('unhold'));
     window.addEventListener('blocks:remote-event',e=>{
@@ -159,6 +161,7 @@ function fixture(){
       removeItem:key=>storage.delete(key)
     };
     const document={
+      visibilityState:'visible',
       body:{append(el){bodyElements.push(el)},classList:{toggle(){}}},
       createElement:()=>node(),
       getElementById:()=>node(),
@@ -178,7 +181,7 @@ function fixture(){
     };
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
-      window,get,attacks,results,rounds,holds,unholds,storage,bodyElements,
+      window,get,attacks,results,rounds,holds,unholds,configs,storage,bodyElements,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -188,6 +191,7 @@ function fixture(){
   }
   return {
     browser,rooms,allEvents,setDropAck:()=>{failAcknowledgement=true},
+    setDropJoinAck:()=>{dropJoinAck=true},
     get joins(){return joins},get starts(){return starts},get rematches(){return rematches}
   };
 }
@@ -484,4 +488,67 @@ test('new room starts a fresh 0–0 score after leaving a won session',async()=>
   const recent=[...f.rooms.values()].at(-1);
   assert.equal(recent.host_wins,0);
   assert.equal(recent.guest_wins,0);
+});
+
+
+test('room difficulty and allowed pieces are enforced on the joining phone',async()=>{
+  const f=fixture();
+  const host=f.browser(new Map(),{difficulty:2,piece_set:'IO'});
+  const guest=f.browser(new Map(),{difficulty:0,piece_set:'ALL'});
+  host.get('remote-create').onclick();await settle();
+  guest.get('remote-join').onclick();
+  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').listeners.input();await settle();
+  await host.tick();await guest.tick();await settle();
+  const room=[...f.rooms.values()][0];
+  assert.equal(room.difficulty,2);
+  assert.equal(room.piece_set,'IO');
+  assert.deepEqual(JSON.parse(JSON.stringify(guest.configs)),[{difficulty:2,piece_set:'IO'}]);
+  assert.equal(host.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+});
+
+test('lost join acknowledgement retries with the same token and starts a single room',async()=>{
+  const f=fixture();
+  const host=f.browser(),guest=f.browser();
+  host.get('remote-create').onclick();await settle();
+  guest.get('remote-join').onclick();
+  f.setDropJoinAck();
+  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').listeners.input();await settle();
+  const pending=JSON.parse(guest.storage.get('blocks:remote-pending-join:/blocks/dev/'));
+  assert.equal(pending.code,'ABCDEF');
+  assert.equal(typeof pending.token,'string');
+  assert.equal(f.rooms.size,1);
+  assert.equal([...f.rooms.values()][0].guestToken,pending.token);
+  guest.get('remote-input').value='ABCDEF';
+  guest.get('remote-input').listeners.input();await settle();
+  assert.equal(f.rooms.size,1);
+  assert.equal(guest.storage.has('blocks:remote-pending-join:/blocks/dev/'),false);
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+});
+
+test('host can cancel waiting room and return to create and join options',async()=>{
+  const f=fixture(),host=f.browser();
+  host.get('remote-create').onclick();await settle();
+  assert.equal(host.get('remote-code-panel').hidden,false);
+  host.get('remote-code-exit').onclick();await settle();
+  assert.equal(host.window.BLOCKS_REMOTE.active,false);
+  assert.equal(host.get('remote-actions').hidden,false);
+  assert.equal([...f.rooms.values()][0].status,'cancelled');
+});
+
+test('presence interruption pauses and resumes both-player local board as announced',async()=>{
+  const f=fixture(),{host,guest}=await matched(f);
+  const room=[...f.rooms.values()][0];
+  room.host_online=false;
+  await guest.tick();await settle();
+  assert.deepEqual(guest.holds,['hold']);
+  assert.equal(guest.unholds.length,0);
+  await guest.tick();await settle();
+  assert.deepEqual(guest.holds,['hold'],'No duplicate pause events');
+  room.host_online=true;
+  await guest.tick();await settle();
+  assert.deepEqual(guest.unholds,['unhold']);
+  assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
 });

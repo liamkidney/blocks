@@ -6,9 +6,11 @@
   const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/rpc/';
   const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
   const STORAGE_KEY='blocks:remote-match:'+location.pathname;
+  const PENDING_JOIN_KEY='blocks:remote-pending-join:'+location.pathname;
   const headers={apikey:KEY,'Content-Type':'application/json'};
   const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}};
   const saved=read();
+  const pendingJoin=(()=>{try{return JSON.parse(localStorage.getItem(PENDING_JOIN_KEY)||'null')}catch(_){return null}})();
   let match=saved?.id&&saved?.token&&[1,2].includes(saved.player)?saved:null;
   if(match){match.round=match.round||1;match.cursor ||= 0;match.outbox ||= [];}
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
@@ -25,6 +27,7 @@
       '<button type="button" id="remote-join">JOIN GAME</button>'+
     '</div>'+
     '<div id="remote-code-panel" hidden>'+
+      '<button id="remote-code-exit" type="button" aria-label="Cancel room" title="Cancel room">×</button>'+
       '<div class="remote-code-label">YOUR ROOM CODE</div>'+
       '<div id="remote-code" aria-live="polite"></div>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
@@ -43,7 +46,7 @@
   const $=id=>lobby.querySelector('#'+id);
   const title=$('remote-title'),status=$('remote-status'),error=$('remote-error');
   const actions=$('remote-actions'),create=$('remote-create'),join=$('remote-join');
-  const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy');
+  const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),codeExit=$('remote-code-exit');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots'),entryBack=$('remote-entry-back');
 
   const resultPanel=document.createElement('div');
@@ -268,13 +271,13 @@
     try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
     window.BLOCKS_REMOTE_RESET?.();
     bar.hidden=true;showResult(false);
-    exitResult.disabled=false;
+    exitResult.disabled=false;codeExit.disabled=false;
     menu();showLobby(true);
     if(message)status.textContent=message;
   }
   async function exitToNewGame(){
-    if(!match||(!finished&&!staging)||exiting)return;
-    exiting=true;exitResult.disabled=true;
+    if(!match||exiting||ready&&!finished)return;
+    exiting=true;exitResult.disabled=true;codeExit.disabled=true;
     rematchStatus.textContent='Leaving the room…';
     const current=match;
     try{
@@ -284,8 +287,9 @@
       if(match===current)returnToNewGame();
     }catch(e){
       if(match!==current)return;
-      exiting=false;exitResult.disabled=false;
+      exiting=false;exitResult.disabled=false;codeExit.disabled=false;
       rematchStatus.textContent='Could not leave the room. Try again.';
+      error.textContent='Could not cancel room. Try again.';
       console.warn('Blocks match exit failed:',e);
     }
   }
@@ -298,6 +302,15 @@
         p_match:current.id,p_token:current.token,p_after:current.cursor||0
       });
       if(current!==match||exiting)return;
+      if([0,1,2].includes(data.difficulty)&&['ALL','IO'].includes(data.piece_set)){
+        if(current.difficulty!==data.difficulty||current.piece_set!==data.piece_set){
+          current.difficulty=data.difficulty;current.piece_set=data.piece_set;
+          window.dispatchEvent(new CustomEvent('blocks:remote-config',{
+            detail:{difficulty:data.difficulty,piece_set:data.piece_set}
+          }));
+          persist();
+        }
+      }
       if(data.status==='cancelled'){
         returnToNewGame('The other player left the room. Create or join a new game.');
         return;
@@ -375,9 +388,12 @@
     if(creating||joining)return;
     setCreating(true);error.textContent='';
     try{
-      const rows=await rpc('blocks_create_match');
+      const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||{difficulty:1,piece_set:'ALL'};
+      const rows=await rpc('blocks_create_match_config',{
+        p_difficulty:config.difficulty,p_piece_set:config.piece_set
+      });
       const row=rows[0];
-      await connect({id:row.match_id,token:row.player_token,code:row.room_code,player:1},true);
+      await connect({id:row.match_id,token:row.player_token,code:row.room_code,player:1,...config},true);
     }catch(e){setError(e);menu();setError(e)}
     finally{setCreating(false)}
   }
@@ -386,9 +402,18 @@
     joining=true;input.disabled=true;
     entry.classList.add('is-loading');error.textContent='';
     try{
-      const rows=await rpc('blocks_join_match',{p_code:code});
+      let attempt;
+      try{attempt=JSON.parse(localStorage.getItem(PENDING_JOIN_KEY)||'null')}catch(_){}
+      if(!attempt||attempt.code!==code||typeof attempt.token!=='string'){
+        attempt={code,token:crypto.randomUUID()};
+        localStorage.setItem(PENDING_JOIN_KEY,JSON.stringify(attempt));
+      }
+      const rows=await rpc('blocks_join_match_v2',{
+        p_code:code,p_join_token:attempt.token
+      });
       const row=rows[0];
       await connect({id:row.match_id,token:row.player_token,code,player:2},true);
+      localStorage.removeItem(PENDING_JOIN_KEY);
     }catch(e){
       input.value='';displaySlots();
       setError(e);input.disabled=false;
@@ -452,6 +477,7 @@
   };
   restart.onclick=()=>{if(finished)void requestRematch();else if(staging)void requestStart();};
   exitResult.onclick=()=>{void exitToNewGame()};
+  codeExit.onclick=()=>{void exitToNewGame()};
   bar.querySelector('#remote-leave').onclick=()=>{
     if(!window.confirm('Forfeit this match?'))return;
     window.BLOCKS_REMOTE?.reportLoss();
@@ -488,5 +514,9 @@
     if(event.persisted&&match){openSocket();void poll();}
   });
   if(match)void connect(match);
-  else{menu();showLobby(true);}
+  else if(pendingJoin?.code&&pendingJoin?.token){
+    menu();showLobby(true);enterCode();
+    input.value=pendingJoin.code;displaySlots();
+    void joinRoom(pendingJoin.code);
+  }else{menu();showLobby(true);}
 })();

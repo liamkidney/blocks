@@ -20,6 +20,7 @@ or choose **2 players · two phones** in the development new-game selector.
 3. Each player controls **their own independent board**. Clearing two lines sends one junk line to the other player, with odd-line progress carried forward exactly as in the one-phone mode.
 4. The finished board remains on screen behind a **You win / You lose** result panel.
 5. Both players can press **Play again**. The first waits; when the second accepts, both receive a new independent board and a clean attack state while keeping the same room, code and player tokens.
+6. The **×** on the result / **Ready to Play Again** panel exits to **Create game / Join game**. It cancels the old room so the opponent is returned to matchmaking rather than left waiting.
 
 The transport uses Supabase Realtime wake-ups plus 1.6-second polling fallback,
 with token-validated RPCs and durable, idempotent attack messages scoped to each
@@ -31,6 +32,7 @@ Migrations:
 - `supabase/migrations/20261023_two_phone_matches.sql`
 - `supabase/migrations/20261023_two_phone_realtime.sql`
 - `supabase/migrations/20261023_two_phone_rematches.sql`
+- `supabase/migrations/20261023_two_phone_result_exit.sql`
 
 Tests: `node --test tests/*.test.cjs`, including
 `tests/remote-multiplayer.test.cjs`. Development is promoted to production

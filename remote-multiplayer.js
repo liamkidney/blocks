@@ -44,6 +44,47 @@
     if(state){match.snapshot=state.snapshot;match.progress=state.progress;}
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(match))}catch(e){console.warn('Remote match save:',e);}
   };
+  // Supabase's Phoenix websocket provides fast database-triggered wake-ups.
+  // All event data is still read via token-validated RPC. Polling is a fallback.
+  let socket=null,heartbeat=null,reconnectTimer=null,reference=0;
+  function closeSocket(){
+    if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
+    if(heartbeat){clearInterval(heartbeat);heartbeat=null;}
+    const old=socket;socket=null;
+    if(old){old.onclose=null;old.close();}
+  }
+  function openSocket(){
+    if(!match||finished||typeof WebSocket!=='function')return;
+    const matchId=match.id;
+    const topic='realtime:blocks-match-'+matchId;
+    try{
+      const ws=new WebSocket('wss://psoncybkfsdmjksyrcvv.supabase.co/realtime/v1/websocket?apikey='+
+        encodeURIComponent(KEY)+'&vsn=1.0.0');
+      socket=ws;
+      const send=(event,payload,target=topic)=>{
+        if(ws.readyState===1)
+          ws.send(JSON.stringify({topic:target,event,payload,ref:String(++reference)}));
+      };
+      ws.onopen=()=>{
+        send('phx_join',{config:{broadcast:{ack:false,self:false}}});
+        heartbeat=setInterval(()=>send('heartbeat',{},'phoenix'),25000);
+      };
+      ws.onmessage=event=>{
+        try{
+          const msg=JSON.parse(event.data);
+          if(msg.topic===topic&&msg.event==='broadcast')void poll();
+        }catch(_){}
+      };
+      ws.onclose=()=>{
+        if(socket!==ws)return;
+        socket=null;
+        if(heartbeat){clearInterval(heartbeat);heartbeat=null;}
+        if(match?.id===matchId&&!finished)
+          reconnectTimer=setTimeout(openSocket,3000);
+      };
+      ws.onerror=()=>{}; // Periodic polling continues if Realtime is unavailable.
+    }catch(error){console.warn('Blocks Realtime:',error);}
+  }
   async function rpc(name,args={}){
     const response=await fetch(API+name,{method:'POST',headers,body:JSON.stringify(args),cache:'no-store'});
     if(!response.ok){
@@ -65,6 +106,7 @@
     finished=true;
     ready=false;
     if(interval){clearInterval(interval);interval=null;}
+    closeSocket();
     window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner}}));
     bar.hidden=true;
     title.textContent=winner===match.player?'YOU WIN':winner===0?'DRAW':'YOU LOSE';
@@ -121,6 +163,7 @@
   }
   async function connect(value,fresh=false){
     if(interval)clearInterval(interval);
+    closeSocket();
     match=fresh?{...value,cursor:0,outbox:[],progress:0,snapshot:null}:value;
     ready=false;finished=false;forfeiting=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
@@ -130,8 +173,9 @@
     status.textContent='Checking the room…';
     create.hidden=true;join.hidden=true;input.hidden=true;resume.hidden=true;
     show(true);error.textContent='';
+    openSocket();
     await poll();
-    interval=setInterval(()=>{void poll();void flush();},700);
+    interval=setInterval(()=>{void poll();void flush();},1600);
     void flush();
   }
   async function newRoom(kind){
@@ -160,6 +204,7 @@
   resume.onclick=()=>{if(match)void connect(match)};
   newMatch.onclick=()=>{
     if(interval)clearInterval(interval);
+    closeSocket();
     try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
     const url=new URL(location.href);url.searchParams.set('remote','1');location.href=url.href;
   };
@@ -200,7 +245,7 @@
     if(document.visibilityState==='visible'){void poll();void flush();}
     else persist();
   });
-  window.addEventListener('pagehide',persist);
+  window.addEventListener('pagehide',()=>{persist();closeSocket()});
 
   if(match&&!match.finished){
     title.textContent='Resume match?';

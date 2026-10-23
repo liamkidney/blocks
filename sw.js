@@ -1,7 +1,7 @@
 // Keep each release self-contained: the app shell is always loaded from its
 // installed cache, while a new worker waits for a safe launch to activate.
 const CACHE="blocks-v5-speed-modes";
-const ASSETS=["./","index.html","styles.css","game-modes.js","tetrominoes.js","game.js","session.js","board-renderer.js","app.js","multiplayer.js","config.js","version.js","player-name.js","score-sync.js","high-scores.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
+const ASSETS=["./","index.html","styles.css","game-modes.js","tetrominoes.js","game.js","session.js","board-renderer.js","app.js","multiplayer.js","remote-multiplayer.js","config.js","version.js","player-name.js","score-sync.js","high-scores.js","manifest.json","icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"];
 const APP_PATHS=new Set(ASSETS.map(asset=>new URL(asset,self.registration.scope).pathname));
 
 self.addEventListener("install",event=>{

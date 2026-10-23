@@ -44,7 +44,13 @@ let skipSaveOnNavigation=false;
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
-  if(REMOTE_PLAYER){window.BLOCKS_REMOTE?.persist();return;}
+  if(REMOTE_PLAYER){
+    const now=performance.now();
+    if(!force&&now-lastSavedAt<2000)return;
+    lastSavedAt=now;
+    window.BLOCKS_REMOTE?.persist();
+    return;
+  }
   if(skipSaveOnNavigation||awaitingInitialStart)return;
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
@@ -297,7 +303,7 @@ function render(){
   if(scoreDisplay.textContent!==String(game.score))scoreDisplay.textContent=game.score;
   if(linesDisplay.textContent!==String(game.lines))linesDisplay.textContent=game.lines;
   renderPreview();
-  const over=!TWO_PLAYER&&game.phase==="game_over";
+  const over=!TWO_PLAYER&&!REMOTE_PLAYER&&game.phase==="game_over";
   if(gameOver.hidden===over)gameOver.hidden=!over;
   renderActions();
 }
@@ -327,7 +333,7 @@ let remoteReady=false,remoteFinished=false,remoteLost=false;
 let remoteAttackProgress=Number.isInteger(remoteStored?.progress)?remoteStored.progress:0;
 // The local snapshot and last received event cursor are persisted together.
 window.BLOCKS_REMOTE_CAPTURE=()=>({
-  snapshot:game.phase==="game_over"?null:game.toSnapshot(),
+  snapshot:game.toSnapshot(),
   progress:remoteAttackProgress
 });
 window.BLOCKS_REMOTE_RESET=()=>{
@@ -339,6 +345,9 @@ window.BLOCKS_REMOTE_RESET=()=>{
   previousPhase=game.phase;lastTime=performance.now();
   gameOver.textContent="GAME OVER";
 };
+window.addEventListener('blocks:remote-new-round',()=>{
+  if(REMOTE_PLAYER)window.BLOCKS_REMOTE_RESET();
+});
 window.addEventListener('blocks:remote-ready',()=>{
   if(remoteReady||remoteFinished)return;
   remoteReady=true;

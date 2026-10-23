@@ -371,10 +371,9 @@ function loop(now){if(!REMOTE_PLAYER||(remoteReady&&!remoteFinished))session.upd
 const drained=session.drainEvents();
 if(REMOTE_PLAYER&&remoteReady)for(const event of drained){
   if(event.type!=='lines_cleared')continue;
-  remoteAttackProgress+=event.count;
-  const rows=Math.floor(remoteAttackProgress/2);
-  remoteAttackProgress%=2;
-  if(rows)window.BLOCKS_REMOTE?.sendAttack(rows);
+  const attack=GameSession.attackForLines(remoteAttackProgress,event.count);
+  remoteAttackProgress=attack.remainder;
+  if(attack.rows)window.BLOCKS_REMOTE?.sendAttack(attack.rows);
 }
 if(REMOTE_PLAYER&&remoteReady&&!remoteLost&&game.phase==='game_over'){
   remoteLost=true;window.BLOCKS_REMOTE?.reportLoss();

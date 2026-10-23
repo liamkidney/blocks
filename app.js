@@ -22,7 +22,17 @@ try{
 }catch(_){}
 window.BLOCKS_CONFIG.ghostPiece=selectedGhostPiece;
 try{autoStart=sessionStorage.getItem(AUTO_START_KEY)==="1";sessionStorage.removeItem(AUTO_START_KEY);}catch(_){}
-const sessionConfig={...window.BLOCKS_CONFIG,difficulty:selectedDifficulty};
+const savedRemoteDifficulty=REMOTE_PLAYER&&[0,1,2].includes(remoteStored?.difficulty)?remoteStored.difficulty:null;
+const sessionConfig={...window.BLOCKS_CONFIG,
+  difficulty:savedRemoteDifficulty??selectedDifficulty,
+  ...(REMOTE_PLAYER&&remoteStored?.piece_set==='IO'?{allowedPieces:["I","O"]}:
+     REMOTE_PLAYER&&remoteStored?.piece_set==='ALL'?{allowedPieces:TETROMINOES.map(t=>t.name)}:{})
+};
+window.BLOCKS_REMOTE_LOCAL_CONFIG={
+  difficulty:sessionConfig.difficulty,
+  piece_set:sessionConfig.allowedPieces?.length===2&&
+    sessionConfig.allowedPieces.includes('I')&&sessionConfig.allowedPieces.includes('O')?'IO':'ALL'
+};
 let session;
 let storedSessionId=null;
 try{
@@ -345,6 +355,18 @@ window.BLOCKS_REMOTE_RESET=()=>{
   previousPhase=game.phase;lastTime=performance.now();
   gameOver.textContent="GAME OVER";
 };
+window.addEventListener('blocks:remote-config',event=>{
+  if(!REMOTE_PLAYER)return;
+  const {difficulty,piece_set}=event.detail;
+  if(![0,1,2].includes(difficulty)||!['ALL','IO'].includes(piece_set))return;
+  if(session.config.difficulty===difficulty &&
+    ((session.config.allowedPieces?.length===2&&
+      session.config.allowedPieces.includes('I')&&
+      session.config.allowedPieces.includes('O'))?'IO':'ALL')===piece_set)return;
+  session.config.difficulty=difficulty;
+  session.config.allowedPieces=piece_set==='IO'?['I','O']:TETROMINOES.map(t=>t.name);
+  window.BLOCKS_REMOTE_RESET();
+});
 window.addEventListener('blocks:remote-new-round',()=>{
   if(REMOTE_PLAYER)window.BLOCKS_REMOTE_RESET();
 });

@@ -17,7 +17,7 @@ function fixture(){
     if(name==='blocks_create_match'||name==='blocks_create_match_config'||
        name==='blocks_create_match_short'){
       const id=randomUUID(),hostToken=randomUUID();
-      const code=name==='blocks_create_match_short'?'BRT':'BRT';
+      const code=name==='blocks_create_match_short'?'BRT':'ABCDEF';
       const code_expires_at=new Date(Date.now()+180000).toISOString();
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
         round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,
@@ -26,7 +26,8 @@ function fixture(){
         code_expires_at,
         host_online:true,guest_online:true,events:[]});
       if(name==='blocks_create_match_short')
-        return success({match_id:id,room_code:code,player_token:hostToken,code_expires_at});
+        // PostgREST serialises RETURNS TABLE (SETOF records) as an array.
+        return success([{match_id:id,room_code:code,player_token:hostToken,code_expires_at}]);
       return success([{match_id:id,room_code:code,player_token:hostToken}]);
     }
     if(name==='blocks_join_match'||name==='blocks_join_match_v2'||
@@ -146,17 +147,37 @@ function fixture(){
           contains(name){return classes.has(name)}
         },
         listeners:{},
+        style:(()=>{
+          const styles=new Map();
+          return {
+            setProperty:(name,value)=>styles.set(name,String(value)),
+            removeProperty:name=>styles.delete(name),
+            getPropertyValue:name=>styles.get(name)||''
+          };
+        })(),
         setAttribute(key,value){this.attrs[key]=String(value)},
         addEventListener(event,handler){this.listeners[event]=handler},
-        append(){},prepend(){},close(){},focus(){this.focused=true},
+        append(){},prepend(){},close(){},
+        focus(){document.activeElement=this;this.focused=true;this.listeners.focus?.()},
+        blur(){if(document.activeElement===this)document.activeElement=null;
+          this.focused=false;this.listeners.blur?.()},
         querySelector(selector){return get(selector.replace('#',''));}
       };
     }
-    const handlers=new Map(),intervals=new Map();
+    const handlers=new Map(),intervals=new Map(),viewportHandlers=new Map();
     let intervalId=0,resetCount=0;
+    const visualViewport={
+      height:400,width:390,offsetTop:0,offsetLeft:0,
+      addEventListener(name,handler){viewportHandlers.set(name,handler)},
+      resizeTo(height,top=0){
+        this.height=height;this.offsetTop=top;
+        viewportHandlers.get('resize')?.();
+      }
+    };
     const attacks=[],results=[],rounds=[],holds=[],unholds=[],configs=[];
     const window={
       BLOCKS_REMOTE_LOCAL_CONFIG:config,
+      visualViewport,innerHeight:800,innerWidth:390,
       BLOCKS_REMOTE_CAPTURE:()=>({snapshot:{applied:attacks.length},progress:0}),
       BLOCKS_REMOTE_RESET:()=>{resetCount++;attacks.length=0;},
       addEventListener(name,fn){handlers.set(name,[...(handlers.get(name)||[]),fn])},
@@ -186,7 +207,7 @@ function fixture(){
       removeItem:key=>storage.delete(key)
     };
     const document={
-      visibilityState:'visible',
+      visibilityState:'visible',activeElement:null,
       body:{append(el){bodyElements.push(el)},classList:{toggle(){}}},
       createElement:()=>node(),
       getElementById:()=>node(),
@@ -657,4 +678,41 @@ test('join input excludes vowels and auto-submits only after three consonants',a
   input.listeners.input();await settle();
   assert.equal(f.joins,1);
   assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+});
+
+
+test('room creation accepts the actual PostgREST RETURNS TABLE array response',async()=>{
+  const f=fixture(),host=f.browser();
+  host.get('remote-create').onclick();
+  await settle();
+  assert.equal(f.rooms.size,1);
+  assert.equal(host.window.BLOCKS_REMOTE.active,true);
+  assert.equal(host.get('remote-code').textContent,'BRT');
+  assert.equal(host.get('remote-code-panel').hidden,false);
+  assert.equal(host.get('remote-error').textContent,'');
+});
+
+test('code entry resizes to visible iPhone viewport and restores layout on exit',()=>{
+  const f=fixture(),phone=f.browser();
+  const lobby=phone.popup('remote-lobby');
+  assert.equal(lobby.classList.contains('remote-keyboard-open'),false);
+  phone.get('remote-join').onclick();
+  assert.equal(phone.get('remote-input').focused,true);
+  assert.equal(lobby.classList.contains('remote-keyboard-open'),true);
+  assert.equal(lobby.style.getPropertyValue('--remote-visible-height'),'400px');
+  phone.window.visualViewport.resizeTo(285,14);
+  assert.equal(lobby.style.getPropertyValue('--remote-visible-height'),'285px');
+  assert.equal(lobby.style.getPropertyValue('--remote-visible-top'),'14px');
+  phone.get('remote-entry-back').onclick();
+  assert.equal(lobby.classList.contains('remote-keyboard-open'),false);
+  assert.equal(lobby.style.getPropertyValue('--remote-visible-height'),'');
+  assert.equal(phone.get('remote-input').focused,false);
+});
+
+test('keyboard-safe layout is scrollable and limited to the visual viewport',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.match(css,/#remote-lobby\.remote-keyboard-open\s*\{/);
+  assert.match(css,/height:var\(--remote-visible-height,100dvh\)/);
+  assert.match(css,/overflow-y:auto/);
+  assert.match(css,/#remote-lobby\.remote-keyboard-open \.remote-panel/);
 });

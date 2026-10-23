@@ -829,3 +829,18 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #remote-result #remote-restart:disabled{opacity:.65;cursor:default}
 #remote-result #remote-rematch-status{min-height:22px;margin:16px 0 0;
   font-size:12px;line-height:1.5;font-weight:700}
+
+
+/* Leave the post-game/rematch screen without hiding the board prematurely. */
+#remote-result .remote-result-panel{position:relative}
+#remote-result #remote-result-exit{
+  position:absolute;top:7px;right:7px;
+  display:grid;place-items:center;width:42px;height:42px;
+  padding:0;border:0;border-radius:8px;background:transparent;
+  color:var(--ink);font:400 29px/1 Helvetica,Arial,sans-serif;
+  cursor:pointer;touch-action:manipulation;
+}
+#remote-result #remote-result-exit:focus-visible{
+  outline:2px solid var(--ink);outline-offset:1px;
+}
+#remote-result #remote-result-exit:disabled{opacity:.4;cursor:wait}

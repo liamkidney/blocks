@@ -610,3 +610,51 @@ test('New Game screen launch flag is consumed by the main app',()=>{
   assert.match(main,/sessionStorage\.getItem\(SHOW_NEW_GAME_KEY\)==="1"/);
   assert.match(main,/const initialStart=showNewGameOnLaunch\|\|/);
 });
+
+
+test('three-consonant room code displays countdown and expires without ending a match',async()=>{
+  const f=fixture(),host=f.browser();
+  host.get('remote-create').onclick();await settle();
+  assert.equal(host.get('remote-code').textContent,'BRT');
+  assert.match(host.get('remote-code-expires').textContent,/Code expires in 2:5\d/);
+  const state=JSON.parse(host.storage.get('blocks:remote-match:/blocks/dev/'));
+  assert.match(state.inviteExpiresAt,/Z$/);
+  f.expireCode();
+  state.inviteExpiresAt=new Date(Date.now()-30000).toISOString();
+  host.storage.set('blocks:remote-match:/blocks/dev/',JSON.stringify(state));
+  const reopened=f.browser(host.storage);
+  await settle();await reopened.tick();await settle();
+  assert.equal([...f.rooms.values()][0].status,'cancelled');
+  assert.equal(reopened.window.BLOCKS_REMOTE.active,false);
+  assert.equal(reopened.get('remote-actions').hidden,false);
+  assert.match(reopened.get('remote-status').textContent,/Room code expired/);
+});
+
+test('an already joined match continues after its original code expires',async()=>{
+  const f=fixture(),{host,guest}=await matched(f);
+  f.expireCode();
+  await host.tick();await guest.tick();await settle();
+  assert.equal(host.window.BLOCKS_REMOTE.ready,true);
+  assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
+  assert.equal([...f.rooms.values()][0].status,'playing');
+  guest.window.BLOCKS_REMOTE.reportLoss();await settle();
+  await host.tick();await guest.tick();await settle();
+  assert.equal(host.get('remote-score-you').textContent,'1');
+  assert.equal(host.get('remote-restart').textContent,'PLAY AGAIN');
+});
+
+test('join input excludes vowels and auto-submits only after three consonants',async()=>{
+  const f=fixture(),host=f.browser(),guest=f.browser();
+  host.get('remote-create').onclick();await settle();
+  guest.get('remote-join').onclick();
+  const input=guest.get('remote-input');
+  input.value='Bae';
+  input.listeners.input();
+  assert.equal(input.value,'B');
+  assert.equal(guest.get('remote-slots').textContent,'B — —');
+  assert.equal(f.joins,0);
+  input.value='brt';
+  input.listeners.input();await settle();
+  assert.equal(f.joins,1);
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+});

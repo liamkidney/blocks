@@ -114,7 +114,7 @@ as $$
 declare
   clean_code text:=pg_catalog.upper(pg_catalog.btrim(p_code));
   client_addr text;
-  client_hash text;
+  request_hash text;
   h jsonb;
   room public.blocks_matches%rowtype;
   invite public.blocks_short_invites%rowtype;
@@ -138,13 +138,13 @@ begin
   client_addr:=coalesce(nullif(h->>'cf-connecting-ip',''),
       nullif(pg_catalog.btrim(pg_catalog.split_part(h->>'x-forwarded-for',',',1)),''),
       'unknown');
-  client_hash:=pg_catalog.md5(client_addr);
+  request_hash:=pg_catalog.md5(client_addr);
 
   -- Serialize attempts so parallel guesses cannot bypass the cap.
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtext('blocks-short-join-rate'));
   if (select count(*) from public.blocks_short_join_attempts
-        where client_hash=client_hash
+        where client_hash=request_hash
         and attempted_at>now()-interval '3 minutes')>=5
      or (select count(*) from public.blocks_short_join_attempts
         where attempted_at>now()-interval '1 minute')>=40 then
@@ -152,7 +152,7 @@ begin
   end if;
 
   insert into public.blocks_short_join_attempts(client_hash)
-    values(client_hash);
+    values(request_hash);
 
   select * into invite from public.blocks_short_invites
     where code=clean_code and expires_at>now()

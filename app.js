@@ -33,7 +33,7 @@ try{
 }
 let game=session.games[0];
 const initialStart=!autoStart&&session.games.some(g=>g.phase!=="paused");
-if(initialStart)session.pause();
+if(initialStart||REMOTE_PLAYER)session.pause();
 let awaitingInitialStart=initialStart;
 window.BLOCKS_AWAITING_START=initialStart;
 let skipSaveOnNavigation=false;

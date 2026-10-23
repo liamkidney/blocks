@@ -1,5 +1,9 @@
 // Coordinates independent game engines; no DOM or input assumptions.
 class GameSession {
+  static attackForLines(progress,cleared){
+    const total=progress+cleared;
+    return {rows:Math.floor(total/2),remainder:total%2};
+  }
   constructor({playerCount=1,config={},snapshots=[],attackProgress=[0,0]}={}){
     if(![1,2].includes(playerCount))throw new Error("Unsupported player count");
     this.config=config;
@@ -32,10 +36,9 @@ class GameSession {
   handleEvent(player,event){
     this.events.push({player:player+1,...event});
     if(this.games.length!==2||this.outcome||event.type!=="lines_cleared")return;
-    this.attackProgress[player]+=event.count;
-    const rows=Math.floor(this.attackProgress[player]/2);
-    this.attackProgress[player]%=2;
-    if(rows>0)this.games[1-player].addGarbage(rows);
+    const attack=GameSession.attackForLines(this.attackProgress[player],event.count);
+    this.attackProgress[player]=attack.remainder;
+    if(attack.rows>0)this.games[1-player].addGarbage(attack.rows);
     this.resolveOutcome();
   }
   resolveOutcome(){

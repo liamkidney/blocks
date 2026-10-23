@@ -79,25 +79,26 @@ class Game {
     const integer=n=>Number.isSafeInteger(n)&&n>=0;
     if(!snapshot||![1,2,3].includes(snapshot.version)||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
        !snapshot.grid.every(row=>Array.isArray(row)&&row.length===10&&row.every(v=>v===null||validName(v)))||
-       !["falling","clearing_lines","paused"].includes(snapshot.phase)||
+       !["falling","clearing_lines","paused","game_over"].includes(snapshot.phase)||
        !integer(snapshot.score)||!integer(snapshot.lines)||
        !Number.isFinite(snapshot.elapsed)||snapshot.elapsed<0||snapshot.elapsed>2||
        !Array.isArray(snapshot.queue)||snapshot.queue.length!==2||!snapshot.queue.every(validName)||
        !snapshot.droughts||!allowed.every(t=>integer(snapshot.droughts[t.name]))||
        !Array.isArray(snapshot.completedRows)||!snapshot.completedRows.every(y=>integer(y)&&y<20)||
        (snapshot.phase==="paused"&&!["falling","clearing_lines"].includes(snapshot.pausedPhase))) throw new Error("Invalid saved game");
+    const terminal=snapshot.phase==="game_over";
     const clearing=snapshot.phase==="clearing_lines"||snapshot.phase==="paused"&&snapshot.pausedPhase==="clearing_lines";
     if(clearing!==Boolean(snapshot.completedRows.length))throw new Error("Invalid clearing state");
     const active=snapshot.active;
-    if((!clearing&&!active)||(clearing&&active))throw new Error("Invalid active piece");
+    if((!clearing&&!terminal&&!active)||(clearing&&active)||(terminal&&active))throw new Error("Invalid active piece");
     if(active&&(!validName(active.name)||!Number.isInteger(active.x)||!Number.isInteger(active.y)||
        !integer(active.orientation)||active.orientation>3))throw new Error("Invalid active piece");
     if(snapshot.difficulty!==undefined&&parseGameMode(snapshot.difficulty)===null)throw new Error("Invalid saved difficulty");
     // Older snapshots without a mode used constant 0.8s gravity (Beginner).
     const game=new Game({...config,difficulty:snapshot.difficulty===undefined?0:parseGameMode(snapshot.difficulty)});
     game.grid=snapshot.grid.map(row=>[...row]);
-    game.phase="paused";
-    game.pausedPhase=clearing?"clearing_lines":"falling";
+    game.phase=terminal?"game_over":"paused";
+    game.pausedPhase=terminal?null:(clearing?"clearing_lines":"falling");
     game.completedRows=[...snapshot.completedRows];
     game.score=snapshot.score;game.lines=snapshot.lines;game.elapsed=snapshot.elapsed;
     game.queue.pieces=snapshot.queue.map(name=>byName[name]);

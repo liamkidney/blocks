@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           for source in production development; do
-            for script in config.js tetrominoes.js game.js session.js app.js multiplayer.js player-name.js score-sync.js high-scores.js sw.js version.js; do
+            for script in config.js tetrominoes.js game.js session.js app.js multiplayer.js remote-multiplayer.js player-name.js score-sync.js high-scores.js sw.js version.js; do
               node --check "$source/$script"
             done
           done

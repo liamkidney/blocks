@@ -729,10 +729,21 @@ test('code entry resizes to visible iPhone viewport and restores layout on exit'
   phone.window.visualViewport.resizeTo(285,14);
   assert.equal(lobby.style.getPropertyValue('--remote-visible-height'),'285px');
   assert.equal(lobby.style.getPropertyValue('--remote-visible-top'),'14px');
-  phone.get('remote-entry-back').onclick();
+  phone.get('remote-menu-exit').onclick();
   assert.equal(lobby.classList.contains('remote-keyboard-open'),false);
   assert.equal(lobby.style.getPropertyValue('--remote-visible-height'),'');
   assert.equal(phone.get('remote-input').focused,false);
+});
+
+test('Join Game has no duplicate Back link and uses the top-right X',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.doesNotMatch(source,/remote-entry-back/);
+  assert.doesNotMatch(css,/#remote-lobby #remote-entry-back/);
+  assert.match(source,/menuExit\.onclick=\(\)=>\{/);
+  // Legacy UI selectors from earlier two-phone screens are no longer present.
+  for(const selector of ['#remote-resume','#remote-new','#remote-back']){
+    assert.equal(css.includes(selector),false,selector+' must not remain in CSS');
+  }
 });
 
 test('keyboard-safe layout is scrollable and limited to the visual viewport',()=>{

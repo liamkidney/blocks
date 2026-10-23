@@ -354,6 +354,10 @@ window.addEventListener('blocks:remote-event',event=>{
     game.addGarbage(received.rows);
   // A match loss is settled by the server's authoritative 'finished' status.
 });
+window.addEventListener('blocks:remote-forfeiting',()=>{
+  if(!REMOTE_PLAYER)return;
+  remoteReady=false;remoteLost=true;game.pause();
+});
 window.addEventListener('blocks:remote-finished',event=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
   remoteFinished=true;remoteReady=false;remoteLost=true;

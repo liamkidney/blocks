@@ -4,7 +4,7 @@ const fs=require("node:fs");
 const vm=require("node:vm");
 const path=require("node:path");
 
-function setup(difficulty=2){
+function setup(difficulty=2,pieces="ALL"){
   const urls=[];
   class Element{
     constructor(){
@@ -32,6 +32,8 @@ function setup(difficulty=2){
   overlay.querySelectorAll=selector=>selector==="#scores-mode-tabs button"?modes:[];
   const game={phase:"falling",difficulty};
   const sandbox={
+    URLSearchParams,
+    location:{search:pieces==="IO"?"?pieces=IO":""},
     document:{
       getElementById:element,
       createElement:()=>new Element(),
@@ -109,4 +111,23 @@ test("Beginner tab queries canonical integer ID 0",async()=>{
   assert.equal(b.modes[0].attrs["aria-pressed"],"true");
   assert.match(b.urls.find(url=>url.includes("/sessions?")),/difficulty=eq.0/);
   assert.equal(b.element("#scores-status").textContent,"No BEGINNER scores yet");
+});
+
+
+test("standard game requests only ALL-piece leaderboard scores",async()=>{
+  const b=setup(1,"ALL");
+  b.tap(b.element("high-scores-button"));
+  await b.flush();
+  const request=b.urls.find(url=>url.includes("/sessions?"));
+  assert.match(request,/difficulty=eq.1/);
+  assert.match(request,/pieces_mode=eq.ALL/);
+});
+
+test("I/O game requests only I/O leaderboard scores",async()=>{
+  const b=setup(1,"IO");
+  b.tap(b.element("high-scores-button"));
+  await b.flush();
+  const request=b.urls.find(url=>url.includes("/sessions?"));
+  assert.match(request,/difficulty=eq.1/);
+  assert.match(request,/pieces_mode=eq.IO/);
 });

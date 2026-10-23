@@ -2,6 +2,9 @@ const gameParams=new URLSearchParams(location.search);
 const saveKeyFor=playerCount=>"blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(playerCount===2?":two":"")+(gameParams.get("pieces")?.toUpperCase()==="IO"?":io":"");
 const REMOTE_PLAYER=gameParams.get("remote")==="1";
 const TWO_PLAYER=!REMOTE_PLAYER&&gameParams.get("players")==="2";
+const REMOTE_MATCH_KEY="blocks:remote-match:"+location.pathname;
+let remoteStored=null;
+if(REMOTE_PLAYER){try{remoteStored=JSON.parse(localStorage.getItem(REMOTE_MATCH_KEY)||"null")}catch(_){}}
 const SAVE_KEY=saveKeyFor(TWO_PLAYER?2:1);
 const DIFFICULTY_KEY="blocks:difficulty:v1:"+location.pathname.replace(/index[.]html$/,"");
 const GHOST_KEY="blocks:ghost:v1:"+location.pathname.replace(/index[.]html$/,"");
@@ -24,12 +27,13 @@ let session;
 let storedSessionId=null;
 try{
   const stored=localStorage.getItem(SAVE_KEY);
-  const snapshot=stored?JSON.parse(stored):null;
-  storedSessionId=TWO_PLAYER?null:snapshot?.session_id||null;
+  const snapshot=REMOTE_PLAYER?remoteStored?.snapshot:(stored?JSON.parse(stored):null);
+  storedSessionId=TWO_PLAYER||REMOTE_PLAYER?null:snapshot?.session_id||null;
   session=new GameSession({playerCount:TWO_PLAYER?2:1,config:sessionConfig,snapshots:TWO_PLAYER?(snapshot?.games||[]):[snapshot],attackProgress:snapshot?.attackProgress||[0,0]});
 }catch(error){
   session=new GameSession({playerCount:TWO_PLAYER?2:1,config:sessionConfig});
-  try{localStorage.removeItem(SAVE_KEY)}catch(_){}
+  try{localStorage.removeItem(REMOTE_PLAYER?REMOTE_MATCH_KEY:SAVE_KEY)}catch(_){}
+  if(REMOTE_PLAYER)remoteStored=null;
 }
 let game=session.games[0];
 const initialStart=!autoStart&&session.games.some(g=>g.phase!=="paused");
@@ -40,6 +44,7 @@ let skipSaveOnNavigation=false;
 let lastSavedAt=performance.now();
 let previousPhase=game.phase;
 function saveGame(force=false){
+  if(REMOTE_PLAYER){window.BLOCKS_REMOTE?.persist();return;}
   if(skipSaveOnNavigation||awaitingInitialStart)return;
   const now=performance.now();
   if(!force&&now-lastSavedAt<2000)return;
@@ -95,6 +100,7 @@ const scoreDisplay=document.getElementById("score");
 const linesDisplay=document.getElementById("lines");
 
 function togglePause(){
+  if(REMOTE_PLAYER)return;
   if(TWO_PLAYER){
     if(session.outcome)return;
     if(game.phase==="paused")session.resume();
@@ -128,7 +134,8 @@ restartDialog.innerHTML=`
     <div class="restart-mode-label" id="players-label">PLAYERS</div>
     <div class="restart-options" role="group" aria-labelledby="players-label">
       <button type="button" id="restart-one" aria-pressed="false">1 PLAYER</button>
-      <button type="button" id="restart-two" aria-pressed="false">2 PLAYERS</button>
+      <button type="button" id="restart-two" aria-pressed="false">2 PLAYERS · ONE PHONE</button>
+      <button type="button" id="restart-remote" aria-pressed="false">2 PLAYERS · TWO PHONES</button>
     </div>
     <button type="button" id="restart-start" class="restart-primary">START GAME</button>
     <button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button>
@@ -138,13 +145,15 @@ const cancelRestartButton=document.getElementById("restart-cancel");
 const startGameButton=document.getElementById("restart-start");
 const onePlayerButton=document.getElementById("restart-one");
 const twoPlayerButton=document.getElementById("restart-two");
+const remotePlayerButton=document.getElementById("restart-remote");
 const difficultyButtons=GAME_MODE_IDS.map(id=>[id,document.getElementById("difficulty-"+id)]);
 const ghostOffButton=document.getElementById("ghost-off");
 const ghostOnButton=document.getElementById("ghost-on");
 const difficultyDescription=document.getElementById("difficulty-description");
 const restartTitle=document.getElementById("restart-title");
 const restartDescription=document.getElementById("restart-description");
-let selectedPlayers=TWO_PLAYER?2:1;
+const currentPlayerMode=REMOTE_PLAYER?3:TWO_PLAYER?2:1;
+let selectedPlayers=currentPlayerMode;
 function selectDifficulty(difficulty){
   if(!Object.hasOwn(GAME_MODES,difficulty))return;
   selectedDifficulty=Number(difficulty);
@@ -158,17 +167,18 @@ function selectGhostPiece(enabled){
   ghostOnButton.setAttribute("aria-pressed",String(enabled));
 }
 function selectPlayerCount(count){
-  if(count!==1&&count!==2)return;
+  if(![1,2,3].includes(count))return;
   selectedPlayers=count;
   onePlayerButton.setAttribute("aria-pressed",String(count===1));
   twoPlayerButton.setAttribute("aria-pressed",String(count===2));
+  remotePlayerButton.setAttribute("aria-pressed",String(count===3));
 }
 let restartWasPaused=false;
 function closeRestartDialog(){
   restartDialog.hidden=true;
   selectDifficulty(game.difficulty);
   selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
-  selectPlayerCount(TWO_PLAYER?2:1);
+  selectPlayerCount(currentPlayerMode);
   if(!restartWasPaused&&game.phase==="paused"){
     if(TWO_PLAYER)session.resume();
     else game.resume();
@@ -183,13 +193,15 @@ function startNewGame(playerCount=selectedPlayers){
     localStorage.setItem(GHOST_KEY,String(selectedGhostPiece));
   }catch(_){}
   if(!TWO_PLAYER&&!awaitingInitialStart)window.dispatchEvent(new Event("blocks:restart"));
-  if(playerCount!==(TWO_PLAYER?2:1)){
+  if(playerCount!==currentPlayerMode){
     skipSaveOnNavigation=true;
     try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(saveKeyFor(playerCount));}catch(_){}
     try{sessionStorage.setItem(AUTO_START_KEY,"1")}catch(_){}
     const url=new URL(location.href);
+    url.searchParams.delete("players");
+    url.searchParams.delete("remote");
     if(playerCount===2)url.searchParams.set("players","2");
-    else url.searchParams.delete("players");
+    if(playerCount===3)url.searchParams.set("remote","1");
     location.href=url.href;
     return;
   }
@@ -210,7 +222,7 @@ function startNewGame(playerCount=selectedPlayers){
   saveGame(true);
 }
 function restartGame(){
-  if(!restartDialog.hidden)return;
+  if(REMOTE_PLAYER||!restartDialog.hidden)return;
   selectDifficulty(game.difficulty);
   selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
   selectPlayerCount(TWO_PLAYER?2:1);
@@ -232,6 +244,7 @@ bindImmediateAction(cancelRestartButton,closeRestartDialog);
 bindImmediateAction(startGameButton,()=>startNewGame());
 bindImmediateAction(onePlayerButton,()=>selectPlayerCount(1));
 bindImmediateAction(twoPlayerButton,()=>selectPlayerCount(2));
+bindImmediateAction(remotePlayerButton,()=>selectPlayerCount(3));
 for(const [id,button] of difficultyButtons)
   bindImmediateAction(button,()=>selectDifficulty(id));
 bindImmediateAction(ghostOffButton,()=>selectGhostPiece(false));
@@ -239,6 +252,7 @@ bindImmediateAction(ghostOnButton,()=>selectGhostPiece(true));
 selectDifficulty(selectedDifficulty);
 selectGhostPiece(selectedGhostPiece);
 selectPlayerCount(selectedPlayers);
+if(REMOTE_PLAYER){pauseButton.hidden=true;restartButton.hidden=true;}
 if(initialStart&&!REMOTE_PLAYER){
   restartTitle.textContent="START GAME";
   restartDescription.textContent="CHOOSE SPEED, GHOST PIECE AND PLAYER COUNT.";
@@ -309,22 +323,47 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-let remoteReady=false,remoteAttackProgress=0,remoteLost=false;
+let remoteReady=false,remoteFinished=false,remoteLost=false;
+let remoteAttackProgress=Number.isInteger(remoteStored?.progress)?remoteStored.progress:0;
+// The local snapshot and last received event cursor are persisted together.
+window.BLOCKS_REMOTE_CAPTURE=()=>({
+  snapshot:game.phase==="game_over"?null:game.toSnapshot(),
+  progress:remoteAttackProgress
+});
+window.BLOCKS_REMOTE_RESET=()=>{
+  game=session.replaceGame(0);
+  game.pause();
+  session.drainEvents();
+  remoteReady=false;remoteFinished=false;remoteLost=false;remoteAttackProgress=0;
+  awaitingInitialStart=false;window.BLOCKS_AWAITING_START=false;
+  previousPhase=game.phase;lastTime=performance.now();
+  gameOver.textContent="GAME OVER";
+};
 window.addEventListener('blocks:remote-ready',()=>{
-  if(remoteReady)return;
+  if(remoteReady||remoteFinished)return;
   remoteReady=true;
   awaitingInitialStart=false;
   window.BLOCKS_AWAITING_START=false;
   restartDialog.hidden=true;
   game.resume();
 });
-window.addEventListener('blocks:remote-attack',event=>{
-  if(REMOTE_PLAYER&&remoteReady&&!remoteLost)game.addGarbage(event.detail.rows);
+window.addEventListener('blocks:remote-event',event=>{
+  if(!REMOTE_PLAYER||remoteFinished)return;
+  const received=event.detail;
+  if(received.type==='attack'&&Number.isInteger(received.rows)&&received.rows>0)
+    game.addGarbage(received.rows);
+  // A match loss is settled by the server's authoritative 'finished' status.
 });
-window.addEventListener('blocks:remote-win',()=>{
-  if(REMOTE_PLAYER){remoteLost=true;game.endGame();}
+window.addEventListener('blocks:remote-finished',event=>{
+  if(!REMOTE_PLAYER||remoteFinished)return;
+  remoteFinished=true;remoteReady=false;remoteLost=true;
+  game.endGame();
+  const player=window.BLOCKS_REMOTE?.player;
+  gameOver.textContent=event.detail.winner===player?'YOU WIN':
+    event.detail.winner===0?'DRAW':'YOU LOSE';
+  saveGame(true);
 });
-function loop(now){if(!REMOTE_PLAYER||remoteReady)session.update(Math.min((now-lastTime)/1000,.25));
+function loop(now){if(!REMOTE_PLAYER||(remoteReady&&!remoteFinished))session.update(Math.min((now-lastTime)/1000,.25));
 const drained=session.drainEvents();
 if(REMOTE_PLAYER&&remoteReady)for(const event of drained){
   if(event.type!=='lines_cleared')continue;

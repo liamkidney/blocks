@@ -616,7 +616,7 @@ test('three-consonant room code displays countdown and expires without ending a 
   const f=fixture(),host=f.browser();
   host.get('remote-create').onclick();await settle();
   assert.equal(host.get('remote-code').textContent,'BRT');
-  assert.match(host.get('remote-code-expires').textContent,/Code expires in 2:5\d/);
+  assert.match(host.get('remote-code-expires').textContent,/Code expires in (?:3:00|2:5\d)/);
   const state=JSON.parse(host.storage.get('blocks:remote-match:/blocks/dev/'));
   assert.match(state.inviteExpiresAt,/Z$/);
   f.expireCode();

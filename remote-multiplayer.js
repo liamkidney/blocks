@@ -9,7 +9,7 @@
   const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}};
   const saved=read();
   let match=saved&&saved.id&&saved.token&&[1,2].includes(saved.player)?saved:null;
-  let busy=false,sending=false,ready=false,finished=false,interval=null;
+  let busy=false,sending=false,ready=false,finished=false,forfeiting=false,interval=null;
 
   const lobby=document.createElement('div');
   lobby.id='remote-lobby';
@@ -53,7 +53,7 @@
     return response.json();
   }
   function readyUI(){
-    if(ready||finished)return;
+    if(ready||finished||forfeiting)return;
     ready=true;
     show(false);
     bar.hidden=false;
@@ -81,7 +81,7 @@
       const result=await rpc('blocks_match_poll',{
         p_match:match.id,p_token:match.token,p_after:match.cursor||0
       });
-      if(result.status==='playing')readyUI();
+      if(result.status==='playing'&&!forfeiting)readyUI();
       else if(result.status==='waiting'){
         status.textContent='Waiting for Player 2. Share this code:';
         updateRoom();show(true);
@@ -122,7 +122,7 @@
   async function connect(value,fresh=false){
     if(interval)clearInterval(interval);
     match=fresh?{...value,cursor:0,outbox:[],progress:0,snapshot:null}:value;
-    ready=false;finished=false;
+    ready=false;finished=false;forfeiting=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
     persist();
     updateRoom();
@@ -188,7 +188,8 @@
     },
     reportLoss(){
       if(!match||finished||!ready)return;
-      ready=false;
+      ready=false;forfeiting=true;
+      window.dispatchEvent(new CustomEvent('blocks:remote-forfeiting'));
       match.outbox ||= [];
       match.outbox.push({key:crypto.randomUUID(),type:'lost',rows:null});
       persist();void flush();

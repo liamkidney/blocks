@@ -306,7 +306,7 @@
     match=null;
     busy=false;ready=false;staging=false;finished=false;forfeiting=false;
     startSending=false;rematchSending=false;exiting=false;held=false;
-    try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
+    try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     window.BLOCKS_REMOTE_RESET?.();
     bar.hidden=true;showResult(false);
     exitResult.disabled=false;codeExit.disabled=false;
@@ -426,6 +426,7 @@
   }
   async function createRoom(){
     if(creating||joining)return;
+    try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     setCreating(true);error.textContent='';
     try{
       const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||{difficulty:1,piece_set:'ALL'};
@@ -505,7 +506,10 @@
 
   create.onclick=()=>{void createRoom()};
   join.onclick=()=>{enterCode()};
-  entryBack.onclick=()=>{if(!joining)menu()};
+  entryBack.onclick=()=>{if(!joining){
+    try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
+    menu();
+  }};
   input.addEventListener('input',()=>{
     const value=displaySlots();
     if(value.length===6&&!joining)void joinRoom(value);

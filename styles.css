@@ -899,3 +899,18 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
   border:0;background:transparent;color:var(--ink);
   font:400 28px/1 Helvetica,Arial,sans-serif}
 #remote-lobby #remote-code-exit:focus-visible{outline:2px solid var(--ink)}
+
+/* Close Play Together without creating a match; return to main New Game. */
+#remote-lobby .remote-panel{position:relative}
+#remote-lobby #remote-menu-exit{
+  position:absolute;right:0;top:-10px;
+  display:grid;place-items:center;width:42px;height:42px;
+  min-height:42px;padding:0;border:0;border-radius:8px;
+  background:transparent;color:var(--ink);
+  font:400 29px/1 Helvetica,Arial,sans-serif;
+  cursor:pointer;touch-action:manipulation
+}
+#remote-lobby #remote-menu-exit[hidden]{display:none}
+#remote-lobby #remote-menu-exit:focus-visible{
+  outline:2px solid var(--ink);outline-offset:1px
+}

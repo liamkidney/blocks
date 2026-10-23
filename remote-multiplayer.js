@@ -91,7 +91,12 @@
   bar.innerHTML='<span id="remote-match-label"></span><button type="button" id="remote-leave">FORFEIT</button>';
   document.getElementById('console').prepend(bar);
 
-  const showLobby=show=>{lobby.hidden=!show;document.body.classList.toggle('remote-waiting',show)};
+  const showLobby=show=>{
+    lobby.hidden=!show;
+    document.body.classList.toggle('remote-waiting',show);
+    if(!show&&document.activeElement===input)input.blur();
+    syncCodeEntryViewport();
+  };
   const showResult=show=>{resultPanel.hidden=!show;document.body.classList.toggle('remote-complete',show)};
   const setError=e=>{error.textContent=e?.message||String(e)};
   const persist=()=>{
@@ -103,11 +108,13 @@
   };
 
   function lobbyStep(step){
+    if(step!=='entry'&&document.activeElement===input)input.blur();
     menuExit.hidden=step!=='menu';
     actions.hidden=step!=='menu';
     codePanel.hidden=step!=='code';
     entry.hidden=step!=='entry';
     error.textContent='';
+    syncCodeEntryViewport();
   }
   function showCode(){
     room.textContent=match?.code||'';

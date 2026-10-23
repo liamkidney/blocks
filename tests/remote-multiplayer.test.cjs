@@ -105,7 +105,10 @@ function fixture(){
       if(e.detail.type==='attack')attacks.push(e.detail.rows);
     });
     window.addEventListener('blocks:remote-finished',e=>results.push(e.detail.winner));
-    window.addEventListener('blocks:remote-new-round',e=>rounds.push(e.detail.round));
+    window.addEventListener('blocks:remote-new-round',e=>{
+      rounds.push(e.detail.round);
+      window.BLOCKS_REMOTE_RESET(); // app.js resets the local board on this event.
+    });
     const localStorage={
       getItem:key=>storage.get(key)||null,
       setItem:(key,value)=>storage.set(key,String(value)),

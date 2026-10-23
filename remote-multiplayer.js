@@ -15,6 +15,7 @@
   if(match){match.round=match.round||1;match.cursor ||= 0;match.outbox ||= [];}
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
   let creating=false,joining=false,startSending=false,rematchSending=false,exiting=false;
+  let held=false,heartbeatInFlight=false,lastHeartbeatAt=0;
 
   const lobby=document.createElement('div');
   lobby.id='remote-lobby';
@@ -214,9 +215,46 @@
       theirs?'Opponent is ready. Press Start to begin.':
       'Waiting for both players to press Start.';
   }
+  function holdGame(reason){
+    if(!ready||held)return;
+    held=true;
+    bar.querySelector('#remote-match-label').textContent='PAUSED · '+reason;
+    window.dispatchEvent(new CustomEvent('blocks:remote-hold'));
+  }
+  function resumeGame(){
+    if(!ready||!held)return;
+    held=false;
+    bar.querySelector('#remote-match-label').textContent='ROOM '+match.code+' · PLAYER '+match.player;
+    window.dispatchEvent(new CustomEvent('blocks:remote-unhold'));
+  }
+  function checkPresence(data){
+    if(!ready||!data.presence_enabled)return;
+    const peerOnline=match.player===1?data.guest_online:data.host_online;
+    const ownOnline=match.player===1?data.host_online:data.guest_online;
+    if(document.visibilityState==='hidden')holdGame('APP IN BACKGROUND');
+    else if(!ownOnline)holdGame('RECONNECTING');
+    else if(!peerOnline)holdGame('OPPONENT DISCONNECTED');
+    else resumeGame();
+  }
+  async function heartbeat(force=false){
+    if(!match||heartbeatInFlight||navigator.onLine===false||
+       document.visibilityState==='hidden')return;
+    const now=Date.now();
+    if(!force&&now-lastHeartbeatAt<4000)return;
+    lastHeartbeatAt=now;
+    const current=match,round=current.round;
+    heartbeatInFlight=true;
+    try{
+      await rpc('blocks_match_heartbeat',{
+        p_match:current.id,p_token:current.token,p_round:round
+      });
+    }catch(e){
+      if(match===current&&ready)holdGame('CONNECTION LOST');
+    }finally{heartbeatInFlight=false;}
+  }
   function readyUI(){
     if(ready||finished||forfeiting||exiting)return;
-    ready=true;staging=false;
+    ready=true;staging=false;held=false;
     bar.hidden=false;
     bar.querySelector('#remote-match-label').textContent='ROOM '+match.code+' · PLAYER '+match.player;
     showLobby(false);showResult(false);
@@ -254,7 +292,7 @@
     match.round=round;
     match.cursor=0;match.outbox=[];match.snapshot=null;match.progress=0;
     match.finished=false;match.winner=null;
-    ready=false;staging=false;finished=false;forfeiting=false;startSending=false;rematchSending=false;exiting=false;
+    ready=false;staging=false;finished=false;forfeiting=false;startSending=false;rematchSending=false;exiting=false;held=false;
     bar.hidden=true;showResult(false);
     window.dispatchEvent(new CustomEvent('blocks:remote-new-round',{detail:{round}}));
     persist(); // A late attack can no longer be delivered to this round.
@@ -267,7 +305,7 @@
     closeSocket();
     match=null;
     busy=false;ready=false;staging=false;finished=false;forfeiting=false;
-    startSending=false;rematchSending=false;exiting=false;
+    startSending=false;rematchSending=false;exiting=false;held=false;
     try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
     window.BLOCKS_REMOTE_RESET?.();
     bar.hidden=true;showResult(false);
@@ -331,7 +369,7 @@
         // Persist applied board and event cursor in a single saved value.
         persist();
       }
-      if(data.status==='playing')readyUI();
+      if(data.status==='playing'){readyUI();checkPresence(data)}
       else if(data.status==='waiting')showCode();
       else if(data.status==='ready')showStart(data);
       else if(data.status==='finished')finish(data.winner,data);
@@ -339,6 +377,7 @@
       if(ready)void flush();
     }catch(e){
       if(current!==match||exiting)return;
+      if(ready)holdGame('CONNECTION LOST');
       setError(e);
       if(/not found|access denied|expired/i.test(e.message)){
         // Abandon only this device's expired match, not the unrelated solo save.
@@ -371,7 +410,7 @@
     closeSocket();
     match=fresh?{...value,round:1,cursor:0,outbox:[],snapshot:null,progress:0,finished:false}:
       {...value,round:value.round||1,outbox:value.outbox||[]};
-    ready=false;staging=false;finished=false;forfeiting=false;
+    ready=false;staging=false;finished=false;forfeiting=false;held=false;
     startSending=false;rematchSending=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
     persist();
@@ -380,8 +419,9 @@
     if(match.player===2){codePanel.hidden=true;}
     showLobby(true);showResult(false);
     openSocket();
+    await heartbeat(true);
     await poll();
-    interval=setInterval(()=>{void poll();void flush();},1600);
+    interval=setInterval(()=>{void heartbeat();void poll();void flush();},1600);
     void flush();
   }
   async function createRoom(){
@@ -504,14 +544,15 @@
     }
   };
 
-  window.addEventListener('online',()=>{void poll();void flush()});
+  window.addEventListener('online',()=>{void heartbeat(true);void poll();void flush()});
+  window.addEventListener('offline',()=>holdGame('CONNECTION LOST'));
   document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible'){void poll();void flush();}
-    else persist();
+    if(document.visibilityState==='visible'){void heartbeat(true);void poll();void flush();}
+    else{holdGame('APP IN BACKGROUND');persist();}
   });
   window.addEventListener('pagehide',()=>{persist();closeSocket()});
   window.addEventListener('pageshow',event=>{
-    if(event.persisted&&match){openSocket();void poll();}
+    if(event.persisted&&match){openSocket();void heartbeat(true);void poll();}
   });
   if(match)void connect(match);
   else if(pendingJoin?.code&&pendingJoin?.token){

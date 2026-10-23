@@ -1,6 +1,7 @@
 const gameParams=new URLSearchParams(location.search);
 const saveKeyFor=playerCount=>"blocks:game:v1:"+location.pathname.replace(/index[.]html$/,"")+(playerCount===2?":two":"")+(gameParams.get("pieces")?.toUpperCase()==="IO"?":io":"");
-const TWO_PLAYER=gameParams.get("players")==="2";
+const REMOTE_PLAYER=gameParams.get("remote")==="1";
+const TWO_PLAYER=!REMOTE_PLAYER&&gameParams.get("players")==="2";
 const SAVE_KEY=saveKeyFor(TWO_PLAYER?2:1);
 const DIFFICULTY_KEY="blocks:difficulty:v1:"+location.pathname.replace(/index[.]html$/,"");
 const GHOST_KEY="blocks:ghost:v1:"+location.pathname.replace(/index[.]html$/,"");
@@ -238,7 +239,7 @@ bindImmediateAction(ghostOnButton,()=>selectGhostPiece(true));
 selectDifficulty(selectedDifficulty);
 selectGhostPiece(selectedGhostPiece);
 selectPlayerCount(selectedPlayers);
-if(initialStart){
+if(initialStart&&!REMOTE_PLAYER){
   restartTitle.textContent="START GAME";
   restartDescription.textContent="CHOOSE SPEED, GHOST PIECE AND PLAYER COUNT.";
   startGameButton.textContent="START GAME";
@@ -308,7 +309,34 @@ function renderPreview(){
     preview.appendChild(cell);
   }
 }
-function loop(now){session.update(Math.min((now-lastTime)/1000,.25));session.drainEvents();lastTime=now;render();const finished=game.phase==="game_over"&&previousPhase!=="game_over";saveGame(finished);if(finished)window.BLOCKS_QUEUE_SCORE?.("completed",true);previousPhase=game.phase;requestAnimationFrame(loop)}
+let remoteReady=false,remoteAttackProgress=0,remoteLost=false;
+window.addEventListener('blocks:remote-ready',()=>{
+  if(remoteReady)return;
+  remoteReady=true;
+  awaitingInitialStart=false;
+  window.BLOCKS_AWAITING_START=false;
+  restartDialog.hidden=true;
+  game.resume();
+});
+window.addEventListener('blocks:remote-attack',event=>{
+  if(REMOTE_PLAYER&&remoteReady&&!remoteLost)game.addGarbage(event.detail.rows);
+});
+window.addEventListener('blocks:remote-win',()=>{
+  if(REMOTE_PLAYER){remoteLost=true;game.endGame();}
+});
+function loop(now){if(!REMOTE_PLAYER||remoteReady)session.update(Math.min((now-lastTime)/1000,.25));
+const drained=session.drainEvents();
+if(REMOTE_PLAYER&&remoteReady)for(const event of drained){
+  if(event.type!=='lines_cleared')continue;
+  remoteAttackProgress+=event.count;
+  const rows=Math.floor(remoteAttackProgress/2);
+  remoteAttackProgress%=2;
+  if(rows)window.BLOCKS_REMOTE?.sendAttack(rows);
+}
+if(REMOTE_PLAYER&&remoteReady&&!remoteLost&&game.phase==='game_over'){
+  remoteLost=true;window.BLOCKS_REMOTE?.reportLoss();
+}
+lastTime=now;render();const finished=game.phase==="game_over"&&previousPhase!=="game_over";saveGame(finished);if(finished)window.BLOCKS_QUEUE_SCORE?.("completed",true);previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 
 board.addEventListener("animationend",event=>{

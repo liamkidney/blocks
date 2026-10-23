@@ -17,7 +17,7 @@
     '<div class="remote-kicker">BLOCKS · TWO PHONES</div>'+
     '<h2 id="remote-title">Play on two phones</h2>'+
     '<p id="remote-status">Each player has a separate board. Clearing two lines sends one junk line to your opponent.</p>'+
-    '<div id="remote-code" aria-live="polite"></div>'+
+    '<div id="remote-code" aria-live="polite"></div>'+\n    '<button type="button" id="remote-copy" hidden>COPY CODE</button>'+
     '<input id="remote-input" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="SIX-LETTER CODE" aria-label="Room code">'+
     '<div class="remote-actions"><button type="button" id="remote-create">CREATE MATCH</button>'+
     '<button type="button" id="remote-join">JOIN MATCH</button></div>'+
@@ -28,6 +28,7 @@
   document.body.append(lobby);
   const $=id=>lobby.querySelector('#'+id);
   const title=$('remote-title'),status=$('remote-status'),room=$('remote-code'),input=$('remote-input');
+  const copy=$('remote-copy');
   const create=$('remote-create'),join=$('remote-join'),resume=$('remote-resume');
   const newMatch=$('remote-new'),back=$('remote-back'),error=$('remote-error');
   const bar=document.createElement('div');
@@ -37,7 +38,11 @@
   document.getElementById('console').prepend(bar);
   const show=visible=>{lobby.hidden=!visible;document.body.classList.toggle('remote-waiting',visible)};
   const setError=e=>{error.textContent=e?.message||String(e);};
-  const updateRoom=()=>{room.textContent=match?.code||'';};
+  const updateRoom=()=>{room.textContent=match?.code||'';copy.hidden=!match?.code;};
+  copy.onclick=async()=>{
+    try{await navigator.clipboard.writeText(match.code);copy.textContent='COPIED';}
+    catch(_){setError('Select the code above to copy it.');}
+  };
   const persist=()=>{
     if(!match)return;
     const state=window.BLOCKS_REMOTE_CAPTURE?.();
@@ -140,7 +145,14 @@
       if(result.status==='finished')finish(result.winner);
       error.textContent='';
       if(ready)void flush();
-    }catch(e){setError(e)}
+    }catch(e){
+      setError(e);
+      if(/not found|access denied|expired/i.test(e.message)){
+        title.textContent='Room unavailable';
+        status.textContent='This match may have expired. Start a new match.';
+        newMatch.hidden=false;show(true);
+      }
+    }
     finally{busy=false;}
   }
   async function flush(){
@@ -165,6 +177,7 @@
     if(interval)clearInterval(interval);
     closeSocket();
     match=fresh?{...value,cursor:0,outbox:[],progress:0,snapshot:null}:value;
+    newMatch.hidden=true;copy.textContent='COPY CODE';
     ready=false;finished=false;forfeiting=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
     persist();

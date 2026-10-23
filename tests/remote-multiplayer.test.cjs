@@ -155,6 +155,12 @@ function fixture(){
       rounds.push(e.detail.round);
       window.BLOCKS_REMOTE_RESET(); // app.js resets the local board on this event.
     });
+    const session=new Map();
+    const sessionStorage={
+      getItem:key=>session.get(key)||null,
+      setItem:(key,value)=>session.set(key,String(value)),
+      removeItem:key=>session.delete(key)
+    };
     const localStorage={
       getItem:key=>storage.get(key)||null,
       setItem:(key,value)=>storage.set(key,String(value)),
@@ -169,7 +175,7 @@ function fixture(){
     };
     const location={pathname:'/blocks/dev/',search:'?remote=1',
       href:'https://example.test/blocks/dev/?remote=1'};
-    const context={window,document,location,localStorage,fetch,
+    const context={window,document,location,localStorage,sessionStorage,fetch,
       navigator:{onLine:true,clipboard:{writeText:async()=>{}}},
       URL,URLSearchParams,WebSocket:undefined,
       setInterval:(fn)=>{const id=++intervalId;intervals.set(id,fn);return id},
@@ -181,7 +187,7 @@ function fixture(){
     };
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
-      window,get,attacks,results,rounds,holds,unholds,configs,storage,bodyElements,
+      window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,bodyElements,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -551,4 +557,36 @@ test('presence interruption pauses and resumes both-player local board as announ
   await guest.tick();await settle();
   assert.deepEqual(guest.unholds,['unhold']);
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
+});
+
+test('Play Together X returns to the main New Game selector without creating a room',()=>{
+  const f=fixture(),phone=f.browser();
+  const button=phone.get('remote-menu-exit');
+  assert.equal(button.hidden,false);
+  assert.equal(phone.get('remote-actions').hidden,false);
+  assert.equal(phone.window.BLOCKS_REMOTE.active,false);
+  button.onclick();
+  assert.equal(phone.session.get('blocks:show-new-game-screen:v1:/blocks/dev/'),'1');
+  assert.equal(phone.location.href,'https://example.test/blocks/dev/');
+  assert.equal(f.rooms.size,0);
+});
+
+test('Play Together X only appears on the initial Create / Join menu',async()=>{
+  const f=fixture(),phone=f.browser();
+  const exit=phone.get('remote-menu-exit');
+  assert.equal(exit.hidden,false);
+  phone.get('remote-join').onclick();
+  assert.equal(exit.hidden,true);
+  phone.get('remote-entry-back').onclick();
+  assert.equal(exit.hidden,false);
+  phone.get('remote-create').onclick();
+  await settle();
+  assert.equal(phone.get('remote-code-panel').hidden,false);
+  assert.equal(exit.hidden,true);
+});
+
+test('New Game screen launch flag is consumed by the main app',()=>{
+  const main=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+  assert.match(main,/sessionStorage\.getItem\(SHOW_NEW_GAME_KEY\)==="1"/);
+  assert.match(main,/const initialStart=showNewGameOnLaunch\|\|/);
 });

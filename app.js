@@ -9,7 +9,8 @@ const SAVE_KEY=saveKeyFor(TWO_PLAYER?2:1);
 const DIFFICULTY_KEY="blocks:difficulty:v1:"+location.pathname.replace(/index[.]html$/,"");
 const GHOST_KEY="blocks:ghost:v1:"+location.pathname.replace(/index[.]html$/,"");
 const AUTO_START_KEY="blocks:auto-start:v1";
-let selectedDifficulty=DEFAULT_GAME_MODE,autoStart=false;
+const SHOW_NEW_GAME_KEY="blocks:show-new-game-screen:v1:"+location.pathname.replace(/index[.]html$/,"");
+let selectedDifficulty=DEFAULT_GAME_MODE,autoStart=false,showNewGameOnLaunch=false;
 try{
   const savedMode=localStorage.getItem(DIFFICULTY_KEY)??localStorage.getItem("blocks:difficulty:v1");
   selectedDifficulty=parseGameMode(savedMode)??DEFAULT_GAME_MODE;
@@ -21,7 +22,12 @@ try{
   if(savedGhost==="true"||savedGhost==="false")selectedGhostPiece=savedGhost==="true";
 }catch(_){}
 window.BLOCKS_CONFIG.ghostPiece=selectedGhostPiece;
-try{autoStart=sessionStorage.getItem(AUTO_START_KEY)==="1";sessionStorage.removeItem(AUTO_START_KEY);}catch(_){}
+try{
+  showNewGameOnLaunch=sessionStorage.getItem(SHOW_NEW_GAME_KEY)==="1";
+  sessionStorage.removeItem(SHOW_NEW_GAME_KEY);
+  autoStart=!showNewGameOnLaunch&&sessionStorage.getItem(AUTO_START_KEY)==="1";
+  sessionStorage.removeItem(AUTO_START_KEY);
+}catch(_){}
 const savedRemoteDifficulty=REMOTE_PLAYER&&[0,1,2].includes(remoteStored?.difficulty)?remoteStored.difficulty:null;
 const sessionConfig={...window.BLOCKS_CONFIG,
   difficulty:savedRemoteDifficulty??selectedDifficulty,
@@ -49,7 +55,7 @@ try{
   if(REMOTE_PLAYER)remoteStored=null;
 }
 let game=session.games[0];
-const initialStart=!autoStart&&session.games.some(g=>g.phase!=="paused");
+const initialStart=showNewGameOnLaunch||(!autoStart&&session.games.some(g=>g.phase!=="paused"));
 if(initialStart||REMOTE_PLAYER)session.pause();
 let awaitingInitialStart=initialStart;
 window.BLOCKS_AWAITING_START=initialStart;

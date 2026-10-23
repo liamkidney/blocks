@@ -744,19 +744,16 @@ body:not(.two-player) :is(#game-actions,#high-scores-slot) button svg {
 #remote-lobby h2{font-size:clamp(33px,10vw,46px);line-height:1.05;letter-spacing:-1.5px;
   margin:12px 0 18px;font-weight:900}
 #remote-lobby p{font-size:15px;line-height:1.5;margin:0 0 18px}
-#remote-lobby #remote-code{font-size:clamp(34px,11vw,48px);font-weight:900;
-  letter-spacing:5px;min-height:58px;font-variant-numeric:tabular-nums}
+#remote-lobby #remote-code{font-weight:900;min-height:58px}
 #remote-lobby #remote-code:empty{display:none}
 #remote-lobby input{display:block;width:100%;border:2px solid var(--ink);
   border-radius:8px;background:transparent;color:var(--ink);font:800 19px Helvetica,Arial,sans-serif;
   letter-spacing:2px;text-align:center;padding:14px 8px;margin:12px 0 20px;
   text-transform:uppercase;user-select:text;-webkit-user-select:text;touch-action:manipulation}
-#remote-lobby .remote-actions{display:flex;gap:10px;justify-content:center}
 #remote-lobby button{border:2px solid var(--ink);border-radius:8px;
   font:900 12px Helvetica,Arial,sans-serif;letter-spacing:1px;min-height:46px;
   padding:10px 16px;cursor:pointer;touch-action:manipulation}
-#remote-create,#remote-join,#remote-resume,#remote-new{background:var(--ink);color:var(--paper)}
-#remote-back{display:block;margin:22px auto 0;background:transparent;color:var(--ink)}
+#remote-create,#remote-join{background:var(--ink);color:var(--paper)}
 #remote-lobby #remote-error{margin:15px 0 0;color:#ae2525;font-weight:700;
   font-size:13px;overflow-wrap:anywhere}
 #remote-lobby #remote-error:empty{display:none}
@@ -776,19 +773,18 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #player-mode-options button{border-left:0;border-top:1px solid var(--ink);min-height:40px}
 #player-mode-options button:first-child{border-top:0}
 
-#remote-lobby #remote-copy{min-height:33px;padding:7px 12px;margin:-5px 0 13px;
-  background:transparent;color:var(--ink);font-size:10px;border-width:1px}
-#remote-lobby #remote-copy[hidden]{display:none}
+#remote-lobby #remote-copy{display:inline-block;min-height:33px;padding:7px 12px;
+  margin:6px auto 0;background:transparent;color:var(--ink);
+  font-size:10px;border-width:1px}
 
 
-/* Streamlined two-phone matchmaking: two actions, then code or six slots. */
+/* Streamlined two-phone matchmaking: Create / Join, then a three-letter code. */
 #remote-lobby [hidden],#remote-result[hidden]{display:none!important}
 #remote-lobby .remote-actions{display:grid;grid-template-columns:1fr;gap:12px}
 #remote-lobby .remote-actions button{width:100%;min-height:58px;font-size:13px}
 #remote-lobby #remote-join{background:transparent;color:var(--ink)}
 #remote-lobby .remote-code-label{font-size:11px;font-weight:900;letter-spacing:1.6px;margin:24px 0 12px}
-#remote-lobby #remote-code{display:block;font-size:clamp(35px,11vw,47px);letter-spacing:5px}
-#remote-lobby #remote-copy{display:inline-block;margin:6px auto 0}
+#remote-lobby #remote-code{display:block}
 #remote-lobby .remote-code-entry{position:relative;margin:18px auto 16px}
 #remote-lobby #remote-slots{display:block;width:100%;padding:18px 3px;
   border:2px solid var(--ink);border-radius:8px;background:var(--paper);
@@ -799,8 +795,6 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #remote-lobby #remote-input{position:absolute;inset:0;width:100%;height:100%;margin:0;
   opacity:0;color:transparent;caret-color:transparent;border:0;cursor:text;
   padding:0;-webkit-user-select:text;user-select:text}
-#remote-lobby #remote-entry-back{border:0;background:transparent;color:var(--ink);
-  padding:4px 12px;min-height:35px;font-size:11px}
 #remote-lobby button:disabled{opacity:.65;cursor:wait}
 #remote-lobby button.is-loading::before,
 #remote-result button.is-loading::before,
@@ -924,7 +918,6 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
   margin:9px auto 14px;
   opacity:.75;
 }
-#remote-lobby #remote-code-expires[hidden]{display:none}
 #remote-lobby #remote-slots{
   font-size:clamp(27px,9vw,37px);
   letter-spacing:5px;

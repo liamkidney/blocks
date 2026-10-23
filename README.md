@@ -26,8 +26,32 @@ or choose **2 players · two phones** in the development new-game selector.
 The transport uses Supabase Realtime wake-ups plus 1.6-second polling fallback,
 with token-validated RPCs and durable, idempotent attack messages scoped to each
 round. Each device persists its board and event cursor for reconnection.
-Room access expires after 12 hours. Internet is required for matchmaking and
-live multiplayer. Multiplayer scores never enter the solo leaderboard.
+Internet is required for matchmaking and live multiplayer.
+Multiplayer scores never enter the solo leaderboard.
+
+### Reliability and competitive fairness (dev updates)
+
+- Game difficulty and allowed pieces are chosen by the **room creator** and
+  stored by Supabase. The guest's board adopts the same speed and piece set;
+  optional visual preferences remain local.
+- Guest joins carry a random idempotency token. An interrupted HTTP reply can
+  be safely retried, including after reloading the app.
+- The waiting-for-player code screen has an **×** that cancels the room.
+  A stale exit from an earlier round is rejected, so it cannot end a rematch.
+- Opt-in heartbeat tracking for new rooms pauses both local boards if either
+  phone goes offline or is backgrounded. Presence is checked every 1.6 s;
+  missing heartbeats become offline after 9 s. A player still online wins
+  if the opponent remains disconnected for 75 s. Reconnection resumes play
+  without losing already acknowledged attacks.
+- Active rooms extend their rolling 12-hour expiry on authenticated heartbeat.
+  Expired room records are removed after a further 24-hour grace period by a
+  daily Supabase pg_cron job (03:17 UTC).
+- Anonymous room creation across old and new endpoints is limited to 60
+  new rooms per minute globally. This is basic abuse protection, not per-IP
+  enforcement.
+
+**Compatibility:** rooms created by the production release retain the
+previous protocol and do not opt into new heartbeat forfeit semantics.
 
 Migrations:
 - `supabase/migrations/20261023_two_phone_matches.sql`
@@ -36,7 +60,14 @@ Migrations:
 - `supabase/migrations/20261023_two_phone_result_exit.sql`
 - `supabase/migrations/20261023_two_phone_start_and_session_wins.sql`
 - `supabase/migrations/20261023_two_phone_backfill_wins.sql`
+- `supabase/migrations/20261023_guard_stale_round_exit.sql`
+- `supabase/migrations/20261023_match_rules_and_reliable_join.sql`
+- `supabase/migrations/20261023_match_presence_and_ttl.sql`
+- `supabase/migrations/20261023_room_pruning_and_rate_cap.sql`
+- `supabase/migrations/20261023_schedule_room_cleanup.sql`
 
 Tests: `node --test tests/*.test.cjs`, including
-`tests/remote-multiplayer.test.cjs`. Development is promoted to production
+`tests/remote-multiplayer.test.cjs`. Run
+`supabase/tests/multiplayer_smoke.sql` in the Supabase SQL editor for a
+transactional integration check. Development is promoted to production
 only using the validated linear `dev` → `main` workflow.

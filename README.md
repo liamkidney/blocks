@@ -12,28 +12,26 @@ Run tests and validate the development PWA before releasing. To promote, run Git
 
 ## Two-phone multiplayer (development)
 
-Open https://liamkidney.github.io/blocks/dev/?remote=1 on both phones, or select
-**2 players · two phones** in the new-game selector on the dev site. Player 1 chooses
-**Create match** and shares the six-letter code. Player 2 chooses **Join match**,
-enters the code and starts immediately; Player 1 starts automatically when joined.
+Play at https://liamkidney.github.io/blocks/dev/?remote=1 on both phones,
+or choose **2 players · two phones** in the development new-game selector.
 
-- Each phone runs a separate local board and independently randomises pieces.
-- Clearing two lines sends one junk row; extra cleared-line progress carries forward.
-  This is the same attack rule as one-phone multiplayer.
-- Supabase stores room state, result, and attack events, **not the two full boards**.
-  Anonymous database writes require a player-specific secret token.
-- Supabase Realtime broadcasts lightweight wake-ups; token-validated RPC reads apply
-  the actual attack events, with 1.6-second polling as a fallback.
-- Event keys are idempotent and the sender keeps a durable retry outbox. The receiver
-  saves its board snapshot and event cursor together so reconnecting does not replay
-  previously applied junk.
-- A returning player on the same device can reconnect from the lobby. Room access
-  expires after 12 hours. Matchmaking requires an internet connection.
-- Matches do not submit scores to the single-player leaderboard. The production
-  site only changes through the existing validated dev-to-main promotion workflow.
+1. **Create game** displays a six-letter room code, with a loading indicator while the room is created.
+2. **Join game** displays six empty letter positions. Entering the sixth letter joins automatically, without a separate submit step.
+3. Each player controls **their own independent board**. Clearing two lines sends one junk line to the other player, with odd-line progress carried forward exactly as in the one-phone mode.
+4. The finished board remains on screen behind a **You win / You lose** result panel.
+5. Both players can press **Play again**. The first waits; when the second accepts, both receive a new independent board and a clean attack state while keeping the same room, code and player tokens.
 
-Backend schemas:
-- supabase/migrations/20261023_two_phone_matches.sql
-- supabase/migrations/20261023_two_phone_realtime.sql
+The transport uses Supabase Realtime wake-ups plus 1.6-second polling fallback,
+with token-validated RPCs and durable, idempotent attack messages scoped to each
+round. Each device persists its board and event cursor for reconnection.
+Room access expires after 12 hours. Internet is required for matchmaking and
+live multiplayer. Multiplayer scores never enter the solo leaderboard.
 
-Tests: node --test tests/*.test.cjs, including tests/remote-multiplayer.test.cjs.
+Migrations:
+- `supabase/migrations/20261023_two_phone_matches.sql`
+- `supabase/migrations/20261023_two_phone_realtime.sql`
+- `supabase/migrations/20261023_two_phone_rematches.sql`
+
+Tests: `node --test tests/*.test.cjs`, including
+`tests/remote-multiplayer.test.cjs`. Development is promoted to production
+only using the validated linear `dev` → `main` workflow.

@@ -620,11 +620,14 @@ test('Join Game X returns to Play Together without attempting to join',async()=>
   assert.equal(exit.hidden,false);
   assert.equal(exit.attrs['aria-label'],'Back to Play Together');
   assert.equal(phone.get('remote-entry').hidden,false);
+  assert.equal(phone.get('remote-status').hidden,true);
+  assert.equal(phone.get('remote-status').textContent,'');
   assert.equal(phone.get('remote-input').focused,true);
   exit.onclick();
   assert.equal(phone.get('remote-input').focused,false);
   assert.equal(phone.get('remote-actions').hidden,false);
   assert.equal(phone.get('remote-entry').hidden,true);
+  assert.equal(phone.get('remote-status').hidden,false);
   assert.equal(exit.hidden,false);
   assert.equal(exit.attrs['aria-label'],'Back to New Game');
   assert.equal(f.joins,0);

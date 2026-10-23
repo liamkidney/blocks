@@ -35,6 +35,7 @@ Migrations:
 - `supabase/migrations/20261023_two_phone_rematches.sql`
 - `supabase/migrations/20261023_two_phone_result_exit.sql`
 - `supabase/migrations/20261023_two_phone_start_and_session_wins.sql`
+- `supabase/migrations/20261023_two_phone_backfill_wins.sql`
 
 Tests: `node --test tests/*.test.cjs`, including
 `tests/remote-multiplayer.test.cjs`. Development is promoted to production

@@ -914,3 +914,22 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #remote-lobby #remote-menu-exit:focus-visible{
   outline:2px solid var(--ink);outline-offset:1px
 }
+
+/* Three-consonant invitations: comfortably legible and time-limited. */
+#remote-lobby #remote-code{
+  font-size:clamp(44px,13vw,62px);
+  letter-spacing:10px;
+  font-variant-numeric:tabular-nums;
+}
+#remote-lobby #remote-code-expires{
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.25px;
+  margin:9px auto 14px;
+  opacity:.75;
+}
+#remote-lobby #remote-code-expires[hidden]{display:none}
+#remote-lobby #remote-slots{
+  font-size:clamp(27px,9vw,37px);
+  letter-spacing:5px;
+}

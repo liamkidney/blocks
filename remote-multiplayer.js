@@ -11,8 +11,8 @@
   const saved=read();
   let match=saved?.id&&saved?.token&&[1,2].includes(saved.player)?saved:null;
   if(match){match.round=match.round||1;match.cursor ||= 0;match.outbox ||= [];}
-  let busy=false,sending=false,ready=false,finished=false,forfeiting=false,interval=null;
-  let creating=false,joining=false,rematchSending=false,exiting=false;
+  let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
+  let creating=false,joining=false,startSending=false,rematchSending=false,exiting=false;
 
   const lobby=document.createElement('div');
   lobby.id='remote-lobby';
@@ -51,18 +51,29 @@
   resultPanel.hidden=true;
   resultPanel.innerHTML='<section class="remote-result-panel" role="dialog" aria-label="Match result" aria-modal="true">'+
     '<button type="button" id="remote-result-exit" aria-label="Exit to new game" title="Exit to new game">×</button>'+
-    '<div class="remote-kicker">MATCH COMPLETE</div>'+
+    '<div class="remote-kicker" id="remote-result-kicker">MATCH COMPLETE</div>'+
     '<h2 id="remote-result-title"></h2>'+
     '<p id="remote-result-detail"></p>'+
+    '<div id="remote-session-score" role="group" aria-label="Session matches won">'+
+      '<div class="remote-score-heading">MATCHES WON</div>'+
+      '<div class="remote-score-values">'+
+        '<div class="remote-score-side"><span>YOU</span><strong id="remote-score-you">0</strong></div>'+
+        '<span class="remote-score-dash" aria-hidden="true">—</span>'+
+        '<div class="remote-score-side"><span>OPPONENT</span><strong id="remote-score-opponent">0</strong></div>'+
+      '</div>'+
+    '</div>'+
     '<button type="button" id="remote-restart">PLAY AGAIN</button>'+
     '<p id="remote-rematch-status" aria-live="polite"></p>'+
     '</section>';
   document.body.append(resultPanel);
+  const resultKicker=resultPanel.querySelector('#remote-result-kicker');
   const resultTitle=resultPanel.querySelector('#remote-result-title');
   const resultDetail=resultPanel.querySelector('#remote-result-detail');
   const restart=resultPanel.querySelector('#remote-restart');
   const exitResult=resultPanel.querySelector('#remote-result-exit');
   const rematchStatus=resultPanel.querySelector('#remote-rematch-status');
+  const scoreYou=resultPanel.querySelector('#remote-score-you');
+  const scoreOpponent=resultPanel.querySelector('#remote-score-opponent');
 
   const bar=document.createElement('div');
   bar.id='remote-match-bar';
@@ -91,7 +102,7 @@
     room.textContent=match?.code||'';
     lobbyStep('code');
     title.textContent='Game created';
-    status.textContent='Share this code with Player 2. The game will start when they join.';
+    status.textContent='Share this code with Player 2. You will both press Start when they join.';
     showLobby(true);
   }
   function displaySlots(){
@@ -168,9 +179,41 @@
     return response.json();
   }
 
+  // Room-level session scoreboard is server-authoritative and remains visible
+  // through every rematch. It resets only for a new room.
+  function updateSessionScore(state){
+    if(!match||!state)return;
+    const hostWins=Number(state.host_wins);
+    const guestWins=Number(state.guest_wins);
+    if(!Number.isSafeInteger(hostWins)||hostWins<0||
+       !Number.isSafeInteger(guestWins)||guestWins<0)return;
+    match.hostWins=hostWins;match.guestWins=guestWins;
+    scoreYou.textContent=String(match.player===1?hostWins:guestWins);
+    scoreOpponent.textContent=String(match.player===1?guestWins:hostWins);
+  }
+  // Initial shared ready screen appears on BOTH devices after code entry.
+  // Neither local board is started until the server sees both Start presses.
+  function showStart(state){
+    if(!match||finished||exiting)return;
+    staging=true;ready=false;
+    bar.hidden=true;
+    showLobby(false);showResult(true);
+    resultKicker.textContent='ROOM '+match.code+' · PLAYER '+match.player;
+    resultTitle.textContent='READY TO START';
+    resultDetail.textContent='Both players must press Start to begin.';
+    updateSessionScore(state);
+    const mine=match.player===1?state.host_ready:state.guest_ready;
+    const theirs=match.player===1?state.guest_ready:state.host_ready;
+    restart.disabled=Boolean(mine)||startSending;
+    restart.classList.toggle('is-loading',startSending);
+    restart.textContent=mine?'READY TO START':'START GAME';
+    rematchStatus.textContent=mine?'Waiting for the other player…':
+      theirs?'Opponent is ready. Press Start to begin.':
+      'Waiting for both players to press Start.';
+  }
   function readyUI(){
     if(ready||finished||forfeiting||exiting)return;
-    ready=true;
+    ready=true;staging=false;
     bar.hidden=false;
     bar.querySelector('#remote-match-label').textContent='ROOM '+match.code+' · PLAYER '+match.player;
     showLobby(false);showResult(false);
@@ -178,6 +221,7 @@
   }
   function rematchView(state){
     if(!finished||exiting)return;
+    updateSessionScore(state);
     const mine=match.player===1?state.host_ready:state.guest_ready;
     const theirs=match.player===1?state.guest_ready:state.host_ready;
     restart.disabled=Boolean(mine)||rematchSending;
@@ -194,6 +238,7 @@
       window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner}}));
     }
     bar.hidden=true;showLobby(false);
+    resultKicker.textContent='MATCH COMPLETE · ROUND '+match.round;
     resultTitle.textContent=winner===match.player?'YOU WIN':winner===0?'DRAW':'YOU LOSE';
     if(winner===0)resultDetail.textContent='The match ended in a draw.';
     else resultDetail.textContent='PLAYER '+winner+' WON · PLAYER '+(3-winner)+' LOST';
@@ -206,7 +251,7 @@
     match.round=round;
     match.cursor=0;match.outbox=[];match.snapshot=null;match.progress=0;
     match.finished=false;match.winner=null;
-    ready=false;finished=false;forfeiting=false;rematchSending=false;exiting=false;
+    ready=false;staging=false;finished=false;forfeiting=false;startSending=false;rematchSending=false;exiting=false;
     bar.hidden=true;showResult(false);
     window.dispatchEvent(new CustomEvent('blocks:remote-new-round',{detail:{round}}));
     persist(); // A late attack can no longer be delivered to this round.
@@ -218,8 +263,8 @@
     if(interval){clearInterval(interval);interval=null;}
     closeSocket();
     match=null;
-    busy=false;ready=false;finished=false;forfeiting=false;
-    rematchSending=false;exiting=false;
+    busy=false;ready=false;staging=false;finished=false;forfeiting=false;
+    startSending=false;rematchSending=false;exiting=false;
     try{localStorage.removeItem(STORAGE_KEY)}catch(_){}
     window.BLOCKS_REMOTE_RESET?.();
     bar.hidden=true;showResult(false);
@@ -228,7 +273,7 @@
     if(message)status.textContent=message;
   }
   async function exitToNewGame(){
-    if(!match||!finished||exiting)return;
+    if(!match||(!finished&&!staging)||exiting)return;
     exiting=true;exitResult.disabled=true;
     rematchStatus.textContent='Leaving the room…';
     const current=match;
@@ -275,6 +320,7 @@
       }
       if(data.status==='playing')readyUI();
       else if(data.status==='waiting')showCode();
+      else if(data.status==='ready')showStart(data);
       else if(data.status==='finished')finish(data.winner,data);
       error.textContent='';
       if(ready)void flush();
@@ -312,7 +358,8 @@
     closeSocket();
     match=fresh?{...value,round:1,cursor:0,outbox:[],snapshot:null,progress:0,finished:false}:
       {...value,round:value.round||1,outbox:value.outbox||[]};
-    ready=false;finished=false;forfeiting=false;rematchSending=false;
+    ready=false;staging=false;finished=false;forfeiting=false;
+    startSending=false;rematchSending=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
     persist();
     lobbyStep('code');
@@ -348,6 +395,27 @@
       input.focus();
     }finally{joining=false;entry.classList.remove('is-loading');}
   }
+  async function requestStart(){
+    if(!match||!staging||ready||finished||startSending||exiting)return;
+    startSending=true;
+    restart.disabled=true;restart.classList.add('is-loading');
+    rematchStatus.textContent='Confirming your readiness…';
+    try{
+      const current=match,round=current.round;
+      const state=await rpc('blocks_match_start',{
+        p_match:current.id,p_token:current.token,p_round:round
+      });
+      if(current!==match||exiting||current.round!==round)return;
+      if(state.status==='playing')readyUI();
+      else showStart(state);
+      void poll();
+    }catch(e){
+      if(match&&!exiting)rematchStatus.textContent=e.message;
+    }finally{
+      startSending=false;restart.classList.remove('is-loading');
+      if(match&&staging&&!exiting)void poll();
+    }
+  }
   async function requestRematch(){
     if(!match||!finished||rematchSending||exiting)return;
     rematchSending=true;restart.disabled=true;
@@ -382,7 +450,7 @@
     try{await navigator.clipboard.writeText(match.code);copy.textContent='COPIED'}
     catch(_){setError('Copy the code shown above.')}
   };
-  restart.onclick=()=>{void requestRematch()};
+  restart.onclick=()=>{if(finished)void requestRematch();else if(staging)void requestStart();};
   exitResult.onclick=()=>{void exitToNewGame()};
   bar.querySelector('#remote-leave').onclick=()=>{
     if(!window.confirm('Forfeit this match?'))return;

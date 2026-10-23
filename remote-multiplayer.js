@@ -43,7 +43,6 @@
         '<div id="remote-slots" aria-hidden="true">— — —</div>'+
         '<input id="remote-input" type="text" inputmode="text" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="Three-letter room code">'+
       '</div>'+
-      '<button type="button" id="remote-entry-back">BACK</button>'+
     '</div>'+
     '<p id="remote-error" role="alert"></p>'+
     '</section>';
@@ -54,7 +53,7 @@
   const menuExit=$('remote-menu-exit');
   const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),codeExit=$('remote-code-exit');
   const codeExpiry=$('remote-code-expires');
-  const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots'),entryBack=$('remote-entry-back');
+  const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots');
 
   const resultPanel=document.createElement('div');
   resultPanel.id='remote-result';
@@ -625,7 +624,6 @@
   };
   create.onclick=()=>{void createRoom()};
   join.onclick=()=>{enterCode()};
-  entryBack.onclick=returnFromCodeEntry;
   input.addEventListener('input',()=>{
     const value=displaySlots();
     if(value.length===3&&!joining)void joinRoom(value);

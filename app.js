@@ -132,7 +132,7 @@ restartDialog.innerHTML=`
       <button type="button" id="ghost-on" aria-pressed="false">ON</button>
     </div>
     <div class="restart-mode-label" id="players-label">PLAYERS</div>
-    <div class="restart-options" role="group" aria-labelledby="players-label">
+    <div class="restart-options" id="player-mode-options" role="group" aria-labelledby="players-label">
       <button type="button" id="restart-one" aria-pressed="false">1 PLAYER</button>
       <button type="button" id="restart-two" aria-pressed="false">2 PLAYERS · ONE PHONE</button>
       <button type="button" id="restart-remote" aria-pressed="false">2 PLAYERS · TWO PHONES</button>

@@ -891,3 +891,11 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
   #remote-result #remote-restart{min-height:42px}
   #remote-result #remote-rematch-status{margin:7px 0 0}
 }
+
+/* Allow the host to abandon a room while the other phone has not joined. */
+#remote-lobby #remote-code-panel{position:relative}
+#remote-lobby #remote-code-exit{position:absolute;right:0;top:-2px;
+  min-height:42px;width:42px;padding:0;
+  border:0;background:transparent;color:var(--ink);
+  font:400 28px/1 Helvetica,Arial,sans-serif}
+#remote-lobby #remote-code-exit:focus-visible{outline:2px solid var(--ink)}

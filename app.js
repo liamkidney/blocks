@@ -28,10 +28,13 @@ const sessionConfig={...window.BLOCKS_CONFIG,
   ...(REMOTE_PLAYER&&remoteStored?.piece_set==='IO'?{allowedPieces:["I","O"]}:
      REMOTE_PLAYER&&remoteStored?.piece_set==='ALL'?{allowedPieces:TETROMINOES.map(t=>t.name)}:{})
 };
+// Keep the owner's selected defaults separate from settings inherited when
+// they previously joined somebody else's room.
 window.BLOCKS_REMOTE_LOCAL_CONFIG={
-  difficulty:sessionConfig.difficulty,
-  piece_set:sessionConfig.allowedPieces?.length===2&&
-    sessionConfig.allowedPieces.includes('I')&&sessionConfig.allowedPieces.includes('O')?'IO':'ALL'
+  difficulty:selectedDifficulty,
+  piece_set:window.BLOCKS_CONFIG.allowedPieces?.length===2&&
+    window.BLOCKS_CONFIG.allowedPieces.includes('I')&&
+    window.BLOCKS_CONFIG.allowedPieces.includes('O')?'IO':'ALL'
 };
 let session;
 let storedSessionId=null;

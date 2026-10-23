@@ -49,7 +49,7 @@
   const resultPanel=document.createElement('div');
   resultPanel.id='remote-result';
   resultPanel.hidden=true;
-  resultPanel.innerHTML='<section class="remote-result-panel" role="dialog" aria-label="Match result" aria-modal="true">'+
+  resultPanel.innerHTML='<section class="remote-result-panel" role="dialog" aria-label="Multiplayer match status" aria-modal="true">'+
     '<button type="button" id="remote-result-exit" aria-label="Exit to new game" title="Exit to new game">×</button>'+
     '<div class="remote-kicker" id="remote-result-kicker">MATCH COMPLETE</div>'+
     '<h2 id="remote-result-title"></h2>'+

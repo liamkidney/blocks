@@ -378,6 +378,17 @@ window.addEventListener('blocks:remote-ready',()=>{
   restartDialog.hidden=true;
   game.resume();
 });
+window.addEventListener('blocks:remote-hold',()=>{
+  if(!REMOTE_PLAYER||remoteFinished)return;
+  remoteReady=false;
+  game.pause();
+  saveGame(true);
+});
+window.addEventListener('blocks:remote-unhold',()=>{
+  if(!REMOTE_PLAYER||remoteFinished||remoteLost)return;
+  remoteReady=true;
+  game.resume();
+});
 window.addEventListener('blocks:remote-event',event=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
   const received=event.detail;

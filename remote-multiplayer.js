@@ -7,6 +7,7 @@
   const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
   const STORAGE_KEY='blocks:remote-match:'+location.pathname;
   const PENDING_JOIN_KEY='blocks:remote-pending-join:'+location.pathname;
+  const NEW_GAME_SCREEN_KEY='blocks:show-new-game-screen:v1:'+location.pathname.replace(/index[.]html$/,'');
   const headers={apikey:KEY,'Content-Type':'application/json'};
   const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}};
   const saved=read();
@@ -20,6 +21,7 @@
   const lobby=document.createElement('div');
   lobby.id='remote-lobby';
   lobby.innerHTML='<section class="remote-panel" role="dialog" aria-label="Two-phone multiplayer">'+
+    '<button type="button" id="remote-menu-exit" aria-label="Back to New Game" title="Back to New Game">×</button>'+
     '<div class="remote-kicker">BLOCKS · TWO PHONES</div>'+
     '<h2 id="remote-title">Play together</h2>'+
     '<p id="remote-status">Clear two lines to send a junk line to your opponent.</p>'+
@@ -47,6 +49,7 @@
   const $=id=>lobby.querySelector('#'+id);
   const title=$('remote-title'),status=$('remote-status'),error=$('remote-error');
   const actions=$('remote-actions'),create=$('remote-create'),join=$('remote-join');
+  const menuExit=$('remote-menu-exit');
   const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),codeExit=$('remote-code-exit');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots'),entryBack=$('remote-entry-back');
 
@@ -97,6 +100,7 @@
   };
 
   function lobbyStep(step){
+    menuExit.hidden=step!=='menu';
     actions.hidden=step!=='menu';
     codePanel.hidden=step!=='code';
     entry.hidden=step!=='entry';
@@ -504,6 +508,20 @@
     }
   }
 
+  menuExit.onclick=()=>{
+    // There is no match on the Play Together menu. Return to the full
+    // New Game selector, not to an automatically resumed solo board.
+    if(match||creating||joining)return;
+    try{
+      sessionStorage.setItem(NEW_GAME_SCREEN_KEY,'1');
+      sessionStorage.removeItem('blocks:auto-start:v1');
+      localStorage.removeItem(PENDING_JOIN_KEY);
+    }catch(_){}
+    const url=new URL(location.href);
+    url.searchParams.delete('remote');
+    url.searchParams.delete('players');
+    location.href=url.href;
+  };
   create.onclick=()=>{void createRoom()};
   join.onclick=()=>{enterCode()};
   entryBack.onclick=()=>{if(!joining){

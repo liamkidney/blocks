@@ -255,13 +255,14 @@
   // opponent-board broadcasts. Board frames never touch PostgreSQL.
   let socket=null,wsHeartbeat=null,boardTicker=null,reconnectTimer=null,reference=0;
   const clearOpponentBoard=()=>window.dispatchEvent(new CustomEvent('blocks:remote-board-clear'));
+  const staleOpponentBoard=()=>window.dispatchEvent(new CustomEvent('blocks:remote-board-stale'));
   function closeSocket(){
     if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
     if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
     if(boardTicker){clearInterval(boardTicker);boardTicker=null;}
     const old=socket;socket=null;
     if(old){old.onclose=null;old.close();}
-    clearOpponentBoard();
+    staleOpponentBoard();
   }
   function openSocket(){
     if(!match||typeof WebSocket!=='function')return;
@@ -324,7 +325,7 @@
         socket=null;
         if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
         if(boardTicker){clearInterval(boardTicker);boardTicker=null;}
-        clearOpponentBoard();
+        staleOpponentBoard();
         if(match?.id===id)reconnectTimer=setTimeout(openSocket,3000);
       };
       ws.onerror=()=>{}; // Polling is the reliable fallback.
@@ -374,7 +375,7 @@
   function holdGame(reason){
     if(!ready||held)return;
     held=true;
-    clearOpponentBoard();
+    staleOpponentBoard();
     bar.querySelector('#remote-match-label').textContent='PAUSED · '+reason;
     window.dispatchEvent(new CustomEvent('blocks:remote-hold'));
   }

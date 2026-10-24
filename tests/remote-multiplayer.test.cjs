@@ -271,6 +271,15 @@ function fixture({realtime=false}={}){
   };
 }
 async function settle(){for(let i=0;i<60;i++)await Promise.resolve();}
+function shownCode(phone,prefix){
+  return Array.from({length:3},(_,i)=>phone.get(prefix+'-letter-'+i).textContent).join('');
+}
+function shownSlots(phone){
+  return Array.from({length:3},(_,i)=>phone.get('remote-join-letter-'+i).textContent).join(' ');
+}
+function shownNato(phone,prefix){
+  return Array.from({length:3},(_,i)=>phone.get(prefix+'-phonetic-'+i).textContent);
+}
 async function matched(f){
   const host=f.browser(),guest=f.browser();
   assert.equal(host.get('remote-entry').hidden,true);
@@ -281,14 +290,14 @@ async function matched(f){
   assert.equal(host.get('remote-create').attrs['aria-busy'],'true');
   await settle();
   assert.equal(host.get('remote-create').classList.contains('is-loading'),false);
-  assert.match(host.get('remote-code').textContent,/^[BCDFGHJKLMNPQRSTVWXYZ]{3}$/);
+  assert.match(shownCode(host,'remote-create'),/^[BCDFGHJKLMNPQRSTVWXYZ]{3}$/);
   guest.get('remote-join').onclick();
   assert.equal(guest.get('remote-entry').hidden,false);
-  assert.equal(guest.get('remote-slots').textContent,'— — —');
+  assert.equal(shownSlots(guest),'— — —');
   guest.get('remote-input').value='br';
   guest.get('remote-input').listeners.input();
-  assert.equal(f.joins,0,'Do not attempt a join before three consonants');
-  assert.equal(guest.get('remote-slots').textContent,'B R —');
+  assert.equal(f.joins,0,'Do not attempt a join before three characters');
+  assert.equal(shownSlots(guest),'B R —');
   guest.get('remote-input').value='brt';
   guest.get('remote-input').listeners.input(); // Auto-submits without Enter.
   await settle();
@@ -321,7 +330,7 @@ async function matched(f){
   return {host,guest};
 }
 
-test('two-button lobby creates rooms with a spinner and joins after three consonants',async()=>{
+test('two-button lobby creates rooms with a spinner and joins after three letters',async()=>{
   const f=fixture(),{host,guest}=await matched(f);
   assert.equal(host.get('remote-lobby')?.hidden,false); // Fake DOM nodes only.
   assert.equal(guest.window.BLOCKS_REMOTE.player,2);
@@ -465,7 +474,7 @@ test('a finished room can be exited and a fresh room created without reloading',
   host.get('remote-create').onclick();await settle();
   assert.equal(f.rooms.size,2);
   assert.equal(host.window.BLOCKS_REMOTE.active,true);
-  assert.equal(host.get('remote-code').textContent,'BRT');
+  assert.equal(shownCode(host,'remote-create'),'BRT');
 });
 
 
@@ -778,7 +787,7 @@ test('New Game screen launch flag is consumed by the main app',()=>{
 test('three-consonant room code displays countdown and expires without ending a match',async()=>{
   const f=fixture(),host=f.browser();
   host.get('remote-create').onclick();await settle();
-  assert.equal(host.get('remote-code').textContent,'BRT');
+  assert.equal(shownCode(host,'remote-create'),'BRT');
   assert.match(host.get('remote-code-expires').textContent,/Code expires in (?:3:00|2:5\d)/);
   const state=JSON.parse(host.storage.get('blocks:remote-match:/blocks/dev/'));
   assert.match(state.inviteExpiresAt,/Z$/);
@@ -806,20 +815,68 @@ test('an already joined match continues after its original code expires',async()
   assert.equal(host.get('remote-restart').textContent,'PLAY AGAIN');
 });
 
-test('join input excludes vowels and auto-submits only after three consonants',async()=>{
+test('Join accepts Z and vowels without filtering; the server checks existence',async()=>{
   const f=fixture(),host=f.browser(),guest=f.browser();
   host.get('remote-create').onclick();await settle();
+  assert.equal(shownCode(host,'remote-create'),'BRT');
+  assert.deepEqual(shownNato(host,'remote-create'),
+    ['Bravo','Romeo','Tango']);
+  assert.match(host.get('remote-code').attrs['aria-label'],
+    /B R T.*Bravo, Romeo, Tango/);
   guest.get('remote-join').onclick();
   const input=guest.get('remote-input');
-  input.value='Bae';
+  input.value='z';
   input.listeners.input();
-  assert.equal(input.value,'B');
-  assert.equal(guest.get('remote-slots').textContent,'B — —');
+  assert.equal(input.value,'Z');
+  assert.equal(shownSlots(guest),'Z — —');
+  assert.deepEqual(shownNato(guest,'remote-join'),['Zulu','','']);
   assert.equal(f.joins,0);
+  input.value='ae';
+  input.listeners.input();
+  assert.equal(input.value,'AE');
+  assert.equal(shownSlots(guest),'A E —');
+  assert.deepEqual(shownNato(guest,'remote-join'),['Alfa','Echo','']);
+  assert.equal(f.joins,0);
+  input.value='aez';
+  input.listeners.input();
+  assert.equal(input.value,'AEZ','letters must remain visible while joining');
+  assert.equal(shownSlots(guest),'A E Z');
+  assert.deepEqual(shownNato(guest,'remote-join'),['Alfa','Echo','Zulu']);
+  await settle();
+  assert.equal(f.joins,1,'all three-character entries reach the server');
+  assert.equal(guest.get('remote-error').textContent,
+    'Room not found or code expired.');
+  assert.equal(shownSlots(guest),'— — —');
+  assert.deepEqual(shownNato(guest,'remote-join'),['','','']);
   input.value='brt';
   input.listeners.input();await settle();
-  assert.equal(f.joins,1);
+  assert.equal(f.joins,2);
   assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+});
+
+test('Create and Join both lay phonetic words directly beneath their letters',()=>{
+  assert.match(source,/codeTiles\('remote-create'\)/);
+  assert.match(source,/codeTiles\('remote-join'\)/);
+  assert.match(source,/const NATO=\{/);
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.match(css,/\.remote-code-tiles\s*\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.remote-code-tile\s*\{[^}]*flex-direction:column/);
+  assert.match(css,/\.remote-code-phonetic\s*\{/);
+  assert.doesNotMatch(source,/\[\^BCDFGHJKLMNPQRSTVWXYZ\]/);
+});
+
+test('Room code entry never discards Z, including trailing Z',async()=>{
+  const f=fixture(),guest=f.browser();
+  guest.get('remote-join').onclick();
+  const input=guest.get('remote-input');
+  input.value='brz';
+  input.listeners.input();
+  assert.equal(input.value,'BRZ');
+  assert.equal(shownSlots(guest),'B R Z');
+  assert.deepEqual(shownNato(guest,'remote-join'),['Bravo','Romeo','Zulu']);
+  assert.equal(f.joins,1,'Z must not suppress automatic join');
+  await settle();
+  assert.equal(guest.get('remote-error').textContent,'Room not found or code expired.');
 });
 
 
@@ -829,7 +886,7 @@ test('room creation accepts the actual PostgREST RETURNS TABLE array response',a
   await settle();
   assert.equal(f.rooms.size,1);
   assert.equal(host.window.BLOCKS_REMOTE.active,true);
-  assert.equal(host.get('remote-code').textContent,'BRT');
+  assert.equal(shownCode(host,'remote-create'),'BRT');
   assert.equal(host.get('remote-code-panel').hidden,false);
   assert.equal(host.get('remote-error').textContent,'');
 });

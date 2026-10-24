@@ -152,7 +152,7 @@
       '. '+code.split('').map(letter=>NATO[letter]||letter).join(', '));
     lobbyStep('code');
     title.textContent='Game created';
-    status.textContent='Share this code with Player 2. Once they join, each player taps Start Game.';
+    status.textContent='Share this code with Player 2.';
     codeExpiry.hidden=!match?.inviteExpiresAt;
     showLobby(true);
     updateInviteCountdown();

@@ -368,6 +368,7 @@ window.addEventListener('blocks:remote-board',event=>{
   if(opponentOverlay?.show(event.detail.rows))opponentBoardLastSeen=performance.now();
 });
 window.addEventListener('blocks:remote-board-clear',clearOpponentOverlay);
+window.addEventListener('blocks:remote-board-stale',()=>opponentOverlay?.setStale(true));
 window.BLOCKS_REMOTE_RESET=()=>{
   clearOpponentOverlay();
   game=session.replaceGame(0);
@@ -403,7 +404,7 @@ window.addEventListener('blocks:remote-ready',()=>{
 });
 window.addEventListener('blocks:remote-hold',()=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
-  clearOpponentOverlay();
+  opponentOverlay?.setStale(true);
   remoteReady=false;
   game.pause();
   saveGame(true);
@@ -446,8 +447,9 @@ if(REMOTE_PLAYER&&remoteReady)for(const event of drained){
 if(REMOTE_PLAYER&&remoteReady&&!remoteLost&&game.phase==='game_over'){
   remoteLost=true;window.BLOCKS_REMOTE?.reportLoss();
 }
-// A missing broadcast must never leave an outdated opponent board visible.
-if(opponentOverlay?.visible&&now-opponentBoardLastSeen>3000)clearOpponentOverlay();
+// Preserve the last-known opponent board during short network interruptions.
+// Dim stale information instead of repeatedly removing and restoring the ghost.
+if(opponentOverlay?.visible&&now-opponentBoardLastSeen>5000)opponentOverlay.setStale(true);
 lastTime=now;render();const finished=game.phase==="game_over"&&previousPhase!=="game_over";saveGame(finished);if(finished)window.BLOCKS_QUEUE_SCORE?.("completed",true);previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 

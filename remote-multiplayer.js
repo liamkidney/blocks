@@ -18,11 +18,9 @@
     S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',
     X:'X-ray',Y:'Yankee',Z:'Zulu'
   };
-  const codeTiles=(prefix)=>Array.from({length:3},(_,i)=>
-    '<span class="remote-code-tile">'+
-      '<span class="remote-code-character" id="'+prefix+'-letter-'+i+'">—</span>'+
-      '<span class="remote-code-phonetic" id="'+prefix+'-phonetic-'+i+'"></span>'+
-    '</span>').join('');
+  const codeTiles=prefix=>Array.from({length:3},(_,i)=>
+    '<span class="remote-code-character" id="'+prefix+'-letter-'+i+'">—</span>'
+  ).join('');
   const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}};
   const saved=read();
   const pendingJoin=(()=>{try{return JSON.parse(localStorage.getItem(PENDING_JOIN_KEY)||'null')}catch(_){return null}})();
@@ -49,6 +47,7 @@
       '<div class="remote-code-label">YOUR ROOM CODE</div>'+
       '<div id="remote-code" class="remote-code-tiles" aria-live="polite">'+
         codeTiles('remote-create')+'</div>'+
+      '<div id="remote-code-phonetic" aria-hidden="true"></div>'+
       '<p id="remote-code-expires" aria-live="off"></p>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
     '</div>'+
@@ -71,14 +70,12 @@
   const codeExpiry=$('remote-code-expires');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots');
   const createdLetters=Array.from({length:3},(_,i)=>$('remote-create-letter-'+i));
-  const createdPhonetics=Array.from({length:3},(_,i)=>$('remote-create-phonetic-'+i));
   const enteredLetters=Array.from({length:3},(_,i)=>$('remote-join-letter-'+i));
-  const enteredPhonetics=Array.from({length:3},(_,i)=>$('remote-join-phonetic-'+i));
-  function showCodeLetters(letters,phonetics,code){
+  const createdPhonetic=$('remote-code-phonetic');
+  function showCodeLetters(letters,code){
     for(let i=0;i<3;i++){
-      const letter=code[i]||'—',word=NATO[code[i]]||'';
+      const letter=code[i]||'—';
       if(letters[i].textContent!==letter)letters[i].textContent=letter;
-      if(phonetics[i].textContent!==word)phonetics[i].textContent=word;
     }
   }
 
@@ -149,7 +146,8 @@
   }
   function showCode(){
     const code=match?.code||'';
-    showCodeLetters(createdLetters,createdPhonetics,code);
+    showCodeLetters(createdLetters,code);
+    createdPhonetic.textContent=code.split('').map(letter=>(NATO[letter]||letter).toLowerCase()).join(' - ');
     room.setAttribute('aria-label','Room code '+code.split('').join(' ')+
       '. '+code.split('').map(letter=>NATO[letter]||letter).join(', '));
     lobbyStep('code');
@@ -164,7 +162,7 @@
     // The server is authoritative about whether a three-character code exists.
     const value=input.value.toUpperCase().slice(0,3);
     input.value=value;
-    showCodeLetters(enteredLetters,enteredPhonetics,value);
+    showCodeLetters(enteredLetters,value);
     return value;
   }
   function enterCode(){

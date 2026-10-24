@@ -68,49 +68,36 @@ function validOpponentBoard(rows){
     rows.every(n=>Number.isSafeInteger(n)&&n>=0&&n<1048576);
 }
 
-// A non-interactive translucent layer; it does not steal taps or alter
-// the local board's highly optimised renderer.
-function createOpponentBoardOverlay(board){
-  const layer=document.createElement("div");
-  layer.id="remote-opponent-overlay";
-  layer.hidden=true;
-  layer.setAttribute("aria-hidden","true");
+// Render the opponent's board in its own 10x20 HUD miniature, never
+// on top of the local playfield. Only changed cells update.
+function createOpponentMiniBoard(container){
   const cells=[];
   for(let i=0;i<200;i++){
-    const cell=document.createElement("div");
-    cell.className="remote-opponent-cell";
-    layer.appendChild(cell);
+    const cell=document.createElement("span");
+    cell.className="opponent-mini-cell";
+    container.appendChild(cell);
     cells.push(cell);
   }
-  board.appendChild(layer);
-  board.classList.add("has-opponent-overlay");
-  let previous=Array(200).fill(0),stale=false;
+  const previous=Array(200).fill(0);
+  const paint=next=>{
+    for(let i=0;i<200;i++){
+      if(next[i]===previous[i])continue;
+      cells[i].className=next[i]===2?"opponent-mini-cell falling":
+        next[i]===1?"opponent-mini-cell locked":"opponent-mini-cell";
+      previous[i]=next[i];
+    }
+  };
   return {
     show(rows){
       if(!validOpponentBoard(rows))return false;
+      const next=Array(200).fill(0);
       for(let y=0;y<20;y++)for(let x=0;x<10;x++){
-        const mask=rows[y],state=(mask>>(x+10)&1)?2:(mask>>x&1)?1:0;
-        const index=(19-y)*10+x;
-        if(state===previous[index])continue;
-        cells[index].className=state===2?"remote-opponent-cell active":
-          state===1?"remote-opponent-cell occupied":"remote-opponent-cell";
-        previous[index]=state;
+        const mask=rows[y];
+        next[(19-y)*10+x]=(mask>>(x+10)&1)?2:(mask>>x&1)?1:0;
       }
-      layer.hidden=false;
-      this.setStale(false);
+      paint(next);
       return true;
     },
-    setStale(next){
-      const value=Boolean(next);
-      if(value===stale)return;
-      stale=value;
-      layer.className=stale?"stale":"";
-    },
-    hide(){
-      layer.hidden=true;
-      this.setStale(false);
-    },
-    get visible(){return !layer.hidden},
-    get stale(){return stale}
+    clear(){paint(Array(200).fill(0))}
   };
 }

@@ -19,7 +19,7 @@ const context=vm.createContext({document});
 vm.runInContext(fs.readFileSync(path.join(__dirname,'..','board-renderer.js'),'utf8'),context);
 const encode=vm.runInContext('encodeOpponentBoard',context);
 const valid=vm.runInContext('validOpponentBoard',context);
-const create=vm.runInContext('createOpponentBoardOverlay',context);
+const create=vm.runInContext('createOpponentMiniBoard',context);
 const fresh=()=>({grid:Array.from({length:20},()=>Array(10).fill(null)),
   active:null,offsets:[]});
 
@@ -55,52 +55,30 @@ test('malformed or oversized opponent frames are rejected',()=>{
   }
 });
 
-test('opponent overlay maps y up to screen rows and distinguishes active blocks',()=>{
-  const board={children:[],classes:new Set(),
-    appendChild(node){this.children.push(node)},
-    classList:{add(name){board.classes.add(name)}}
-  };
-  const overlay=create(board);
-  const layer=board.children[0];
-  assert.equal(layer.id,'remote-opponent-overlay');
-  assert.equal(board.classes.has('has-opponent-overlay'),true);
-  assert.equal(layer.attrs['aria-hidden'],'true');
-  assert.equal(layer.children.length,200);
-  assert.equal(layer.hidden,true);
+test('opponent miniature maps the complete board and distinguishes the falling piece',()=>{
+  const board={children:[],appendChild(node){this.children.push(node)}};
+  const mini=create(board);
+  assert.equal(board.children.length,200);
   const rows=Array(20).fill(0);
-  rows[0]=1;
-  rows[19]=1<<(9+10);
-  assert.equal(overlay.show(rows),true);
-  assert.equal(overlay.visible,true);
-  assert.equal(layer.children[190].className,'remote-opponent-cell occupied');
-  assert.equal(layer.children[9].className,'remote-opponent-cell active');
-  overlay.setStale(true);
-  assert.equal(overlay.stale,true);
-  assert.equal(overlay.visible,true,'stale board is retained, not hidden');
-  assert.equal(layer.className,'stale');
-  overlay.setStale(true);
-  assert.equal(layer.className,'stale');
-  const wrong=Array(20).fill(1048576);
-  assert.equal(overlay.show(wrong),false);
-  assert.equal(layer.children[9].className,'remote-opponent-cell active');
-  overlay.hide();
-  assert.equal(overlay.visible,false);
-  assert.equal(overlay.stale,false,'reset removes stale state');
-  const cleared=Array(20).fill(0);
-  overlay.setStale(true);
-  assert.equal(overlay.show(cleared),true);
-  assert.equal(overlay.stale,false,'fresh opponent frame brightens overlay again');
-  assert.equal(layer.children[9].className,'remote-opponent-cell');
-  assert.equal(layer.children[190].className,'remote-opponent-cell');
+  rows[0]=1;rows[19]=1<<(9+10);
+  assert.equal(mini.show(rows),true);
+  assert.equal(board.children[190].className,'opponent-mini-cell locked');
+  assert.equal(board.children[9].className,'opponent-mini-cell falling');
+  assert.equal(mini.show(Array(20).fill(1048576)),false);
+  assert.equal(board.children[9].className,'opponent-mini-cell falling');
+  mini.clear();
+  assert.equal(board.children[9].className,'opponent-mini-cell');
+  assert.equal(board.children[190].className,'opponent-mini-cell');
+  assert.equal(mini.show(rows),true,'a new round can render after clearing');
 });
 
-test('overlay cannot steal taps or reserve screen space',()=>{
+test('two-phone HUD replaces score and lines with a separate miniature',()=>{
   const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
-  assert.match(css,/#remote-opponent-overlay\s*\{[^}]*position:absolute;inset:0/);
-  assert.match(css,/#remote-opponent-overlay\s*\{[^}]*pointer-events:none/);
-  assert.match(css,/#remote-opponent-overlay\[hidden\]\{display:none!important\}/);
-  assert.match(css,/#remote-opponent-overlay\.stale\{opacity:\.45\}/);
-  assert.match(css,/#board\.has-opponent-overlay > \.cell\.filled\{z-index:5\}/);
-  assert.match(css,/\.remote-opponent-cell\.occupied,\s*\.remote-opponent-cell\.active\s*\{[^}]*radial-gradient/);
-  assert.doesNotMatch(css,/#remote-opponent-overlay\{[^}]*pointer-events:auto/);
+  const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+  assert.match(css,/body\.remote-multiplayer #hud \.metric\{display:none\}/);
+  assert.match(css,/#opponent-mini-board\s*\{[^}]*grid-template-columns:repeat\(10/);
+  assert.match(css,/\.opponent-mini-cell\.falling\{/);
+  assert.match(app,/createOpponentMiniBoard\(panel\.querySelector/);
+  assert.doesNotMatch(app,/createOpponentBoardOverlay|opponentOverlay/);
+  assert.doesNotMatch(css,/#remote-opponent-overlay|remote-opponent-cell|has-opponent-overlay/);
 });

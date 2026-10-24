@@ -121,13 +121,18 @@ for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
   const cell=document.createElement("div");cell.className="cell";board.appendChild(cell);boardCells.push(cell);
 }
 const drawBoard=createBoardRenderer(boardCells);
-// Keep the opponent board separate from the local renderer and game inputs.
-const opponentOverlay=REMOTE_PLAYER?createOpponentBoardOverlay(board):null;
-let opponentBoardLastSeen=0;
-function clearOpponentOverlay(){
-  opponentOverlay?.hide();
-  opponentBoardLastSeen=0;
-}
+// In two-phone mode a separate miniature replaces the opponent ghost overlay.
+if(REMOTE_PLAYER)document.body.classList.add("remote-multiplayer");
+const opponentMini=REMOTE_PLAYER?(()=>{
+  const hud=document.getElementById("hud");
+  const panel=document.createElement("div");
+  panel.id="opponent-mini-panel";
+  panel.innerHTML='<div class="hud-label">OPPONENT</div>'+
+    '<div id="opponent-mini-board" role="img" aria-label="Opponent board"></div>';
+  hud.insertBefore(panel,hud.children[1]);
+  return createOpponentMiniBoard(panel.querySelector("#opponent-mini-board"));
+})():null;
+const clearOpponentMini=()=>opponentMini?.clear();
 const scoreDisplay=document.getElementById("score");
 const linesDisplay=document.getElementById("lines");
 
@@ -364,13 +369,11 @@ window.BLOCKS_REMOTE_CAPTURE=()=>({
 });
 window.BLOCKS_REMOTE_BOARD_CAPTURE=()=>REMOTE_PLAYER?encodeOpponentBoard(game):null;
 window.addEventListener('blocks:remote-board',event=>{
-  if(!REMOTE_PLAYER||!remoteReady||remoteFinished)return;
-  if(opponentOverlay?.show(event.detail.rows))opponentBoardLastSeen=performance.now();
+  if(REMOTE_PLAYER&&remoteReady&&!remoteFinished)opponentMini?.show(event.detail.rows);
 });
-window.addEventListener('blocks:remote-board-clear',clearOpponentOverlay);
-window.addEventListener('blocks:remote-board-stale',()=>opponentOverlay?.setStale(true));
+window.addEventListener('blocks:remote-board-clear',clearOpponentMini);
 window.BLOCKS_REMOTE_RESET=()=>{
-  clearOpponentOverlay();
+  clearOpponentMini();
   game=session.replaceGame(0);
   game.pause();
   session.drainEvents();
@@ -404,7 +407,6 @@ window.addEventListener('blocks:remote-ready',()=>{
 });
 window.addEventListener('blocks:remote-hold',()=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
-  opponentOverlay?.setStale(true);
   remoteReady=false;
   game.pause();
   saveGame(true);
@@ -423,12 +425,12 @@ window.addEventListener('blocks:remote-event',event=>{
 });
 window.addEventListener('blocks:remote-forfeiting',()=>{
   if(!REMOTE_PLAYER)return;
-  clearOpponentOverlay();
+  clearOpponentMini();
   remoteReady=false;remoteLost=true;game.pause();
 });
 window.addEventListener('blocks:remote-finished',event=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
-  clearOpponentOverlay();
+  clearOpponentMini();
   remoteFinished=true;remoteReady=false;remoteLost=true;
   game.endGame();
   const player=window.BLOCKS_REMOTE?.player;
@@ -447,9 +449,6 @@ if(REMOTE_PLAYER&&remoteReady)for(const event of drained){
 if(REMOTE_PLAYER&&remoteReady&&!remoteLost&&game.phase==='game_over'){
   remoteLost=true;window.BLOCKS_REMOTE?.reportLoss();
 }
-// Preserve the last-known opponent board during short network interruptions.
-// Dim stale information instead of repeatedly removing and restoring the ghost.
-if(opponentOverlay?.visible&&now-opponentBoardLastSeen>5000)opponentOverlay.setStale(true);
 lastTime=now;render();const finished=game.phase==="game_over"&&previousPhase!=="game_over";saveGame(finished);if(finished)window.BLOCKS_QUEUE_SCORE?.("completed",true);previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 

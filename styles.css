@@ -802,24 +802,20 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #remote-lobby .remote-actions button{width:100%;min-height:58px;font-size:13px}
 #remote-lobby #remote-join{background:transparent;color:var(--ink)}
 #remote-lobby .remote-code-label{font-size:11px;font-weight:900;letter-spacing:1.6px;margin:24px 0 12px}
-/* Every NATO word sits directly beneath its corresponding room-code letter.
-   Both screens use the same three equal-width columns. */
+/* Keep three large code letters aligned in both screens. Only the Create
+   screen has a single centred phonetic line beneath the complete code. */
 #remote-lobby .remote-code-tiles{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;
-  align-items:start;width:100%;
-}
-#remote-lobby .remote-code-tile{
-  display:flex;flex-direction:column;align-items:center;
-  gap:6px;min-width:0;
+  align-items:center;width:100%;
 }
 #remote-lobby .remote-code-character{
   display:block;font:900 clamp(44px,13vw,62px)/1 Helvetica,Arial,sans-serif;
-  letter-spacing:0;font-variant-numeric:tabular-nums;
+  letter-spacing:0;text-align:center;font-variant-numeric:tabular-nums;
 }
-#remote-lobby .remote-code-phonetic{
-  display:block;min-height:1.3em;max-width:100%;
-  font:800 clamp(10px,2.7vw,12px)/1.3 Helvetica,Arial,sans-serif;
-  letter-spacing:0;white-space:nowrap;opacity:.65;
+#remote-lobby #remote-code-phonetic{
+  margin:4px 0 9px;text-align:center;
+  font:700 clamp(10px,3.1vw,14px)/1.4 Helvetica,Arial,sans-serif;
+  letter-spacing:0;white-space:nowrap;opacity:.68;
 }
 #remote-lobby .remote-code-entry{position:relative;margin:18px auto 16px}
 #remote-lobby #remote-slots{
@@ -1000,5 +996,4 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #remote-lobby.remote-keyboard-open #remote-slots .remote-code-character{
   font-size:clamp(24px,7vw,31px);
 }
-#remote-lobby.remote-keyboard-open .remote-code-tile{gap:4px}
-#remote-lobby.remote-keyboard-open .remote-code-phonetic{font-size:10px}
+

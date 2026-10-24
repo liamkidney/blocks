@@ -4,6 +4,14 @@ const vm=require("node:vm");
 const fs=require("node:fs");
 const path=require("node:path");
 
+test("global gameplay keyboard shortcuts are removed",()=>{
+  const app=fs.readFileSync(path.join(__dirname,"..","app.js"),"utf8");
+  assert.doesNotMatch(app,/document\.addEventListener\(["']keydown["']/);
+  assert.doesNotMatch(app,/ArrowLeft|ArrowRight|ArrowUp|ArrowDown/);
+  // Z must be delivered to the focused room-code input by the browser.
+  assert.doesNotMatch(app,/\bZ:"rotate_ccw"/);
+});
+
 function boot(){
   const source=fs.readFileSync(path.join(__dirname,"..","app.js"),"utf8");
   const config=source.match(/^const REPEAT_DELAY=.*$/m)?.[0];

@@ -673,6 +673,15 @@ board.addEventListener("pointerup",e=>{
   boardTouch=null;
 });
 document.addEventListener("keydown",e=>{
+  // Z is a game shortcut, but it must remain typable in room-code inputs.
+  // All keyboard controls yield to text fields, editable content and modals.
+  const target=e.target;
+  const focused=document.activeElement;
+  const isEditing=node=>node?.isContentEditable||
+    node?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]');
+  if(e.isComposing||e.ctrlKey||e.metaKey||e.altKey||
+     isEditing(target)||isEditing(focused)||
+     target?.closest?.('[role="dialog"]'))return;
   const map={ArrowLeft:"left",ArrowRight:"right",ArrowUp:"rotate_cw",z:"rotate_ccw",Z:"rotate_ccw"};
   if(e.key==="ArrowDown"){e.preventDefault();game.dropOne()}
   else if(map[e.key]){e.preventDefault();game.press(map[e.key])}

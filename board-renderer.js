@@ -48,3 +48,60 @@ function createBoardRenderer(cells){
     }
   };
 }
+
+// Encode the opponent's complete 10x20 board as twenty small integers.
+// Low 10 bits are locked blocks; high 10 bits are the active falling piece.
+// No colours, game state, tokens or player identifiers are transmitted here.
+function encodeOpponentBoard(game){
+  const rows=Array(20).fill(0);
+  for(let y=0;y<20;y++)for(let x=0;x<10;x++)
+    if(game.grid[y][x])rows[y]|=1<<x;
+  if(game.active)for(const [dx,dy] of game.offsets){
+    const x=game.active.x+dx,y=game.active.y+dy;
+    if(x>=0&&x<10&&y>=0&&y<20)rows[y]|=1<<(x+10);
+  }
+  return rows;
+}
+
+function validOpponentBoard(rows){
+  return Array.isArray(rows)&&rows.length===20&&
+    rows.every(n=>Number.isSafeInteger(n)&&n>=0&&n<1048576);
+}
+
+// A non-interactive translucent layer; it does not steal taps or alter
+// the local board's highly optimised renderer.
+function createOpponentBoardOverlay(board){
+  const layer=document.createElement("div");
+  layer.id="remote-opponent-overlay";
+  layer.hidden=true;
+  layer.setAttribute("aria-hidden","true");
+  const cells=[];
+  for(let i=0;i<200;i++){
+    const cell=document.createElement("div");
+    cell.className="remote-opponent-cell";
+    layer.appendChild(cell);
+    cells.push(cell);
+  }
+  board.appendChild(layer);
+  let previous=Array(200).fill(0);
+  return {
+    show(rows){
+      if(!validOpponentBoard(rows))return false;
+      for(let y=0;y<20;y++)for(let x=0;x<10;x++){
+        const mask=rows[y],state=(mask>>(x+10)&1)?2:(mask>>x&1)?1:0;
+        const index=(19-y)*10+x;
+        if(state===previous[index])continue;
+        cells[index].className=state===2?"remote-opponent-cell active":
+          state===1?"remote-opponent-cell occupied":"remote-opponent-cell";
+        previous[index]=state;
+      }
+      layer.hidden=false;
+      return true;
+    },
+    hide(){
+      if(layer.hidden)return;
+      layer.hidden=true;
+    },
+    get visible(){return !layer.hidden}
+  };
+}

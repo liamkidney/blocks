@@ -83,7 +83,8 @@ function createOpponentBoardOverlay(board){
     cells.push(cell);
   }
   board.appendChild(layer);
-  let previous=Array(200).fill(0);
+  board.classList.add("has-opponent-overlay");
+  let previous=Array(200).fill(0),stale=false;
   return {
     show(rows){
       if(!validOpponentBoard(rows))return false;
@@ -96,12 +97,20 @@ function createOpponentBoardOverlay(board){
         previous[index]=state;
       }
       layer.hidden=false;
+      this.setStale(false);
       return true;
     },
-    hide(){
-      if(layer.hidden)return;
-      layer.hidden=true;
+    setStale(next){
+      const value=Boolean(next);
+      if(value===stale)return;
+      stale=value;
+      layer.className=stale?"stale":"";
     },
-    get visible(){return !layer.hidden}
+    hide(){
+      layer.hidden=true;
+      this.setStale(false);
+    },
+    get visible(){return !layer.hidden},
+    get stale(){return stale}
   };
 }

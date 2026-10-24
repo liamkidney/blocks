@@ -277,8 +277,8 @@ function shownCode(phone,prefix){
 function shownSlots(phone){
   return Array.from({length:3},(_,i)=>phone.get('remote-join-letter-'+i).textContent).join(' ');
 }
-function shownNato(phone,prefix){
-  return Array.from({length:3},(_,i)=>phone.get(prefix+'-phonetic-'+i).textContent);
+function shownNato(phone){
+  return phone.get('remote-code-phonetic').textContent;
 }
 async function matched(f){
   const host=f.browser(),guest=f.browser();
@@ -819,8 +819,7 @@ test('Join accepts Z and vowels without filtering; the server checks existence',
   const f=fixture(),host=f.browser(),guest=f.browser();
   host.get('remote-create').onclick();await settle();
   assert.equal(shownCode(host,'remote-create'),'BRT');
-  assert.deepEqual(shownNato(host,'remote-create'),
-    ['Bravo','Romeo','Tango']);
+  assert.equal(shownNato(host),'bravo - romeo - tango');
   assert.match(host.get('remote-code').attrs['aria-label'],
     /B R T.*Bravo, Romeo, Tango/);
   guest.get('remote-join').onclick();
@@ -829,39 +828,49 @@ test('Join accepts Z and vowels without filtering; the server checks existence',
   input.listeners.input();
   assert.equal(input.value,'Z');
   assert.equal(shownSlots(guest),'Z — —');
-  assert.deepEqual(shownNato(guest,'remote-join'),['Zulu','','']);
+  assert.equal(shownNato(guest),'','Join Game must not have phonetic text');
   assert.equal(f.joins,0);
   input.value='ae';
   input.listeners.input();
   assert.equal(input.value,'AE');
   assert.equal(shownSlots(guest),'A E —');
-  assert.deepEqual(shownNato(guest,'remote-join'),['Alfa','Echo','']);
+  assert.equal(shownNato(guest),'','Join Game must not have phonetic text');
   assert.equal(f.joins,0);
   input.value='aez';
   input.listeners.input();
   assert.equal(input.value,'AEZ','letters must remain visible while joining');
   assert.equal(shownSlots(guest),'A E Z');
-  assert.deepEqual(shownNato(guest,'remote-join'),['Alfa','Echo','Zulu']);
+  assert.equal(shownNato(guest),'','Join Game must not have phonetic text');
   await settle();
   assert.equal(f.joins,1,'all three-character entries reach the server');
   assert.equal(guest.get('remote-error').textContent,
     'Room not found or code expired.');
   assert.equal(shownSlots(guest),'— — —');
-  assert.deepEqual(shownNato(guest,'remote-join'),['','','']);
+  assert.equal(shownNato(guest),'');
   input.value='brt';
   input.listeners.input();await settle();
   assert.equal(f.joins,2);
   assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
 });
 
-test('Create and Join both lay phonetic words directly beneath their letters',()=>{
+test('Create Game shows one centered NATO line; Join Game shows no NATO words',async()=>{
+  const f=fixture({shortCode:'BDL'}),host=f.browser(),guest=f.browser();
+  host.get('remote-create').onclick();await settle();
+  assert.equal(shownCode(host,'remote-create'),'BDL');
+  assert.equal(shownNato(host),'bravo - delta - lima');
   assert.match(source,/codeTiles\('remote-create'\)/);
   assert.match(source,/codeTiles\('remote-join'\)/);
   assert.match(source,/const NATO=\{/);
   const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
-  assert.match(css,/\.remote-code-tiles\s*\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(css,/\.remote-code-tile\s*\{[^}]*flex-direction:column/);
-  assert.match(css,/\.remote-code-phonetic\s*\{/);
+  assert.match(css,/#remote-lobby #remote-code-phonetic\s*\{[^}]*text-align:center/);
+  assert.match(css,/#remote-lobby #remote-code-phonetic\s*\{[^}]*white-space:nowrap/);
+  assert.doesNotMatch(source,/remote-join-phonetic/);
+  assert.doesNotMatch(source,/remote-code-tile"/);
+  guest.get('remote-join').onclick();
+  guest.get('remote-input').value='bd';
+  guest.get('remote-input').listeners.input();
+  assert.equal(shownSlots(guest),'B D —');
+  assert.equal(shownNato(guest),'','Join Game must have no phonetic text');
   assert.doesNotMatch(source,/\[\^BCDFGHJKLMNPQRSTVWXYZ\]/);
 });
 
@@ -873,7 +882,7 @@ test('Room code entry never discards Z, including trailing Z',async()=>{
   input.listeners.input();
   assert.equal(input.value,'BRZ');
   assert.equal(shownSlots(guest),'B R Z');
-  assert.deepEqual(shownNato(guest,'remote-join'),['Bravo','Romeo','Zulu']);
+  assert.equal(shownNato(guest),'');
   assert.equal(f.joins,1,'Z must not suppress automatic join');
   await settle();
   assert.equal(guest.get('remote-error').textContent,'Room not found or code expired.');
@@ -884,7 +893,7 @@ test('Z in a generated code joins a real room successfully',async()=>{
   const f=fixture({shortCode:'BRZ'}),host=f.browser(),guest=f.browser();
   host.get('remote-create').onclick();await settle();
   assert.equal(shownCode(host,'remote-create'),'BRZ');
-  assert.deepEqual(shownNato(host,'remote-create'),['Bravo','Romeo','Zulu']);
+  assert.equal(shownNato(host),'bravo - romeo - zulu');
   guest.get('remote-join').onclick();
   guest.get('remote-input').value='brz';
   guest.get('remote-input').listeners.input();await settle();

@@ -606,7 +606,26 @@
     try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     menu();
   }
-  menuExit.onclick=()=>{
+  // Respond on touchstart like the main game controls. A plain click can be
+  // dropped by iOS when its scrollable lobby detects slight finger movement.
+  // Keep click for mouse and keyboard, suppressing the touch-generated click.
+  function bindLobbyAction(button,action){
+    let lastTouchAt=-Infinity;
+    button.addEventListener('touchstart',event=>{
+      if(button.disabled)return;
+      event.preventDefault();
+      lastTouchAt=Date.now();
+      action();
+    },{passive:false});
+    button.onclick=event=>{
+      if(event?.detail!==0&&Date.now()-lastTouchAt<750){
+        event?.preventDefault?.();
+        return;
+      }
+      if(!button.disabled)action();
+    };
+  }
+  bindLobbyAction(menuExit,()=>{
     // On the join screen, close the keyboard and return to Create / Join.
     if(!entry.hidden){returnFromCodeEntry();return;}
     // There is no match on the Play Together menu. Return to the full
@@ -621,9 +640,9 @@
     url.searchParams.delete('remote');
     url.searchParams.delete('players');
     location.href=url.href;
-  };
-  create.onclick=()=>{void createRoom()};
-  join.onclick=()=>{enterCode()};
+  });
+  bindLobbyAction(create,()=>{void createRoom()});
+  bindLobbyAction(join,enterCode);
   input.addEventListener('input',()=>{
     const value=displaySlots();
     if(value.length===3&&!joining)void joinRoom(value);

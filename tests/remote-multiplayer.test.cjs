@@ -779,7 +779,7 @@ test('Join Game has no duplicate Back link and uses the top-right X',()=>{
   const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
   assert.doesNotMatch(source,/remote-entry-back/);
   assert.doesNotMatch(css,/#remote-lobby #remote-entry-back/);
-  assert.match(source,/menuExit\.onclick=\(\)=>\{/);
+  assert.match(source,/bindLobbyAction\(menuExit,\(\)=>\{/);
   // Legacy UI selectors from earlier two-phone screens are no longer present.
   for(const selector of ['#remote-resume','#remote-new','#remote-back']){
     assert.equal(css.includes(selector),false,selector+' must not remain in CSS');

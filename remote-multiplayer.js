@@ -44,7 +44,6 @@
     '</div>'+
     '<div id="remote-code-panel" hidden>'+
       '<button id="remote-code-exit" type="button" aria-label="Cancel room" title="Cancel room">×</button>'+
-      '<div class="remote-code-label">YOUR ROOM CODE</div>'+
       '<div id="remote-code" class="remote-code-tiles" aria-live="polite">'+
         codeTiles('remote-create')+'</div>'+
       '<div id="remote-code-phonetic" aria-hidden="true"></div>'+

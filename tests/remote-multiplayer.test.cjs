@@ -7,8 +7,8 @@ const path=require('node:path');
 const {randomUUID}=require('node:crypto');
 const source=fs.readFileSync(path.join(__dirname,'..','remote-multiplayer.js'),'utf8');
 
-function fixture(){
-  const rooms=new Map(),allEvents=[];
+function fixture({realtime=false}={}){
+  const rooms=new Map(),allEvents=[],sockets=[],boardBroadcasts=[];
   let nextId=0,failAcknowledgement=false,dropJoinAck=false,joins=0,starts=0,rematches=0;
   async function fetch(url,opts){
     const name=url.split('/').pop(),a=JSON.parse(opts.body);
@@ -175,15 +175,19 @@ function fixture(){
       }
     };
     const attacks=[],results=[],rounds=[],holds=[],unholds=[],configs=[];
+    const ownBoard=Array(20).fill(0),opponentBoards=[],clearedBoards=[];
     const window={
       BLOCKS_REMOTE_LOCAL_CONFIG:config,
       visualViewport,innerHeight:800,innerWidth:390,
       BLOCKS_REMOTE_CAPTURE:()=>({snapshot:{applied:attacks.length},progress:0}),
+      BLOCKS_REMOTE_BOARD_CAPTURE:()=>ownBoard.slice(),
       BLOCKS_REMOTE_RESET:()=>{resetCount++;attacks.length=0;},
       addEventListener(name,fn){handlers.set(name,[...(handlers.get(name)||[]),fn])},
       dispatchEvent(ev){for(const fn of handlers.get(ev.type)||[])fn(ev)},
       confirm:()=>true
     };
+    window.addEventListener('blocks:remote-board',e=>opponentBoards.push(e.detail.rows));
+    window.addEventListener('blocks:remote-board-clear',()=>clearedBoards.push(true));
     window.addEventListener('blocks:remote-config',e=>configs.push(e.detail));
     window.addEventListener('blocks:remote-hold',()=>holds.push('hold'));
     window.addEventListener('blocks:remote-unhold',()=>unholds.push('unhold'));
@@ -215,9 +219,32 @@ function fixture(){
     };
     const location={pathname:'/blocks/dev/',search:'?remote=1',
       href:'https://example.test/blocks/dev/?remote=1'};
+    class FakeWebSocket{
+      constructor(){
+        this.readyState=1;this.bufferedAmount=0;this.topic=null;
+        sockets.push(this);
+        Promise.resolve().then(()=>this.onopen?.());
+      }
+      send(raw){
+        const message=JSON.parse(raw);
+        if(message.event==='phx_join'){
+          this.topic=message.topic;
+          this.onmessage?.({data:JSON.stringify({topic:message.topic,
+            event:'phx_reply',ref:message.ref,payload:{status:'ok'}})});
+        }else if(message.event==='broadcast'){
+          boardBroadcasts.push(message.payload.payload);
+          for(const ws of sockets){
+            if(ws===this||ws.readyState!==1||ws.topic!==message.topic)continue;
+            ws.onmessage?.({data:JSON.stringify({topic:message.topic,event:'broadcast',
+              payload:message.payload})});
+          }
+        }
+      }
+      close(){this.readyState=3;}
+    }
     const context={window,document,location,localStorage,sessionStorage,fetch,
       navigator:{onLine:true,clipboard:{writeText:async()=>{}}},
-      URL,URLSearchParams,WebSocket:undefined,
+      URL,URLSearchParams,WebSocket:realtime?FakeWebSocket:undefined,
       setInterval:(fn)=>{const id=++intervalId;intervals.set(id,fn);return id},
       clearInterval:id=>intervals.delete(id),
       clearTimeout:()=>{},setTimeout:()=>1,
@@ -228,6 +255,7 @@ function fixture(){
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
       window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,bodyElements,
+      ownBoard,opponentBoards,clearedBoards,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -236,7 +264,7 @@ function fixture(){
     };
   }
   return {
-    browser,rooms,allEvents,setDropAck:()=>{failAcknowledgement=true},
+    browser,rooms,allEvents,sockets,boardBroadcasts,setDropAck:()=>{failAcknowledgement=true},
     setDropJoinAck:()=>{dropJoinAck=true},
     get joins(){return joins},get starts(){return starts},get rematches(){return rematches},
     expireCode(){for(const m of rooms.values())m.code_expires_at=new Date(Date.now()-30000).toISOString()}
@@ -638,6 +666,54 @@ test('Join Game touch runs once, preserving typed code after compatibility click
   assert.equal(entry.hidden,false,"keyboard-generated click must remain usable");
   assert.equal(input.focused,true);
   assert.equal(f.joins,0);
+});
+
+test('opponent boards broadcast over websocket without creating database events',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  host.ownBoard[0]=1;
+  host.ownBoard[12]=1<<14;
+  await host.tick();await settle();
+  assert.equal(f.boardBroadcasts.some(m=>m.player===1&&m.rows[0]===1),true);
+  assert.equal(guest.opponentBoards.at(-1)[0],1);
+  assert.equal(guest.opponentBoards.at(-1)[12],1<<14);
+  assert.equal(host.opponentBoards.length,0,"self broadcasts must be disabled");
+  assert.equal(f.allEvents.length,0,"board frames must not be stored in PostgreSQL");
+  const count=f.boardBroadcasts.length;
+  await host.tick();await settle();
+  assert.equal(f.boardBroadcasts.length,count,"unchanged frames are throttled");
+  host.ownBoard[0]=3;
+  await host.tick();await settle();
+  assert.equal(guest.opponentBoards.at(-1)[0],3);
+});
+
+test('opponent board messages reject wrong sender, round and invalid cells',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  const socket=f.sockets.find(ws=>ws.topic?.includes([...f.rooms.keys()][0])&&
+    f.sockets.indexOf(ws)===1);
+  assert.ok(socket,"guest websocket must exist");
+  const room=[...f.rooms.values()][0];
+  const send=(player,round,rows)=>socket.onmessage({data:JSON.stringify({
+    topic:'realtime:blocks-match-'+room.id,event:'broadcast',
+    payload:{event:'opponent-board',type:'broadcast',payload:{player,round,rows}}
+  })});
+  const before=guest.opponentBoards.length;
+  const rows=Array(20).fill(0);rows[0]=512;
+  send(2,1,rows);send(1,2,rows);send(1,1,Array(20).fill(-1));
+  assert.equal(guest.opponentBoards.length,before);
+  send(1,1,rows);
+  assert.equal(guest.opponentBoards.length,before+1);
+  assert.equal(guest.opponentBoards.at(-1)[0],512);
+});
+
+test('opponent board disappears after disconnection and at end of round',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  host.ownBoard[0]=1;
+  await host.tick();await settle();
+  const before=guest.clearedBoards.length;
+  guest.window.BLOCKS_REMOTE.reportLoss();await settle();
+  assert.ok(guest.clearedBoards.length>before);
+  await host.tick();await settle();
+  assert.ok(host.clearedBoards.length>0);
 });
 
 test('Play Together X returns to the main New Game selector without creating a room',()=>{

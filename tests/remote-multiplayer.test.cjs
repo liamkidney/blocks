@@ -600,6 +600,46 @@ test('presence interruption pauses and resumes both-player local board as announ
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
 });
 
+test('first Create Game touch starts a single room without waiting for click',async()=>{
+  const f=fixture(),phone=f.browser();
+  const button=phone.get('remote-create');
+  assert.equal(typeof button.listeners.touchstart,'function');
+  let prevented=0;
+  button.listeners.touchstart({preventDefault(){prevented++}});
+  assert.equal(prevented,1,"touch should suppress delayed synthetic click");
+  assert.equal(button.disabled,true,"request starts synchronously on touchstart");
+  assert.equal(button.classList.contains('is-loading'),true);
+  button.onclick({detail:1,preventDefault(){prevented++}});
+  assert.equal(prevented,2,"compatibility click should be consumed");
+  await settle();
+  assert.equal(f.rooms.size,1,"one touch must not create duplicate rooms");
+  assert.equal(phone.get('remote-code-panel').hidden,false);
+  assert.equal(button.disabled,false);
+});
+
+test('Join Game touch runs once, preserving typed code after compatibility click',()=>{
+  const f=fixture(),phone=f.browser();
+  const join=phone.get('remote-join');
+  let prevented=0;
+  join.listeners.touchstart({preventDefault(){prevented++}});
+  const entry=phone.get('remote-entry'),input=phone.get('remote-input');
+  assert.equal(prevented,1);
+  assert.equal(entry.hidden,false);
+  assert.equal(input.focused,true);
+  input.value='BR';
+  join.onclick({detail:1,preventDefault(){prevented++}});
+  assert.equal(prevented,2);
+  assert.equal(input.value,'BR',"synthetic click must not reopen and clear code entry");
+  const close=phone.get('remote-menu-exit');
+  close.listeners.touchstart({preventDefault(){}});
+  assert.equal(entry.hidden,true,"X also responds on first touch");
+  assert.equal(input.focused,false);
+  join.onclick({detail:0,preventDefault(){}});
+  assert.equal(entry.hidden,false,"keyboard-generated click must remain usable");
+  assert.equal(input.focused,true);
+  assert.equal(f.joins,0);
+});
+
 test('Play Together X returns to the main New Game selector without creating a room',()=>{
   const f=fixture(),phone=f.browser();
   const button=phone.get('remote-menu-exit');

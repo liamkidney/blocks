@@ -802,7 +802,8 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #remote-lobby .remote-actions button{width:100%;min-height:58px;font-size:13px}
 #remote-lobby #remote-join{background:transparent;color:var(--ink)}
 #remote-lobby .remote-code-label{font-size:11px;font-weight:900;letter-spacing:1.6px;margin:24px 0 12px}
-#remote-lobby #remote-code-panel .remote-code-label{margin:32px 0 20px}
+/* The created code itself is the focal point; no redundant heading. */
+#remote-lobby #remote-code-panel{padding-top:42px}
 /* Keep three large code letters aligned in both screens. Only the Create
    screen has a single centred phonetic line beneath the complete code. */
 #remote-lobby .remote-code-tiles{
@@ -814,7 +815,7 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
   letter-spacing:0;text-align:center;font-variant-numeric:tabular-nums;
 }
 #remote-lobby #remote-code-phonetic{
-  margin:12px 0 18px;text-align:center;
+  margin:22px 0 28px;text-align:center;
   font:700 clamp(10px,3.1vw,14px)/1.4 Helvetica,Arial,sans-serif;
   letter-spacing:0;white-space:nowrap;opacity:.68;
 }

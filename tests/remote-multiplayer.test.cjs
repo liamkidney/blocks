@@ -7,7 +7,7 @@ const path=require('node:path');
 const {randomUUID}=require('node:crypto');
 const source=fs.readFileSync(path.join(__dirname,'..','remote-multiplayer.js'),'utf8');
 
-function fixture({realtime=false}={}){
+function fixture({realtime=false,shortCode='BRT'}={}){
   const rooms=new Map(),allEvents=[],sockets=[],boardBroadcasts=[];
   let nextId=0,failAcknowledgement=false,dropJoinAck=false,joins=0,starts=0,rematches=0;
   async function fetch(url,opts){
@@ -17,7 +17,7 @@ function fixture({realtime=false}={}){
     if(name==='blocks_create_match'||name==='blocks_create_match_config'||
        name==='blocks_create_match_short'){
       const id=randomUUID(),hostToken=randomUUID();
-      const code=name==='blocks_create_match_short'?'BRT':'ABCDEF';
+      const code=name==='blocks_create_match_short'?shortCode:'ABCDEF';
       const code_expires_at=new Date(Date.now()+180000).toISOString();
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
         round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,
@@ -879,6 +879,21 @@ test('Room code entry never discards Z, including trailing Z',async()=>{
   assert.equal(guest.get('remote-error').textContent,'Room not found or code expired.');
 });
 
+
+test('Z in a generated code joins a real room successfully',async()=>{
+  const f=fixture({shortCode:'BRZ'}),host=f.browser(),guest=f.browser();
+  host.get('remote-create').onclick();await settle();
+  assert.equal(shownCode(host,'remote-create'),'BRZ');
+  assert.deepEqual(shownNato(host,'remote-create'),['Bravo','Romeo','Zulu']);
+  guest.get('remote-join').onclick();
+  guest.get('remote-input').value='brz';
+  guest.get('remote-input').listeners.input();await settle();
+  await host.tick();await settle();
+  assert.equal(f.joins,1);
+  assert.equal(f.rooms.values().next().value.status,'ready');
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(guest.get('remote-error').textContent,'');
+});
 
 test('room creation accepts the actual PostgREST RETURNS TABLE array response',async()=>{
   const f=fixture(),host=f.browser();

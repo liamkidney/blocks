@@ -175,7 +175,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       }
     };
     const attacks=[],results=[],rounds=[],holds=[],unholds=[],configs=[];
-    const ownBoard=Array(20).fill(0),opponentBoards=[],clearedBoards=[];
+    const ownBoard=Array(20).fill(0),opponentBoards=[],clearedBoards=[],staleBoards=[];
     const window={
       BLOCKS_REMOTE_LOCAL_CONFIG:config,
       visualViewport,innerHeight:800,innerWidth:390,
@@ -188,6 +188,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     };
     window.addEventListener('blocks:remote-board',e=>opponentBoards.push(e.detail.rows));
     window.addEventListener('blocks:remote-board-clear',()=>clearedBoards.push(true));
+    window.addEventListener('blocks:remote-board-stale',()=>staleBoards.push(true));
     window.addEventListener('blocks:remote-config',e=>configs.push(e.detail));
     window.addEventListener('blocks:remote-hold',()=>holds.push('hold'));
     window.addEventListener('blocks:remote-unhold',()=>unholds.push('unhold'));
@@ -255,7 +256,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
       window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,bodyElements,
-      ownBoard,opponentBoards,clearedBoards,
+      ownBoard,opponentBoards,clearedBoards,staleBoards,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -712,6 +713,45 @@ test('opponent board messages reject wrong sender, round and invalid cells',asyn
   send(1,1,rows);
   assert.equal(guest.opponentBoards.length,before+1);
   assert.equal(guest.opponentBoards.at(-1)[0],512);
+});
+
+test('WebSocket interruption dims the opponent board without clearing it',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  host.ownBoard[0]=3;
+  await host.tick();await settle();
+  assert.equal(guest.opponentBoards.at(-1)[0],3);
+  const clearBefore=guest.clearedBoards.length;
+  const staleBefore=guest.staleBoards.length;
+  const guestSocket=f.sockets[1];
+  assert.ok(guestSocket,'second phone has an active socket');
+  guestSocket.readyState=3;
+  guestSocket.onclose();
+  assert.equal(guest.staleBoards.length,staleBefore+1);
+  assert.equal(guest.clearedBoards.length,clearBefore,
+    'WebSocket reconnect must not erase the opponent stack');
+});
+
+test('connection hold dims the opponent board; an explicit match reset clears it',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  const staleBefore=guest.staleBoards.length,clearBefore=guest.clearedBoards.length;
+  guest.window.dispatchEvent({type:'offline'});
+  assert.equal(guest.holds.length,1);
+  assert.equal(guest.staleBoards.length,staleBefore+1);
+  assert.equal(guest.clearedBoards.length,clearBefore);
+  guest.window.BLOCKS_REMOTE.reportLoss();
+  // Explicit forfeiting while held is not allowed, but the server can still
+  // finish this round when the other player forfeits.
+  host.window.BLOCKS_REMOTE.reportLoss();await settle();
+  await guest.tick();await settle();
+  assert.ok(guest.clearedBoards.length>clearBefore,
+    'completed match clears the overlay before a rematch');
+});
+
+test('renderer retains a stale opponent board until the game actually ends',()=>{
+  const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+  assert.doesNotMatch(app,/now-opponentBoardLastSeen>3000\)clearOpponentOverlay/);
+  assert.match(app,/now-opponentBoardLastSeen>5000\)opponentOverlay\.setStale\(true\)/);
+  assert.match(app,/blocks:remote-board-stale/);
 });
 
 test('opponent board disappears after disconnection and at end of round',async()=>{

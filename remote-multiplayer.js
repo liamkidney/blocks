@@ -9,6 +9,20 @@
   const PENDING_JOIN_KEY='blocks:remote-pending-join:'+location.pathname;
   const NEW_GAME_SCREEN_KEY='blocks:show-new-game-screen:v1:'+location.pathname.replace(/index[.]html$/,'');
   const headers={apikey:KEY,'Content-Type':'application/json'};
+  // Official NATO spelling (including Alfa and Juliett). Codes are generated
+  // from consonants, but join input is deliberately not restricted to them.
+  const NATO={
+    A:'Alfa',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',
+    G:'Golf',H:'Hotel',I:'India',J:'Juliett',K:'Kilo',L:'Lima',
+    M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',R:'Romeo',
+    S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',
+    X:'X-ray',Y:'Yankee',Z:'Zulu'
+  };
+  const codeTiles=(prefix)=>Array.from({length:3},(_,i)=>
+    '<span class="remote-code-tile">'+
+      '<span class="remote-code-character" id="'+prefix+'-letter-'+i+'">—</span>'+
+      '<span class="remote-code-phonetic" id="'+prefix+'-phonetic-'+i+'"></span>'+
+    '</span>').join('');
   const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}};
   const saved=read();
   const pendingJoin=(()=>{try{return JSON.parse(localStorage.getItem(PENDING_JOIN_KEY)||'null')}catch(_){return null}})();
@@ -33,14 +47,16 @@
     '<div id="remote-code-panel" hidden>'+
       '<button id="remote-code-exit" type="button" aria-label="Cancel room" title="Cancel room">×</button>'+
       '<div class="remote-code-label">YOUR ROOM CODE</div>'+
-      '<div id="remote-code" aria-live="polite"></div>'+ 
+      '<div id="remote-code" class="remote-code-tiles" aria-live="polite">'+
+        codeTiles('remote-create')+'</div>'+
       '<p id="remote-code-expires" aria-live="off"></p>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
     '</div>'+
     '<div id="remote-entry" hidden>'+
       '<div class="remote-code-label">ROOM CODE</div>'+
       '<div class="remote-code-entry">'+
-        '<div id="remote-slots" aria-hidden="true">— — —</div>'+
+        '<div id="remote-slots" class="remote-code-tiles" aria-hidden="true">'+
+          codeTiles('remote-join')+'</div>'+
         '<input id="remote-input" type="text" inputmode="text" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="Three-letter room code">'+
       '</div>'+
     '</div>'+
@@ -54,6 +70,17 @@
   const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),codeExit=$('remote-code-exit');
   const codeExpiry=$('remote-code-expires');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots');
+  const createdLetters=Array.from({length:3},(_,i)=>$('remote-create-letter-'+i));
+  const createdPhonetics=Array.from({length:3},(_,i)=>$('remote-create-phonetic-'+i));
+  const enteredLetters=Array.from({length:3},(_,i)=>$('remote-join-letter-'+i));
+  const enteredPhonetics=Array.from({length:3},(_,i)=>$('remote-join-phonetic-'+i));
+  function showCodeLetters(letters,phonetics,code){
+    for(let i=0;i<3;i++){
+      const letter=code[i]||'—',word=NATO[code[i]]||'';
+      if(letters[i].textContent!==letter)letters[i].textContent=letter;
+      if(phonetics[i].textContent!==word)phonetics[i].textContent=word;
+    }
+  }
 
   const resultPanel=document.createElement('div');
   resultPanel.id='remote-result';
@@ -121,7 +148,10 @@
     syncCodeEntryViewport();
   }
   function showCode(){
-    room.textContent=match?.code||'';
+    const code=match?.code||'';
+    showCodeLetters(createdLetters,createdPhonetics,code);
+    room.setAttribute('aria-label','Room code '+code.split('').join(' ')+
+      '. '+code.split('').map(letter=>NATO[letter]||letter).join(', '));
     lobbyStep('code');
     title.textContent='Game created';
     status.textContent='Share this code with Player 2. Once they join, each player taps Start Game.';
@@ -130,9 +160,11 @@
     updateInviteCountdown();
   }
   function displaySlots(){
-    const value=input.value.toUpperCase().replace(/[^BCDFGHJKLMNPQRSTVWXYZ]/g,'').slice(0,3);
+    // Don't reject or rearrange anything typed, including vowels and Z.
+    // The server is authoritative about whether a three-character code exists.
+    const value=input.value.toUpperCase().slice(0,3);
     input.value=value;
-    slots.textContent=Array.from({length:3},(_,i)=>value[i]||'—').join(' ');
+    showCodeLetters(enteredLetters,enteredPhonetics,value);
     return value;
   }
   function enterCode(){
@@ -580,7 +612,7 @@
     finally{setCreating(false)}
   }
   async function joinRoom(code){
-    if(joining||creating||!(/^[BCDFGHJKLMNPQRSTVWXYZ]{3}$/.test(code)))return;
+    if(joining||creating||code.length!==3)return;
     joining=true;input.disabled=true;
     entry.classList.add('is-loading');error.textContent='';
     try{
@@ -593,7 +625,8 @@
       const row=await rpc('blocks_join_match_short',{
         p_code:code,p_join_token:attempt.token
       });
-      if(row?.error)throw Error(row.error);
+      if(row?.error)throw Error(row.error==='Enter a valid three-letter code.'?
+        'Room not found or code expired.':row.error);
       if(!row?.match_id||!row?.player_token)throw Error('Room unavailable.');
       await connect({id:row.match_id,token:row.player_token,code,player:2},true);
       localStorage.removeItem(PENDING_JOIN_KEY);

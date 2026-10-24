@@ -767,7 +767,16 @@ test('Room Created shows its own cancellation X in place of menu X',async()=>{
   assert.equal(phone.get('remote-menu-exit').hidden,true);
   assert.equal(phone.get('remote-code-exit').hidden,false);
   assert.equal(phone.get('remote-status').textContent,
-    'Share this code with Player 2. Once they join, each player taps Start Game.');
+    'Share this code with Player 2.');
+});
+
+test('Game Created has comfortably spaced code, NATO and countdown',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.match(css,/#remote-lobby #remote-code-panel \.remote-code-label\{margin:32px 0 20px\}/);
+  assert.match(css,/#remote-lobby #remote-code-phonetic\{\s*margin:12px 0 18px/);
+  assert.match(css,/#remote-lobby #remote-code-expires\{[^}]*margin:14px auto 22px/);
+  assert.match(css,/#remote-lobby #remote-copy\{[^}]*margin:12px auto 0/);
+  assert.doesNotMatch(source,/Once they join, each player taps Start Game/);
 });
 
 test('Create, Join and Room Created X buttons share viewport corner placement',()=>{

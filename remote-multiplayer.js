@@ -222,12 +222,17 @@
     create.setAttribute('aria-busy',String(on));
   }
 
-  let socket=null,wsHeartbeat=null,reconnectTimer=null,reference=0;
+  // The same Realtime connection handles match notifications and transient
+  // opponent-board broadcasts. Board frames never touch PostgreSQL.
+  let socket=null,wsHeartbeat=null,boardTicker=null,reconnectTimer=null,reference=0;
+  const clearOpponentBoard=()=>window.dispatchEvent(new CustomEvent('blocks:remote-board-clear'));
   function closeSocket(){
     if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
     if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
+    if(boardTicker){clearInterval(boardTicker);boardTicker=null;}
     const old=socket;socket=null;
     if(old){old.onclose=null;old.close();}
+    clearOpponentBoard();
   }
   function openSocket(){
     if(!match||typeof WebSocket!=='function')return;
@@ -236,9 +241,26 @@
       const ws=new WebSocket('wss://psoncybkfsdmjksyrcvv.supabase.co/realtime/v1/websocket?apikey='+
         encodeURIComponent(KEY)+'&vsn=1.0.0');
       socket=ws;
+      let joinRef=null,joined=false,lastBoard='',lastBoardAt=0;
       const send=(event,payload,target=topic)=>{
-        if(ws.readyState===1)
-          ws.send(JSON.stringify({topic:target,event,payload,ref:String(++reference)}));
+        if(ws.readyState!==1)return;
+        const ref=String(++reference);
+        if(event==='phx_join')joinRef=ref;
+        ws.send(JSON.stringify({topic:target,event,payload,ref,
+          ...(target==='phoenix'?{}:{join_ref:joinRef})}));
+      };
+      const sendBoard=()=>{
+        if(!joined||!ready||finished||held||match?.id!==id||
+           document.visibilityState!=='visible'||ws.readyState!==1||
+           ws.bufferedAmount>16384)return;
+        const rows=window.BLOCKS_REMOTE_BOARD_CAPTURE?.();
+        if(!Array.isArray(rows)||rows.length!==20||
+           !rows.every(n=>Number.isSafeInteger(n)&&n>=0&&n<1048576))return;
+        const serialized=rows.join(',');
+        if(serialized===lastBoard&&Date.now()-lastBoardAt<2000)return;
+        lastBoard=serialized;lastBoardAt=Date.now();
+        send('broadcast',{type:'broadcast',event:'opponent-board',
+          payload:{round:match.round,player:match.player,rows}});
       };
       ws.onopen=()=>{
         send('phx_join',{config:{broadcast:{ack:false,self:false}}});
@@ -247,13 +269,33 @@
       ws.onmessage=event=>{
         try{
           const message=JSON.parse(event.data);
-          if(message.topic===topic&&message.event==='broadcast')void poll();
+          if(message.topic!==topic)return;
+          if(message.event==='phx_reply'&&message.ref===joinRef&&
+             message.payload?.status==='ok'){
+            joined=true;
+            if(boardTicker)clearInterval(boardTicker);
+            boardTicker=setInterval(sendBoard,250);
+            sendBoard();
+          }else if(message.event==='broadcast'){
+            if(message.payload?.event==='opponent-board'){
+              const data=message.payload.payload;
+              if(ready&&!finished&&!held&&data?.round===match?.round&&
+                 data?.player===3-match.player&&
+                 Array.isArray(data.rows)&&data.rows.length===20&&
+                 data.rows.every(n=>Number.isSafeInteger(n)&&n>=0&&n<1048576)){
+                window.dispatchEvent(new CustomEvent('blocks:remote-board',
+                  {detail:{rows:data.rows}}));
+              }
+            }else void poll();
+          }
         }catch(_){}
       };
       ws.onclose=()=>{
         if(socket!==ws)return;
         socket=null;
         if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
+        if(boardTicker){clearInterval(boardTicker);boardTicker=null;}
+        clearOpponentBoard();
         if(match?.id===id)reconnectTimer=setTimeout(openSocket,3000);
       };
       ws.onerror=()=>{}; // Polling is the reliable fallback.
@@ -303,6 +345,7 @@
   function holdGame(reason){
     if(!ready||held)return;
     held=true;
+    clearOpponentBoard();
     bar.querySelector('#remote-match-label').textContent='PAUSED · '+reason;
     window.dispatchEvent(new CustomEvent('blocks:remote-hold'));
   }
@@ -359,6 +402,7 @@
   function finish(winner,state){
     if(exiting)return;
     if(!finished){
+      clearOpponentBoard();
       finished=true;ready=false;forfeiting=false;
       match.finished=true;match.winner=winner;
       window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner}}));
@@ -378,6 +422,7 @@
     match.cursor=0;match.outbox=[];match.snapshot=null;match.progress=0;
     match.finished=false;match.winner=null;
     ready=false;staging=false;finished=false;forfeiting=false;startSending=false;rematchSending=false;exiting=false;held=false;
+    clearOpponentBoard();
     bar.hidden=true;showResult(false);
     window.dispatchEvent(new CustomEvent('blocks:remote-new-round',{detail:{round}}));
     persist(); // A late attack can no longer be delivered to this round.
@@ -675,6 +720,7 @@
     reportLoss(){
       if(!match||finished||forfeiting||!ready)return;
       ready=false;forfeiting=true;
+      clearOpponentBoard();
       window.dispatchEvent(new CustomEvent('blocks:remote-forfeiting'));
       match.outbox.push({key:crypto.randomUUID(),type:'lost',rows:null});
       persist();void flush();

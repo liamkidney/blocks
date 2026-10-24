@@ -55,17 +55,17 @@ test('malformed or oversized opponent frames are rejected',()=>{
   }
 });
 
-test('opponent miniature maps the complete board and distinguishes the falling piece',()=>{
+test('opponent miniature draws settled blocks and falling pieces in the same grey style',()=>{
   const board={children:[],appendChild(node){this.children.push(node)}};
   const mini=create(board);
   assert.equal(board.children.length,200);
   const rows=Array(20).fill(0);
   rows[0]=1;rows[19]=1<<(9+10);
   assert.equal(mini.show(rows),true);
-  assert.equal(board.children[190].className,'opponent-mini-cell locked');
-  assert.equal(board.children[9].className,'opponent-mini-cell falling');
+  assert.equal(board.children[190].className,'opponent-mini-cell occupied');
+  assert.equal(board.children[9].className,'opponent-mini-cell occupied');
   assert.equal(mini.show(Array(20).fill(1048576)),false);
-  assert.equal(board.children[9].className,'opponent-mini-cell falling');
+  assert.equal(board.children[9].className,'opponent-mini-cell occupied');
   mini.clear();
   assert.equal(board.children[9].className,'opponent-mini-cell');
   assert.equal(board.children[190].className,'opponent-mini-cell');
@@ -77,8 +77,22 @@ test('two-phone HUD replaces score and lines with a separate miniature',()=>{
   const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
   assert.match(css,/body\.remote-multiplayer #hud \.metric\{display:none\}/);
   assert.match(css,/#opponent-mini-board\s*\{[^}]*grid-template-columns:repeat\(10/);
-  assert.match(css,/\.opponent-mini-cell\.falling\{/);
+  assert.match(css,/\.opponent-mini-cell\.occupied\{background:#787a78\}/);
+  assert.doesNotMatch(css,/\.opponent-mini-cell\.(?:falling|locked)\{/);
+  const renderer=fs.readFileSync(path.join(__dirname,'..','board-renderer.js'),'utf8');
+  assert.doesNotMatch(renderer,/opponent-mini-cell (?:falling|locked)/);
   assert.match(app,/createOpponentMiniBoard\(panel\.querySelector/);
   assert.doesNotMatch(app,/createOpponentBoardOverlay|opponentOverlay/);
   assert.doesNotMatch(css,/#remote-opponent-overlay|remote-opponent-cell|has-opponent-overlay/);
+});
+
+test('obsolete refactoring leftovers do not return to the UI',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  const player=fs.readFileSync(path.join(__dirname,'..','player-name.js'),'utf8');
+  const scores=fs.readFileSync(path.join(__dirname,'..','high-scores.js'),'utf8');
+  assert.doesNotMatch(css,/#player-(?:header|identity|display|edit)|#high-scores-overlay iframe/);
+  assert.doesNotMatch(player,/stopImmediatePropagation|ArrowLeft|ArrowRight|ArrowDown|ArrowUp/);
+  assert.doesNotMatch(scores,/stopImmediatePropagation/);
+  assert.match(player,/e\.key==='Escape'/);
+  assert.match(scores,/e\.key==='Escape'/);
 });

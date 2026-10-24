@@ -74,5 +74,7 @@
     }catch(error){message.textContent='Could not save online. Check connection and retry.';}
     finally{saveButton.disabled=false;}
   });
-  document.addEventListener('keydown',e=>{if(dialog.hidden)return;if(e.key==='Escape'){e.preventDefault();close();}else if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp'].includes(e.key))e.stopImmediatePropagation();},true);
+  document.addEventListener('keydown',e=>{
+    if(!dialog.hidden&&e.key==='Escape'){e.preventDefault();close();}
+  });
 })();

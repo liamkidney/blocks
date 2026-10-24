@@ -88,5 +88,7 @@
  tap(button,open);tap(overlay.querySelector('#scores-back'),close);tap(retry,()=>void load());
  for(const tab of modeButtons)tap(tab,()=>selectMode(tab.dataset.mode));
  button.hidden=false;
- document.addEventListener('keydown',e=>{if(!overlay.hidden){if(e.key==='Escape')close();e.preventDefault();e.stopImmediatePropagation();}},true);
+ document.addEventListener('keydown',e=>{
+  if(!overlay.hidden&&e.key==='Escape'){e.preventDefault();close();}
+ });
 })();

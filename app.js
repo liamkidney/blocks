@@ -121,7 +121,7 @@ for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
   const cell=document.createElement("div");cell.className="cell";board.appendChild(cell);boardCells.push(cell);
 }
 const drawBoard=createBoardRenderer(boardCells);
-// In two-phone mode a separate miniature replaces the opponent ghost overlay.
+// In two-phone mode, show the other player's board in a separate HUD miniature.
 if(REMOTE_PLAYER)document.body.classList.add("remote-multiplayer");
 const opponentMini=REMOTE_PLAYER?(()=>{
   const hud=document.getElementById("hud");
@@ -331,8 +331,11 @@ function renderActions(){
 let lastPreviewTetromino=null;
 function render(){
   drawBoard(game,window.BLOCKS_CONFIG.ghostPiece===true);
-  if(scoreDisplay.textContent!==String(game.score))scoreDisplay.textContent=game.score;
-  if(linesDisplay.textContent!==String(game.lines))linesDisplay.textContent=game.lines;
+  // These counters are visible only in solo and same-phone multiplayer.
+  if(!REMOTE_PLAYER){
+    if(scoreDisplay.textContent!==String(game.score))scoreDisplay.textContent=game.score;
+    if(linesDisplay.textContent!==String(game.lines))linesDisplay.textContent=game.lines;
+  }
   renderPreview();
   const over=!TWO_PLAYER&&!REMOTE_PLAYER&&game.phase==="game_over";
   if(gameOver.hidden===over)gameOver.hidden=!over;

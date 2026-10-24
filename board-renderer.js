@@ -82,8 +82,7 @@ function createOpponentMiniBoard(container){
   const paint=next=>{
     for(let i=0;i<200;i++){
       if(next[i]===previous[i])continue;
-      cells[i].className=next[i]===2?"opponent-mini-cell falling":
-        next[i]===1?"opponent-mini-cell locked":"opponent-mini-cell";
+      cells[i].className=next[i]?"opponent-mini-cell occupied":"opponent-mini-cell";
       previous[i]=next[i];
     }
   };
@@ -93,7 +92,7 @@ function createOpponentMiniBoard(container){
       const next=Array(200).fill(0);
       for(let y=0;y<20;y++)for(let x=0;x<10;x++){
         const mask=rows[y];
-        next[(19-y)*10+x]=(mask>>(x+10)&1)?2:(mask>>x&1)?1:0;
+        next[(19-y)*10+x]=(mask&(1<<x|1<<(x+10)))?1:0;
       }
       paint(next);
       return true;

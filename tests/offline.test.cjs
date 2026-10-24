@@ -89,7 +89,7 @@ test("both release channels receive separate versioned caches and PWA scopes",()
   }finally{fs.rmSync(tmp,{recursive:true,force:true})}
 });
 
-async function runRegistration(waitingAtLaunch,hadController=true,isPlaying=false){
+async function runRegistration(waitingAtLaunch,hadController=true,isPlaying=false,isRemote=false){
   const code=fs.readFileSync(path.join(root,"app.js"),"utf8");
   const start=code.indexOf('if("serviceWorker" in navigator){');
   const end=code.indexOf('document.addEventListener("contextmenu"',start);
@@ -111,6 +111,7 @@ async function runRegistration(waitingAtLaunch,hadController=true,isPlaying=fals
     location:{reload:()=>{reloads++}},
     saveGame:()=>{saves++},
     game:{phase:isPlaying?"falling":"paused"},awaitingInitialStart:!isPlaying,
+    REMOTE_PLAYER:isRemote,
     console
   };
   vm.runInNewContext(code.slice(start,end),sandbox);
@@ -140,4 +141,13 @@ test("a waiting update does not replace the app when gameplay has already starte
   assert.equal(r.get().messages,0);
   r.workerEvents.controllerchange();
   assert.equal(r.get().reloads,0);
+});
+
+test("a waiting update never reloads the interactive two-phone lobby",async()=>{
+  const r=await runRegistration(true,true,false,true);
+  assert.equal(r.get().messages,0,"two-phone lobby must not activate a waiting update");
+  r.workerEvents.controllerchange();
+  assert.equal(r.get().reloads,0);
+  assert.equal(r.get().saves,0);
+  assert.equal(r.get().checks,1,"updates may still download for the next safe launch");
 });

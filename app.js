@@ -121,6 +121,13 @@ for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
   const cell=document.createElement("div");cell.className="cell";board.appendChild(cell);boardCells.push(cell);
 }
 const drawBoard=createBoardRenderer(boardCells);
+// Keep the opponent board separate from the local renderer and game inputs.
+const opponentOverlay=REMOTE_PLAYER?createOpponentBoardOverlay(board):null;
+let opponentBoardLastSeen=0;
+function clearOpponentOverlay(){
+  opponentOverlay?.hide();
+  opponentBoardLastSeen=0;
+}
 const scoreDisplay=document.getElementById("score");
 const linesDisplay=document.getElementById("lines");
 
@@ -355,7 +362,14 @@ window.BLOCKS_REMOTE_CAPTURE=()=>({
   snapshot:game.toSnapshot(),
   progress:remoteAttackProgress
 });
+window.BLOCKS_REMOTE_BOARD_CAPTURE=()=>REMOTE_PLAYER?encodeOpponentBoard(game):null;
+window.addEventListener('blocks:remote-board',event=>{
+  if(!REMOTE_PLAYER||!remoteReady||remoteFinished)return;
+  if(opponentOverlay?.show(event.detail.rows))opponentBoardLastSeen=performance.now();
+});
+window.addEventListener('blocks:remote-board-clear',clearOpponentOverlay);
 window.BLOCKS_REMOTE_RESET=()=>{
+  clearOpponentOverlay();
   game=session.replaceGame(0);
   game.pause();
   session.drainEvents();
@@ -389,6 +403,7 @@ window.addEventListener('blocks:remote-ready',()=>{
 });
 window.addEventListener('blocks:remote-hold',()=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
+  clearOpponentOverlay();
   remoteReady=false;
   game.pause();
   saveGame(true);
@@ -407,10 +422,12 @@ window.addEventListener('blocks:remote-event',event=>{
 });
 window.addEventListener('blocks:remote-forfeiting',()=>{
   if(!REMOTE_PLAYER)return;
+  clearOpponentOverlay();
   remoteReady=false;remoteLost=true;game.pause();
 });
 window.addEventListener('blocks:remote-finished',event=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
+  clearOpponentOverlay();
   remoteFinished=true;remoteReady=false;remoteLost=true;
   game.endGame();
   const player=window.BLOCKS_REMOTE?.player;
@@ -429,6 +446,8 @@ if(REMOTE_PLAYER&&remoteReady)for(const event of drained){
 if(REMOTE_PLAYER&&remoteReady&&!remoteLost&&game.phase==='game_over'){
   remoteLost=true;window.BLOCKS_REMOTE?.reportLoss();
 }
+// A missing broadcast must never leave an outdated opponent board visible.
+if(opponentOverlay?.visible&&now-opponentBoardLastSeen>3000)clearOpponentOverlay();
 lastTime=now;render();const finished=game.phase==="game_over"&&previousPhase!=="game_over";saveGame(finished);if(finished)window.BLOCKS_QUEUE_SCORE?.("completed",true);previousPhase=game.phase;requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 

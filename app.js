@@ -383,9 +383,9 @@ function renderActions(){
     unavailable||(!remoteLocalPaused&&remotePeerPaused):
     TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
   if(REMOTE_PLAYER){
-    const otherButtonsDisabled=unavailable||remotePaused;
-    restartButton.disabled=otherButtonsDisabled;
-    for(const button of reactionButtons)button.disabled=otherButtonsDisabled;
+    // Pausing the game does not disable forfeiting or sending reactions.
+    restartButton.disabled=unavailable;
+    for(const button of reactionButtons)button.disabled=unavailable;
   }
   const label=showResume?"RESUME":"PAUSE";
   const ariaLabel=REMOTE_PLAYER&&remotePeerPaused&&!remoteLocalPaused?

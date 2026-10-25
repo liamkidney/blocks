@@ -337,9 +337,11 @@ bindImmediateAction(restartButton,()=>{
 });
 for(const button of reactionButtons)if(REMOTE_PLAYER)
   bindImmediateAction(button,()=>{
-    if(!window.BLOCKS_REMOTE?.sendReaction(button.dataset.reaction))return;
-    // Confirm every accepted tap locally without showing a floating emoji
-    // on the sender's board. The floating reaction remains opponent-only.
+    const reaction=button.dataset.reaction;
+    if(!window.BLOCKS_REMOTE?.sendReaction(reaction))return;
+    // Show the same floating reaction immediately on the sender's board.
+    // The opponent receives it separately over Realtime (self:false).
+    window.dispatchEvent(new CustomEvent("blocks:remote-reaction",{detail:{reaction}}));
     button.classList.remove("reaction-sent");
     void button.offsetWidth; // Restart animation for repeated taps.
     button.classList.add("reaction-sent");

@@ -176,6 +176,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     };
     const attacks=[],results=[],rounds=[],holds=[],unholds=[],configs=[];
     const ownBoard=Array(20).fill(0),opponentBoards=[],clearedBoards=[];
+    const reactions=[],pauses=[];
     const window={
       BLOCKS_REMOTE_LOCAL_CONFIG:config,
       visualViewport,innerHeight:800,innerWidth:390,
@@ -188,6 +189,8 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     };
     window.addEventListener('blocks:remote-board',e=>opponentBoards.push(e.detail.rows));
     window.addEventListener('blocks:remote-board-clear',()=>clearedBoards.push(true));
+    window.addEventListener('blocks:remote-reaction',e=>reactions.push(e.detail.reaction));
+    window.addEventListener('blocks:remote-pause-state',e=>pauses.push({...e.detail}));
     window.addEventListener('blocks:remote-config',e=>configs.push(e.detail));
     window.addEventListener('blocks:remote-hold',()=>holds.push('hold'));
     window.addEventListener('blocks:remote-unhold',()=>unholds.push('unhold'));
@@ -255,7 +258,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
       window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,bodyElements,
-      ownBoard,opponentBoards,clearedBoards,
+      ownBoard,opponentBoards,clearedBoards,reactions,pauses,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -712,6 +715,59 @@ test('opponent board messages reject wrong sender, round and invalid cells',asyn
   send(1,1,rows);
   assert.equal(guest.opponentBoards.length,before+1);
   assert.equal(guest.opponentBoards.at(-1)[0],512);
+});
+
+test('two-phone pause propagates both ways and requires both players to resume',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  host.window.BLOCKS_REMOTE.togglePause();
+  assert.deepEqual(host.pauses.at(-1),{local:true,peer:false});
+  assert.deepEqual(guest.pauses.at(-1),{local:false,peer:true});
+  guest.window.BLOCKS_REMOTE.togglePause();
+  assert.deepEqual(guest.pauses.at(-1),{local:false,peer:true},
+    'opponent cannot override an active pause');
+  host.window.BLOCKS_REMOTE.togglePause();
+  assert.deepEqual(guest.pauses.at(-1),{local:false,peer:false});
+  guest.window.BLOCKS_REMOTE.togglePause();
+  assert.deepEqual(host.pauses.at(-1),{local:false,peer:true});
+  const guestSocket=f.sockets[1];
+  guestSocket.readyState=3;guestSocket.onclose();
+  assert.deepEqual(host.pauses.at(-1),{local:false,peer:true},
+    'brief socket loss does not silently resume the other player');
+  guest.window.BLOCKS_REMOTE.togglePause();
+  assert.deepEqual(guest.pauses.at(-1),{local:false,peer:false});
+  assert.equal(f.allEvents.length,0,'pause broadcasts never write to the database');
+});
+
+test('hearts and crying emoji are delivered only to the opponent in the current round',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  host.window.BLOCKS_REMOTE.sendReaction('heart');
+  assert.deepEqual(host.reactions,[]);
+  assert.deepEqual(guest.reactions,['heart']);
+  guest.window.BLOCKS_REMOTE.sendReaction('cry');
+  assert.deepEqual(host.reactions,['cry']);
+  host.window.BLOCKS_REMOTE.sendReaction('invalid');
+  assert.deepEqual(guest.reactions,['heart']);
+  assert.equal(f.allEvents.length,0,'reactions must be ephemeral realtime broadcasts');
+  host.window.BLOCKS_REMOTE.reportLoss();await settle();
+  guest.window.BLOCKS_REMOTE.sendReaction('heart');
+  assert.deepEqual(host.reactions,['cry'],'a completed match does not display reactions');
+});
+
+test('two-phone controls replace profile and scoreboard and hide underlying keyboard game',()=>{
+  const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  const remote=fs.readFileSync(path.join(__dirname,'..','remote-multiplayer.js'),'utf8');
+  const profiles=fs.readFileSync(path.join(__dirname,'..','player-name.js'),'utf8');
+  const scores=fs.readFileSync(path.join(__dirname,'..','high-scores.js'),'utf8');
+  assert.match(app,/reactionActions\.id="remote-reaction-actions"/);
+  assert.match(app,/window\.BLOCKS_REMOTE\?\.reportLoss\(\)/);
+  assert.match(app,/window\.BLOCKS_REMOTE\?\.togglePause\(\)/);
+  assert.match(css,/body\.remote-multiplayer #remote-reaction-actions button\{/);
+  assert.match(css,/body\.remote-waiting #console\{visibility:hidden\}/);
+  assert.match(css,/body\.remote-multiplayer #high-scores-slot\{display:none!important\}/);
+  assert.doesNotMatch(remote,/remote-match-bar|remote-match-label|remote-leave/);
+  assert.match(profiles,/get\('remote'\)==='1'\)return/);
+  assert.match(scores,/get\('remote'\)==='1'\)return/);
 });
 
 test('WebSocket interruption retains the last miniature frame',async()=>{

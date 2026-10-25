@@ -27,25 +27,29 @@ const SRS_KICKS_I={
 };
 
 class PieceQueue {
-  static DROUGHT_WEIGHT = 0.2;
   constructor(tetrominoes=TETROMINOES){
+    if(!tetrominoes.length)throw new Error("Piece queue needs at least one piece");
     this.tetrominoes=tetrominoes;
     this.pieces=[];
-    this.droughts=Object.fromEntries(this.tetrominoes.map(t=>[t.name,0]));
+    this.bag=[];
     this.fill();
   }
-  choose(){
-    const weights=this.tetrominoes.map(t=>1+PieceQueue.DROUGHT_WEIGHT*this.droughts[t.name]);
-    const total=weights.reduce((a,b)=>a+b,0);
-    let pick=Math.random()*total, chosen=this.tetrominoes[this.tetrominoes.length-1];
-    for(let i=0;i<this.tetrominoes.length;i++){ pick-=weights[i]; if(pick<0){ chosen=this.tetrominoes[i]; break; } }
-    for(const t of this.tetrominoes) this.droughts[t.name]=t.name===chosen.name?0:this.droughts[t.name]+1;
-    return chosen;
+  draw(){
+    if(!this.bag.length){
+      // Fisher-Yates: each standard seven-piece bag contains exactly one
+      // of each tetromino. Restricted I/O games shuffle their allowed set.
+      this.bag=[...this.tetrominoes];
+      for(let i=this.bag.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [this.bag[i],this.bag[j]]=[this.bag[j],this.bag[i]];
+      }
+    }
+    return this.bag.pop();
   }
-  fill(){ while(this.pieces.length<2) this.pieces.push(this.choose()); }
+  fill(){ while(this.pieces.length<2)this.pieces.push(this.draw()); }
   current(){ return this.pieces[0]; }
   next(){ return this.pieces[1]; }
-  advance(){ this.pieces.shift(); this.fill(); }
+  advance(){ this.pieces.shift();this.fill(); }
 }
 
 class Game {
@@ -64,11 +68,12 @@ class Game {
   get tickSeconds(){return GRAVITY_FRAMES[Math.min(this.level,GRAVITY_FRAMES.length-1)]/60;}
   toSnapshot(){
     return {
-      version:3,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
+      version:4,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
       pausedPhase:this.pausedPhase||null,completedRows:[...this.completedRows],
       score:this.score,lines:this.lines,elapsed:this.elapsed,
       active:this.active?{name:this.active.tetromino.name,x:this.active.x,y:this.active.y,orientation:this.active.orientation}:null,
-      queue:this.queue.pieces.map(t=>t.name),droughts:{...this.queue.droughts}
+      queue:this.queue.pieces.map(t=>t.name),
+      bag:this.queue.bag.map(t=>t.name)
     };
   }
   static fromSnapshot(snapshot,config={}){
@@ -77,13 +82,15 @@ class Game {
     const byName=Object.fromEntries(allowed.map(t=>[t.name,t]));
     const validName=name=>typeof name==="string"&&Object.hasOwn(byName,name);
     const integer=n=>Number.isSafeInteger(n)&&n>=0;
-    if(!snapshot||![1,2,3].includes(snapshot.version)||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
+    if(!snapshot||![1,2,3,4].includes(snapshot.version)||!Array.isArray(snapshot.grid)||snapshot.grid.length!==20||
        !snapshot.grid.every(row=>Array.isArray(row)&&row.length===10&&row.every(v=>v===null||validName(v)))||
        !["falling","clearing_lines","paused","game_over"].includes(snapshot.phase)||
        !integer(snapshot.score)||!integer(snapshot.lines)||
        !Number.isFinite(snapshot.elapsed)||snapshot.elapsed<0||snapshot.elapsed>2||
        !Array.isArray(snapshot.queue)||snapshot.queue.length!==2||!snapshot.queue.every(validName)||
-       !snapshot.droughts||!allowed.every(t=>integer(snapshot.droughts[t.name]))||
+       (snapshot.version===4&&(!Array.isArray(snapshot.bag)||
+         snapshot.bag.length>allowed.length||!snapshot.bag.every(validName)||
+         new Set(snapshot.bag).size!==snapshot.bag.length))||
        !Array.isArray(snapshot.completedRows)||!snapshot.completedRows.every(y=>integer(y)&&y<20)||
        (snapshot.phase==="paused"&&!["falling","clearing_lines"].includes(snapshot.pausedPhase))) throw new Error("Invalid saved game");
     const terminal=snapshot.phase==="game_over";
@@ -102,7 +109,10 @@ class Game {
     game.completedRows=[...snapshot.completedRows];
     game.score=snapshot.score;game.lines=snapshot.lines;game.elapsed=snapshot.elapsed;
     game.queue.pieces=snapshot.queue.map(name=>byName[name]);
-    game.queue.droughts=Object.fromEntries(allowed.map(t=>[t.name,snapshot.droughts[t.name]]));
+    // Legacy saved games used weighted random selection, with no bag to
+    // restore. Keep their current + next pieces, then begin a fresh bag.
+    game.queue.bag=snapshot.version===4?
+      snapshot.bag.map(name=>byName[name]):[];
     game.nextTetromino=game.queue.next();
     game.active=active?{tetromino:byName[active.name],x:active.x,y:active.y,orientation:active.orientation}:null;
     // S/Z had offset pivots in snapshots v1 and v2. Preserve the
@@ -179,8 +189,16 @@ class Game {
     for(let i=0;i<rows;i++){
       const overflow=this.grid[this.height-1].some(Boolean);
       this.grid.pop();
-      const row=Array.from({length:this.width},()=>Math.random()<0.7?"I":null);
-      if(row.every(Boolean))row[Math.floor(Math.random()*this.width)]=null;
+      // Each attack still grants ONE junk row per two cleared lines.
+      // Fill exactly 4–7 randomly selected columns; leave 3–6 gaps.
+      const columns=Array.from({length:this.width},(_,x)=>x);
+      for(let j=columns.length-1;j>0;j--){
+        const k=Math.floor(Math.random()*(j+1));
+        [columns[j],columns[k]]=[columns[k],columns[j]];
+      }
+      const blockCount=4+Math.floor(Math.random()*4);
+      const row=Array(this.width).fill(null);
+      for(let j=0;j<blockCount;j++)row[columns[j]]="I";
       this.grid.unshift(row);
       if(this.active)this.active.y++;
       if(this.completedRows.length)this.completedRows=this.completedRows.map(y=>y+1);

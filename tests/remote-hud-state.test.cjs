@@ -136,3 +136,33 @@ test('both remote HUD rows visibly grey out disabled controls',()=>{
   assert.match(css,/body:not\(\.two-player\) #game-actions button:disabled\{opacity:\.3\}/);
   assert.match(css,/body\.remote-multiplayer #remote-reaction-actions button:disabled\{opacity:\.3\}/);
 });
+
+test('rapid repeated taps reach the reaction button handler without being suppressed',()=>{
+  const from=source.indexOf('function bindImmediateAction(');
+  const to=source.indexOf('bindImmediateAction(pauseButton,',from);
+  assert.ok(from>=0&&to>from);
+  let now=0,accepted=0,prevented=0;
+  const handlers=new Map();
+  const button={
+    disabled:false,
+    addEventListener(type,callback){handlers.set(type,callback)}
+  };
+  const context=vm.createContext({performance:{now:()=>now}});
+  vm.runInContext(source.slice(from,to),context);
+  const bind=vm.runInContext('bindImmediateAction',context);
+  bind(button,()=>accepted++);
+  for(const delay of [0,50,75,110,180]){
+    now=delay;
+    handlers.get('touchstart')({preventDefault(){prevented++}});
+  }
+  assert.equal(accepted,5,'every distinct touch should be accepted');
+  assert.equal(prevented,5);
+  handlers.get('click')({preventDefault(){prevented++}});
+  assert.equal(accepted,5,'iOS synthetic click must not duplicate the last touch');
+  assert.equal(prevented,6);
+
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.match(source,/button\.classList\.add\("reaction-sent"\)/);
+  assert.match(css,/remote-reaction-actions button\.reaction-sent/);
+  assert.match(css,/@keyframes remote-reaction-tap/);
+});

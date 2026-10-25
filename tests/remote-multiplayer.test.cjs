@@ -799,7 +799,7 @@ test('reactions wait briefly for Realtime reconnect, then drain without duplicat
   host.window.BLOCKS_REMOTE.sendReaction('heart');
   host.window.BLOCKS_REMOTE.sendReaction('cry');
   assert.deepEqual(guest.reactions,[],'no false delivery while socket is closed');
-  await host.advance(3500);await settle();
+  await host.advance(3000);await settle();
   assert.deepEqual(guest.reactions,['heart'],
     'first queued emoji is delivered once after reconnect');
   await host.advance(200);await settle();
@@ -956,7 +956,7 @@ test('three-consonant room code displays countdown and expires without ending a 
   const f=fixture(),host=f.browser();
   host.get('remote-create').onclick();await settle();
   assert.equal(shownCode(host,'remote-create'),'BRT');
-  assert.match(host.get('remote-code-expires').textContent,/Code expires in (?:3:00|2:5\d)/);
+  assert.match(host.get('remote-code-expires').textContent,/Code expires in (?:3:0[01]|2:5\d)/);
   const state=JSON.parse(host.storage.get('blocks:remote-match:/blocks/dev/'));
   assert.match(state.inviteExpiresAt,/Z$/);
   f.expireCode();

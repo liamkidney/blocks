@@ -34,20 +34,35 @@
   // Realtime socket reconnects, without persisting stale emojis to storage.
   const MAX_PENDING_REACTIONS=12;
   const REACTION_TTL_MS=8000;
-  let pendingReactions=[];
+  const REACTION_SEND_INTERVAL_MS=180;
+  let pendingReactions=[],reactionTimer=null,lastReactionSentAt=-Infinity;
   let broadcastTransient=()=>false;
+  const clearReactions=()=>{
+    pendingReactions=[];
+    if(reactionTimer!==null){clearTimeout(reactionTimer);reactionTimer=null;}
+    lastReactionSentAt=-Infinity;
+  };
   const flushReactions=()=>{
     if(!match||!ready||finished||forfeiting||exiting)return;
     const now=Date.now();
     pendingReactions=pendingReactions.filter(item=>
       item.matchId===match.id&&item.round===match.round&&now-item.at<=REACTION_TTL_MS);
-    while(pendingReactions.length){
-      const next=pendingReactions[0];
-      if(!broadcastTransient('reaction',{reaction:next.reaction}))break;
-      pendingReactions.shift();
+    if(!pendingReactions.length)return;
+    const wait=Math.max(0,REACTION_SEND_INTERVAL_MS-(now-lastReactionSentAt));
+    if(wait>0){
+      if(reactionTimer===null)reactionTimer=setTimeout(()=>{
+        reactionTimer=null;flushReactions();
+      },wait);
+      return;
     }
+    const next=pendingReactions[0];
+    if(!broadcastTransient('reaction',{reaction:next.reaction}))return;
+    pendingReactions.shift();
+    lastReactionSentAt=Date.now();
+    if(pendingReactions.length&&reactionTimer===null)reactionTimer=setTimeout(()=>{
+      reactionTimer=null;flushReactions();
+    },REACTION_SEND_INTERVAL_MS);
   };
-  const clearReactions=()=>{pendingReactions=[];};
   const emitPause=()=>window.dispatchEvent(new CustomEvent('blocks:remote-pause-state',
     {detail:{local:localPaused,peer:peerPaused}}));
   const clearPauses=()=>{localPaused=false;peerPaused=false;emitPause();};

@@ -102,6 +102,16 @@ restartButton.innerHTML=restartIcon;
 restartButton.setAttribute("aria-label","Restart game");
 restartButton.title="Restart game";
 actions.append(pauseButton,restartButton);
+const reactionActions=document.createElement("div");
+reactionActions.id="remote-reaction-actions";
+const reactionButtons=[["heart","❤️"],["cry","😭"]].map(([name,emoji])=>{
+  const button=document.createElement("button");
+  button.type="button";button.className="remote-reaction-button";
+  button.dataset.reaction=name;button.textContent=emoji;
+  button.setAttribute("aria-label",name==="heart"?"Send heart":"Send crying face");
+  reactionActions.appendChild(button);
+  return button;
+});
 const highScoresSlot=document.createElement("div");
 highScoresSlot.id="high-scores-slot";
 const playerButton=document.createElement("button");
@@ -110,6 +120,13 @@ playerButton.setAttribute("aria-label","Player");playerButton.title="Player";
 playerButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>';
 highScoresSlot.appendChild(playerButton);
 document.getElementById("hud").append(actions,highScoresSlot);
+if(REMOTE_PLAYER){
+  highScoresSlot.hidden=true;
+  document.getElementById("hud").append(reactionActions);
+  restartButton.setAttribute("aria-label","Restart (forfeit match)");
+  restartButton.title="Restart (forfeit match)";
+}
+
 const gameOver=document.createElement("div");
 gameOver.id="game-over";
 gameOver.textContent="GAME OVER";
@@ -289,7 +306,7 @@ bindImmediateAction(ghostOnButton,()=>selectGhostPiece(true));
 selectDifficulty(selectedDifficulty);
 selectGhostPiece(selectedGhostPiece);
 selectPlayerCount(selectedPlayers);
-if(REMOTE_PLAYER){pauseButton.hidden=true;restartButton.hidden=true;}
+
 if(initialStart&&!REMOTE_PLAYER){
   restartTitle.textContent="START GAME";
   restartDescription.textContent="CHOOSE SPEED, GHOST PIECE AND PLAYER COUNT.";
@@ -309,13 +326,58 @@ function bindImmediateAction(button,action){
     if(!button.disabled)action();
   });
 }
-bindImmediateAction(pauseButton,togglePause);
-bindImmediateAction(restartButton,restartGame);
+bindImmediateAction(pauseButton,()=>{
+  if(REMOTE_PLAYER)window.BLOCKS_REMOTE?.togglePause();
+  else togglePause();
+});
+bindImmediateAction(restartButton,()=>{
+  if(REMOTE_PLAYER){
+    if(window.confirm("Forfeit this match and restart?"))window.BLOCKS_REMOTE?.reportLoss();
+  }else restartGame();
+});
+for(const button of reactionButtons)if(REMOTE_PLAYER)
+  bindImmediateAction(button,()=>window.BLOCKS_REMOTE?.sendReaction(button.dataset.reaction));
+const remoteReactionLayer=REMOTE_PLAYER?(()=>{
+  const layer=document.createElement("div");
+  layer.id="remote-reaction-layer";layer.setAttribute("aria-hidden","true");
+  board.parentElement.appendChild(layer);
+  return layer;
+})():null;
+window.addEventListener("blocks:remote-reaction",event=>{
+  if(!REMOTE_PLAYER||!remoteReactionLayer)return;
+  const emoji=event.detail?.reaction==="heart"?"❤️":
+    event.detail?.reaction==="cry"?"😭":null;
+  if(!emoji)return;
+  // Keep a bounded number of transient reactions, including rapid bursts.
+  while(remoteReactionLayer.childElementCount>=8)remoteReactionLayer.firstChild.remove();
+  const element=document.createElement("span");
+  element.className="remote-floating-reaction";element.textContent=emoji;
+  element.style.left=(30+Math.random()*40)+"%";
+  remoteReactionLayer.appendChild(element);
+  element.addEventListener("animationend",()=>element.remove(),{once:true});
+  setTimeout(()=>element.remove(),2500);
+});
+let remoteLocalPaused=false,remotePeerPaused=false;
+function syncRemotePause(){
+  if(!REMOTE_PLAYER||remoteFinished||remoteLost)return;
+  if(remoteReady&&!remoteLocalPaused&&!remotePeerPaused)game.resume();
+  else game.pause();
+}
+window.addEventListener("blocks:remote-pause-state",event=>{
+  if(!REMOTE_PLAYER)return;
+  remoteLocalPaused=Boolean(event.detail?.local);
+  remotePeerPaused=Boolean(event.detail?.peer);
+  syncRemotePause();
+});
 function renderActions(){
   const paused=game.phase==="paused";
   for(const button of document.querySelectorAll(".match-pause-button"))button.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
-  pauseButton.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
-  const label=paused?"RESUME":"PAUSE";
+  pauseButton.disabled=REMOTE_PLAYER?
+    !remoteReady||remoteFinished||remoteLost||(!remoteLocalPaused&&remotePeerPaused):
+    TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
+  if(REMOTE_PLAYER)restartButton.disabled=!remoteReady||remoteFinished||remoteLost;
+  for(const button of reactionButtons)button.disabled=!remoteReady||remoteFinished||remoteLost;
+  const label=REMOTE_PLAYER?(remoteLocalPaused?"RESUME":"PAUSE"):(paused?"RESUME":"PAUSE");
   if(pauseButton.dataset.state!==label){
     pauseButton.innerHTML=paused?resumeIcon:pauseIcon;
     pauseButton.setAttribute("aria-label",paused?"Resume game":"Pause game");
@@ -381,6 +443,7 @@ window.BLOCKS_REMOTE_RESET=()=>{
   game.pause();
   session.drainEvents();
   remoteReady=false;remoteFinished=false;remoteLost=false;remoteAttackProgress=0;
+  remoteLocalPaused=false;remotePeerPaused=false;
   awaitingInitialStart=false;window.BLOCKS_AWAITING_START=false;
   previousPhase=game.phase;lastTime=performance.now();
   gameOver.textContent="GAME OVER";
@@ -406,7 +469,7 @@ window.addEventListener('blocks:remote-ready',()=>{
   awaitingInitialStart=false;
   window.BLOCKS_AWAITING_START=false;
   restartDialog.hidden=true;
-  game.resume();
+  syncRemotePause();
 });
 window.addEventListener('blocks:remote-hold',()=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
@@ -417,7 +480,7 @@ window.addEventListener('blocks:remote-hold',()=>{
 window.addEventListener('blocks:remote-unhold',()=>{
   if(!REMOTE_PLAYER||remoteFinished||remoteLost)return;
   remoteReady=true;
-  game.resume();
+  syncRemotePause();
 });
 window.addEventListener('blocks:remote-event',event=>{
   if(!REMOTE_PLAYER||remoteFinished)return;

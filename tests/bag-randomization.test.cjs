@@ -8,7 +8,7 @@ const context=vm.createContext({Math});
 for(const file of ['game-modes.js','tetrominoes.js','game.js','session.js'])
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
 const {Game,GameSession,TETROMINOES}=vm.runInContext('({Game,GameSession,TETROMINOES})',context);
-const names=TETROMINOES.map(t=>t.name).sort();
+const names=Array.from(TETROMINOES,t=>t.name).sort();
 
 function sequence(game,count){
   const pieces=[];
@@ -45,8 +45,8 @@ test('saving and reconnecting restores the unconsumed bag in precisely the same 
   assert.equal(snapshot.version,4);
   assert.ok(Array.isArray(snapshot.bag));
   const restored=Game.fromSnapshot(snapshot);
-  assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().bag)),snapshot.bag);
-  assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().queue)),snapshot.queue);
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().bag)),JSON.parse(JSON.stringify(snapshot.bag)));
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().queue)),JSON.parse(JSON.stringify(snapshot.queue)));
   // Only compare draws that were committed before saving. A fresh bag is
   // random on each phone once the previously persisted bag runs out.
   const n=snapshot.bag.length;
@@ -63,7 +63,7 @@ test('old versions keep their current and next pieces and migrate to a fresh bag
   delete snapshot.bag;
   snapshot.droughts=Object.fromEntries(names.map(name=>[name,1]));
   const restored=Game.fromSnapshot(snapshot);
-  assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().queue)),snapshot.queue);
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().queue)),JSON.parse(JSON.stringify(snapshot.queue)));
   assert.equal(restored.toSnapshot().version,4);
   assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().bag)),[]);
   // After the previously saved lookahead, the next draw begins a fair bag.

@@ -15,17 +15,18 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     const success=data=>({ok:true,json:async()=>data});
     const failure=message=>({ok:false,status:400,json:async()=>({message})});
     if(name==='blocks_create_match'||name==='blocks_create_match_config'||
-       name==='blocks_create_match_short'){
+       name==='blocks_create_match_short'||name==='blocks_create_match_short_v2'){
       const id=randomUUID(),hostToken=randomUUID();
-      const code=name==='blocks_create_match_short'?shortCode:'ABCDEF';
+      const code=name.startsWith('blocks_create_match_short')?shortCode:'ABCDEF';
       const code_expires_at=new Date(Date.now()+180000).toISOString();
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
         round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,
         difficulty:a.p_difficulty??1,piece_set:a.p_piece_set??'ALL',
-        presence_enabled:name==='blocks_create_match_config'||name==='blocks_create_match_short',
+        ghost_piece:name==='blocks_create_match_short_v2'?a.p_ghost_piece:null,
+        presence_enabled:name==='blocks_create_match_config'||name.startsWith('blocks_create_match_short'),
         code_expires_at,
         host_online:true,guest_online:true,events:[]});
-      if(name==='blocks_create_match_short')
+      if(name.startsWith('blocks_create_match_short'))
         // PostgREST serialises RETURNS TABLE (SETOF records) as an array.
         return success([{match_id:id,room_code:code,player_token:hostToken,code_expires_at}]);
       return success([{match_id:id,room_code:code,player_token:hostToken}]);
@@ -65,7 +66,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       status:m.status,winner:m.winner,round:m.round,
       host_ready:m.host_ready,guest_ready:m.guest_ready,
       host_wins:m.host_wins,guest_wins:m.guest_wins,
-      difficulty:m.difficulty,piece_set:m.piece_set,
+      difficulty:m.difficulty,piece_set:m.piece_set,ghost_piece:m.ghost_piece,
       presence_enabled:m.presence_enabled,host_online:m.host_online,guest_online:m.guest_online,
       events:m.events.filter(e=>e.round===m.round&&e.id>(a.p_after||0))
     });
@@ -131,7 +132,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     return failure('Unknown RPC');
   }
 
-  function browser(storage=new Map(),config={difficulty:1,piece_set:'ALL'}){
+  function browser(storage=new Map(),config={difficulty:1,piece_set:'ALL',ghost_piece:false}){
     const nodes=new Map(),bodyElements=[];
     const get=id=>{
       if(!nodes.has(id))nodes.set(id,node(id));
@@ -599,10 +600,10 @@ test('new room starts a fresh 0–0 score after leaving a won session',async()=>
 });
 
 
-test('room difficulty and allowed pieces are enforced on the joining phone',async()=>{
+test('room difficulty, pieces, and Ghost Piece are enforced on the joining phone',async()=>{
   const f=fixture();
-  const host=f.browser(new Map(),{difficulty:2,piece_set:'IO'});
-  const guest=f.browser(new Map(),{difficulty:0,piece_set:'ALL'});
+  const host=f.browser(new Map(),{difficulty:2,piece_set:'IO',ghost_piece:true});
+  const guest=f.browser(new Map(),{difficulty:0,piece_set:'ALL',ghost_piece:false});
   host.get('remote-create').onclick();await settle();
   guest.get('remote-join').onclick();
   guest.get('remote-input').value='BRT';
@@ -611,9 +612,31 @@ test('room difficulty and allowed pieces are enforced on the joining phone',asyn
   const room=[...f.rooms.values()][0];
   assert.equal(room.difficulty,2);
   assert.equal(room.piece_set,'IO');
-  assert.deepEqual(JSON.parse(JSON.stringify(guest.configs)),[{difficulty:2,piece_set:'IO'}]);
+  assert.equal(room.ghost_piece,true);
+  assert.deepEqual(JSON.parse(JSON.stringify(guest.configs)),
+    [{difficulty:2,piece_set:'IO',ghost_piece:true}]);
+  const stored=JSON.parse(guest.storage.get('blocks:remote-match:/blocks/dev/'));
+  assert.equal(stored.ghost_piece,true,'reconnects must keep host settings');
   assert.equal(host.get('remote-result-title').textContent,'READY TO START');
   assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+});
+
+test('Ghost Piece OFF on host overrides a guest who normally plays with it ON',async()=>{
+  const f=fixture();
+  const host=f.browser(new Map(),{difficulty:1,piece_set:'ALL',ghost_piece:false});
+  const guest=f.browser(new Map(),{difficulty:1,piece_set:'ALL',ghost_piece:true});
+  host.get('remote-create').onclick();await settle();
+  guest.get('remote-join').onclick();
+  guest.get('remote-input').value='BRT';
+  guest.get('remote-input').listeners.input();
+  await settle();await host.tick();await guest.tick();await settle();
+  assert.equal(f.rooms.values().next().value.ghost_piece,false);
+  assert.deepEqual(JSON.parse(JSON.stringify(guest.configs)),
+    [{difficulty:1,piece_set:'ALL',ghost_piece:false}]);
+  const reconnected=f.browser(guest.storage,{difficulty:1,piece_set:'ALL',ghost_piece:true});
+  await settle();await reconnected.tick();await settle();
+  assert.equal(JSON.parse(guest.storage.get('blocks:remote-match:/blocks/dev/')).ghost_piece,false);
+  assert.equal(f.rooms.size,1);
 });
 
 test('lost join acknowledgement retries with the same token and starts a single room',async()=>{

@@ -75,7 +75,7 @@ test('opponent miniature draws settled blocks and falling pieces in the same gre
 test('two-phone HUD replaces score and lines with a separate miniature',()=>{
   const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
   const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
-  assert.match(css,/body\.remote-multiplayer #hud \.metric\{display:none\}/);
+  assert.match(css,/body\.remote-multiplayer #hud \.metric,\s*body\.remote-multiplayer #high-scores-slot\{display:none!important\}/);
   assert.match(css,/#opponent-mini-board\s*\{[^}]*grid-template-columns:repeat\(10/);
   assert.match(css,/\.opponent-mini-cell\.occupied\{background:#787a78\}/);
   assert.doesNotMatch(css,/\.opponent-mini-cell\.(?:falling|locked)\{/);

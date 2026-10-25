@@ -336,7 +336,14 @@ bindImmediateAction(restartButton,()=>{
   }else restartGame();
 });
 for(const button of reactionButtons)if(REMOTE_PLAYER)
-  bindImmediateAction(button,()=>window.BLOCKS_REMOTE?.sendReaction(button.dataset.reaction));
+  bindImmediateAction(button,()=>{
+    if(!window.BLOCKS_REMOTE?.sendReaction(button.dataset.reaction))return;
+    // Confirm every accepted tap locally without showing a floating emoji
+    // on the sender's board. The floating reaction remains opponent-only.
+    button.classList.remove("reaction-sent");
+    void button.offsetWidth; // Restart animation for repeated taps.
+    button.classList.add("reaction-sent");
+  });
 const remoteReactionLayer=REMOTE_PLAYER?(()=>{
   const layer=document.createElement("div");
   layer.id="remote-reaction-layer";layer.setAttribute("aria-hidden","true");

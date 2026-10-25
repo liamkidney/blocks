@@ -1,5 +1,7 @@
 // Player identity and Supabase registration. No score writes yet.
 (()=>{
+  // Two-phone matches have no profile or leaderboard controls.
+  if(new URLSearchParams(location.search).get('remote')==='1')return;
   const KEY='blocks:player:v1';
   const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/players';
   const API_KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';

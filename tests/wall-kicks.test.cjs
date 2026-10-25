@@ -156,7 +156,7 @@ test("saved version-2 games keep the kicked position on restore",()=>{
   const game=setPiece(new Game({difficulty:2}),"T",0,4,-1);
   assert.equal(game.tryRotate(1),true);
   const snapshot=game.toSnapshot();
-  assert.equal(snapshot.version,3);
+  assert.equal(snapshot.version,4);
   const restored=Game.fromSnapshot(snapshot);
   assert.equal(restored.phase,"paused");
   assert.equal(restored.difficulty,2);
@@ -175,7 +175,7 @@ test("legacy v1 S/Z rotations 2 and 3 restore to the same four cells",()=>{
       assert.deepEqual(occupied(restored),
         occupiedFrom(name,orientation,4,8,true),
         name+" legacy orientation "+orientation);
-      assert.equal(restored.toSnapshot().version,3);
+      assert.equal(restored.toSnapshot().version,4);
     }
   }
 });

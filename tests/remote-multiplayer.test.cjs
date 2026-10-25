@@ -685,7 +685,7 @@ test('opponent boards broadcast over websocket without creating database events'
   host.ownBoard[0]=1;
   host.ownBoard[12]=1<<14;
   await host.tick();await settle();
-  assert.equal(f.boardBroadcasts.some(m=>m.player===1&&m.rows[0]===1),true);
+  assert.equal(f.boardBroadcasts.some(m=>m.player===1&&m.rows?.[0]===1),true);
   assert.equal(guest.opponentBoards.at(-1)[0],1);
   assert.equal(guest.opponentBoards.at(-1)[12],1<<14);
   assert.equal(host.opponentBoards.length,0,"self broadcasts must be disabled");

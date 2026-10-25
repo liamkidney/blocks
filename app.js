@@ -371,21 +371,37 @@ window.addEventListener("blocks:remote-pause-state",event=>{
 });
 function renderActions(){
   const paused=game.phase==="paused";
-  for(const button of document.querySelectorAll(".match-pause-button"))button.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
+  // Both phones must show the same pause/resume icon. The previous
+  // implementation used localPaused for the button state but game.phase for
+  // its icon, which diverged whenever the opponent paused.
+  const remotePaused=REMOTE_PLAYER&&(paused||remoteLocalPaused||remotePeerPaused);
+  const showResume=REMOTE_PLAYER?remotePaused:paused;
+  const unavailable=!remoteReady||remoteFinished||remoteLost;
+  for(const button of document.querySelectorAll(".match-pause-button"))
+    button.disabled=TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
   pauseButton.disabled=REMOTE_PLAYER?
-    !remoteReady||remoteFinished||remoteLost||(!remoteLocalPaused&&remotePeerPaused):
+    unavailable||(!remoteLocalPaused&&remotePeerPaused):
     TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
-  if(REMOTE_PLAYER)restartButton.disabled=!remoteReady||remoteFinished||remoteLost;
-  for(const button of reactionButtons)button.disabled=!remoteReady||remoteFinished||remoteLost;
-  const label=REMOTE_PLAYER?(remoteLocalPaused?"RESUME":"PAUSE"):(paused?"RESUME":"PAUSE");
-  if(pauseButton.dataset.state!==label){
-    pauseButton.innerHTML=paused?resumeIcon:pauseIcon;
-    pauseButton.setAttribute("aria-label",paused?"Resume game":"Pause game");
-    pauseButton.title=paused?"Resume game":"Pause game";
+  if(REMOTE_PLAYER){
+    const otherButtonsDisabled=unavailable||remotePaused;
+    restartButton.disabled=otherButtonsDisabled;
+    for(const button of reactionButtons)button.disabled=otherButtonsDisabled;
+  }
+  const label=showResume?"RESUME":"PAUSE";
+  const ariaLabel=REMOTE_PLAYER&&remotePeerPaused&&!remoteLocalPaused?
+    "Paused by opponent":showResume?"Resume game":"Pause game";
+  if(pauseButton.dataset.state!==label||pauseButton.getAttribute("aria-label")!==ariaLabel){
+    pauseButton.innerHTML=showResume?resumeIcon:pauseIcon;
+    pauseButton.setAttribute("aria-label",ariaLabel);
+    pauseButton.title=ariaLabel;
     pauseButton.dataset.state=label;
   }
   for(const button of document.querySelectorAll(".match-pause-button")){
-    if(button.dataset.state!==label){button.innerHTML=paused?resumeIcon:pauseIcon;button.dataset.state=label;button.setAttribute("aria-label",paused?"Resume game":"Pause game");}
+    if(button.dataset.state!==label){
+      button.innerHTML=showResume?resumeIcon:pauseIcon;
+      button.dataset.state=label;
+      button.setAttribute("aria-label",showResume?"Resume game":"Pause game");
+    }
   }
   board.parentElement.classList.toggle("game-paused",paused);
   if(TWO_PLAYER)document.body.classList.toggle("match-paused",paused);

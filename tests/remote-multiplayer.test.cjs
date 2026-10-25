@@ -722,11 +722,20 @@ test('two-phone pause propagates both ways and requires both players to resume',
   host.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(host.pauses.at(-1),{local:true,peer:false});
   assert.deepEqual(guest.pauses.at(-1),{local:false,peer:true});
+  host.window.BLOCKS_REMOTE.sendReaction('heart');
+  guest.window.BLOCKS_REMOTE.sendReaction('cry');
+  assert.deepEqual(host.reactions,[]);
+  assert.deepEqual(guest.reactions,[]);
+  host.window.BLOCKS_REMOTE.reportLoss();
+  assert.equal(f.rooms.values().next().value.status,'playing',
+    'restart/forfeit is not allowed while paused');
   guest.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(guest.pauses.at(-1),{local:false,peer:true},
     'opponent cannot override an active pause');
   host.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(guest.pauses.at(-1),{local:false,peer:false});
+  host.window.BLOCKS_REMOTE.sendReaction('heart');
+  assert.deepEqual(guest.reactions,['heart'],'reactions work again after resuming');
   guest.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(host.pauses.at(-1),{local:false,peer:true});
   const guestSocket=f.sockets[1];

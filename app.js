@@ -21,7 +21,11 @@ try{
   const savedGhost=localStorage.getItem(GHOST_KEY);
   if(savedGhost==="true"||savedGhost==="false")selectedGhostPiece=savedGhost==="true";
 }catch(_){}
-window.BLOCKS_CONFIG.ghostPiece=selectedGhostPiece;
+// New two-phone rooms store the host's Ghost Piece selection. Reconnects
+// must use that room setting rather than the guest's saved preference.
+const savedRemoteGhost=REMOTE_PLAYER&&typeof remoteStored?.ghost_piece==="boolean"?
+  remoteStored.ghost_piece:null;
+window.BLOCKS_CONFIG.ghostPiece=savedRemoteGhost??selectedGhostPiece;
 try{
   showNewGameOnLaunch=sessionStorage.getItem(SHOW_NEW_GAME_KEY)==="1";
   sessionStorage.removeItem(SHOW_NEW_GAME_KEY);
@@ -40,7 +44,8 @@ window.BLOCKS_REMOTE_LOCAL_CONFIG={
   difficulty:selectedDifficulty,
   piece_set:window.BLOCKS_CONFIG.allowedPieces?.length===2&&
     window.BLOCKS_CONFIG.allowedPieces.includes('I')&&
-    window.BLOCKS_CONFIG.allowedPieces.includes('O')?'IO':'ALL'
+    window.BLOCKS_CONFIG.allowedPieces.includes('O')?'IO':'ALL',
+  ghost_piece:selectedGhostPiece
 };
 let session;
 let storedSessionId=null;
@@ -475,14 +480,20 @@ window.BLOCKS_REMOTE_RESET=()=>{
 };
 window.addEventListener('blocks:remote-config',event=>{
   if(!REMOTE_PLAYER)return;
-  const {difficulty,piece_set}=event.detail;
+  const {difficulty,piece_set,ghost_piece}=event.detail;
   if(![0,1,2].includes(difficulty)||!['ALL','IO'].includes(piece_set))return;
-  if(session.config.difficulty===difficulty &&
-    ((session.config.allowedPieces?.length===2&&
-      session.config.allowedPieces.includes('I')&&
-      session.config.allowedPieces.includes('O'))?'IO':'ALL')===piece_set)return;
+  const currentSet=session.config.allowedPieces?.length===2&&
+    session.config.allowedPieces.includes('I')&&
+    session.config.allowedPieces.includes('O')?'IO':'ALL';
+  // Old rooms may not have a stored Ghost Piece value. Preserve local
+  // preferences in that one backwards-compatible case.
+  const ghostChanged=typeof ghost_piece==='boolean'&&
+    window.BLOCKS_CONFIG.ghostPiece!==ghost_piece;
+  if(session.config.difficulty===difficulty&&currentSet===piece_set&&!ghostChanged)return;
   session.config.difficulty=difficulty;
   session.config.allowedPieces=piece_set==='IO'?['I','O']:TETROMINOES.map(t=>t.name);
+  if(typeof ghost_piece==='boolean')window.BLOCKS_CONFIG.ghostPiece=ghost_piece;
+  updateVersionLabel();
   window.BLOCKS_REMOTE_RESET();
 });
 window.addEventListener('blocks:remote-new-round',()=>{

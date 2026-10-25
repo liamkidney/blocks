@@ -724,18 +724,14 @@ test('two-phone pause propagates both ways and requires both players to resume',
   assert.deepEqual(guest.pauses.at(-1),{local:false,peer:true});
   host.window.BLOCKS_REMOTE.sendReaction('heart');
   guest.window.BLOCKS_REMOTE.sendReaction('cry');
-  assert.deepEqual(host.reactions,[]);
-  assert.deepEqual(guest.reactions,[]);
-  host.window.BLOCKS_REMOTE.reportLoss();
-  assert.equal(f.rooms.values().next().value.status,'playing',
-    'restart/forfeit is not allowed while paused');
+  assert.deepEqual(host.reactions,['cry'],'emoji works while opponent has paused');
+  assert.deepEqual(guest.reactions,['heart'],'emoji works while locally paused');
   guest.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(guest.pauses.at(-1),{local:false,peer:true},
     'opponent cannot override an active pause');
   host.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(guest.pauses.at(-1),{local:false,peer:false});
-  host.window.BLOCKS_REMOTE.sendReaction('heart');
-  assert.deepEqual(guest.reactions,['heart'],'reactions work again after resuming');
+  assert.deepEqual(guest.reactions,['heart'],'reactions remain on previous pause test');
   guest.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(host.pauses.at(-1),{local:false,peer:true});
   const guestSocket=f.sockets[1];
@@ -745,6 +741,18 @@ test('two-phone pause propagates both ways and requires both players to resume',
   guest.window.BLOCKS_REMOTE.togglePause();
   assert.deepEqual(guest.pauses.at(-1),{local:false,peer:false});
   assert.equal(f.allEvents.length,0,'pause broadcasts never write to the database');
+});
+
+test('restart forfeits successfully during a player-initiated pause',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  guest.window.BLOCKS_REMOTE.togglePause();
+  assert.deepEqual(host.pauses.at(-1),{local:false,peer:true});
+  guest.window.BLOCKS_REMOTE.reportLoss();
+  await settle();
+  await host.tick();await guest.tick();await settle();
+  assert.deepEqual(host.results,[1]);
+  assert.deepEqual(guest.results,[1]);
+  assert.equal(f.rooms.values().next().value.status,'finished');
 });
 
 test('hearts and crying emoji are delivered only to the opponent in the current round',async()=>{

@@ -29,6 +29,11 @@
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
   let creating=false,joining=false,startSending=false,rematchSending=false,exiting=false;
   let held=false,heartbeatInFlight=false,lastHeartbeatAt=0;
+  let localPaused=false,peerPaused=false,lastReactionAt=0;
+  let broadcastTransient=()=>false;
+  const emitPause=()=>window.dispatchEvent(new CustomEvent('blocks:remote-pause-state',
+    {detail:{local:localPaused,peer:peerPaused}}));
+  const clearPauses=()=>{localPaused=false;peerPaused=false;emitPause();};
   let inviteTicker=null,checkingInvite=false,lastInviteCheckAt=0;
 
   const lobby=document.createElement('div');
@@ -106,12 +111,6 @@
   const rematchStatus=resultPanel.querySelector('#remote-rematch-status');
   const scoreYou=resultPanel.querySelector('#remote-score-you');
   const scoreOpponent=resultPanel.querySelector('#remote-score-opponent');
-
-  const bar=document.createElement('div');
-  bar.id='remote-match-bar';
-  bar.hidden=true;
-  bar.innerHTML='<span id="remote-match-label"></span><button type="button" id="remote-leave">FORFEIT</button>';
-  document.getElementById('console').prepend(bar);
 
   const showLobby=show=>{
     lobby.hidden=!show;
@@ -256,6 +255,7 @@
   let socket=null,wsHeartbeat=null,boardTicker=null,reconnectTimer=null,reference=0;
   const clearOpponentBoard=()=>window.dispatchEvent(new CustomEvent('blocks:remote-board-clear'));
   function closeSocket(){
+    broadcastTransient=()=>false;
     if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
     if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
     if(boardTicker){clearInterval(boardTicker);boardTicker=null;}
@@ -269,13 +269,20 @@
       const ws=new WebSocket('wss://psoncybkfsdmjksyrcvv.supabase.co/realtime/v1/websocket?apikey='+
         encodeURIComponent(KEY)+'&vsn=1.0.0');
       socket=ws;
-      let joinRef=null,joined=false,lastBoard='',lastBoardAt=0;
+      let joinRef=null,joined=false,lastBoard='',lastBoardAt=0,lastPauseSentAt=0;
       const send=(event,payload,target=topic)=>{
         if(ws.readyState!==1)return;
         const ref=String(++reference);
         if(event==='phx_join')joinRef=ref;
         ws.send(JSON.stringify({topic:target,event,payload,ref,
           ...(target==='phoenix'?{}:{join_ref:joinRef})}));
+      };
+      broadcastTransient=(event,payload)=>{
+        if(!joined||ws.readyState!==1||match?.id!==id||finished||!ready)return false;
+        send('broadcast',{type:'broadcast',event,payload:{
+          round:match.round,player:match.player,...payload
+        }});
+        return true;
       };
       const sendBoard=()=>{
         if(!joined||!ready||finished||held||match?.id!==id||
@@ -301,8 +308,15 @@
           if(message.event==='phx_reply'&&message.ref===joinRef&&
              message.payload?.status==='ok'){
             joined=true;
+            broadcastTransient('match-pause',{paused:localPaused});
             if(boardTicker)clearInterval(boardTicker);
-            boardTicker=setInterval(sendBoard,250);
+            boardTicker=setInterval(()=>{
+              sendBoard();
+              if(ready&&Date.now()-lastPauseSentAt>=2000){
+                broadcastTransient('match-pause',{paused:localPaused});
+                lastPauseSentAt=Date.now();
+              }
+            },250);
             sendBoard();
           }else if(message.event==='broadcast'){
             if(message.payload?.event==='opponent-board'){
@@ -314,6 +328,18 @@
                 window.dispatchEvent(new CustomEvent('blocks:remote-board',
                   {detail:{rows:data.rows}}));
               }
+            }else if(message.payload?.event==='match-pause'){
+              const data=message.payload.payload;
+              if(ready&&!finished&&data?.round===match?.round&&
+                 data?.player===3-match.player&&typeof data.paused==='boolean'){
+                peerPaused=data.paused;emitPause();
+              }
+            }else if(message.payload?.event==='reaction'){
+              const data=message.payload.payload;
+              if(ready&&!finished&&data?.round===match?.round&&
+                 data?.player===3-match.player&&['heart','cry'].includes(data.reaction))
+                window.dispatchEvent(new CustomEvent('blocks:remote-reaction',
+                  {detail:{reaction:data.reaction}}));
             }else void poll();
           }
         }catch(_){}
@@ -323,7 +349,8 @@
         socket=null;
         if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
         if(boardTicker){clearInterval(boardTicker);boardTicker=null;}
-            if(match?.id===id)reconnectTimer=setTimeout(openSocket,3000);
+        broadcastTransient=()=>false;
+        if(match?.id===id)reconnectTimer=setTimeout(openSocket,3000);
       };
       ws.onerror=()=>{}; // Polling is the reliable fallback.
     }catch(e){console.warn('Blocks Realtime:',e);}
@@ -354,7 +381,6 @@
   function showStart(state){
     if(!match||finished||exiting)return;
     staging=true;ready=false;
-    bar.hidden=true;
     showLobby(false);showResult(true);
     resultKicker.textContent='ROOM '+match.code+' · PLAYER '+match.player;
     resultTitle.textContent='READY TO START';
@@ -372,13 +398,11 @@
   function holdGame(reason){
     if(!ready||held)return;
     held=true;
-    bar.querySelector('#remote-match-label').textContent='PAUSED · '+reason;
     window.dispatchEvent(new CustomEvent('blocks:remote-hold'));
   }
   function resumeGame(){
     if(!ready||!held)return;
     held=false;
-    bar.querySelector('#remote-match-label').textContent='ROOM '+match.code+' · PLAYER '+match.player;
     window.dispatchEvent(new CustomEvent('blocks:remote-unhold'));
   }
   function checkPresence(data){
@@ -409,9 +433,9 @@
   function readyUI(){
     if(ready||finished||forfeiting||exiting)return;
     ready=true;staging=false;held=false;
-    bar.hidden=false;
-    bar.querySelector('#remote-match-label').textContent='ROOM '+match.code+' · PLAYER '+match.player;
     showLobby(false);showResult(false);
+    emitPause();
+    broadcastTransient('match-pause',{paused:localPaused});
     window.dispatchEvent(new CustomEvent('blocks:remote-ready',{detail:{round:match.round}}));
   }
   function rematchView(state){
@@ -433,7 +457,7 @@
       match.finished=true;match.winner=winner;
       window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner}}));
     }
-    bar.hidden=true;showLobby(false);
+    clearPauses();showLobby(false);
     resultKicker.textContent='MATCH COMPLETE · ROUND '+match.round;
     resultTitle.textContent=winner===match.player?'YOU WIN':winner===0?'DRAW':'YOU LOSE';
     if(winner===0)resultDetail.textContent='The match ended in a draw.';
@@ -449,7 +473,7 @@
     match.finished=false;match.winner=null;
     ready=false;staging=false;finished=false;forfeiting=false;startSending=false;rematchSending=false;exiting=false;held=false;
     clearOpponentBoard();
-    bar.hidden=true;showResult(false);
+    clearPauses();showResult(false);
     window.dispatchEvent(new CustomEvent('blocks:remote-new-round',{detail:{round}}));
     persist(); // A late attack can no longer be delivered to this round.
   }
@@ -461,12 +485,13 @@
     if(inviteTicker){clearInterval(inviteTicker);inviteTicker=null;}
     closeSocket();
     clearOpponentBoard();
+    clearPauses();
     match=null;
     busy=false;ready=false;staging=false;finished=false;forfeiting=false;
     startSending=false;rematchSending=false;exiting=false;held=false;
     try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     window.BLOCKS_REMOTE_RESET?.();
-    bar.hidden=true;showResult(false);
+    clearPauses();showResult(false);
     exitResult.disabled=false;codeExit.disabled=false;
     menu();showLobby(true);
     if(message)status.textContent=message;
@@ -570,6 +595,7 @@
     match=fresh?{...value,round:1,cursor:0,outbox:[],snapshot:null,progress:0,finished:false}:
       {...value,round:value.round||1,outbox:value.outbox||[]};
     ready=false;staging=false;finished=false;forfeiting=false;held=false;
+    clearPauses();
     startSending=false;rematchSending=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
     persist();
@@ -728,18 +754,23 @@
   restart.onclick=()=>{if(finished)void requestRematch();else if(staging)void requestStart();};
   exitResult.onclick=()=>{void exitToNewGame()};
   codeExit.onclick=()=>{void exitToNewGame()};
-  bar.querySelector('#remote-leave').onclick=()=>{
-    if(!window.confirm('Forfeit this match?'))return;
-    window.BLOCKS_REMOTE?.reportLoss();
-    bar.hidden=true;
-  };
-
   window.BLOCKS_REMOTE={
     get active(){return Boolean(match)},
     get ready(){return ready},
     get player(){return match?.player||null},
     get round(){return match?.round||null},
     persist,
+    togglePause(){
+      if(!ready||finished||forfeiting||exiting||held||
+         (!localPaused&&peerPaused))return;
+      localPaused=!localPaused;emitPause();
+      broadcastTransient('match-pause',{paused:localPaused});
+    },
+    sendReaction(reaction){
+      if(!ready||finished||forfeiting||exiting||
+         !['heart','cry'].includes(reaction)||Date.now()-lastReactionAt<180)return;
+      if(broadcastTransient('reaction',{reaction}))lastReactionAt=Date.now();
+    },
     sendAttack(rows){
       if(!ready||finished||!Number.isInteger(rows)||rows<1||rows>20)return;
       match.outbox.push({key:crypto.randomUUID(),type:'attack',rows});

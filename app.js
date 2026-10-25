@@ -492,7 +492,10 @@ window.addEventListener('blocks:remote-config',event=>{
   if(session.config.difficulty===difficulty&&currentSet===piece_set&&!ghostChanged)return;
   session.config.difficulty=difficulty;
   session.config.allowedPieces=piece_set==='IO'?['I','O']:TETROMINOES.map(t=>t.name);
-  if(typeof ghost_piece==='boolean')window.BLOCKS_CONFIG.ghostPiece=ghost_piece;
+  if(typeof ghost_piece==='boolean'){
+    window.BLOCKS_CONFIG.ghostPiece=ghost_piece;
+    session.config.ghostPiece=ghost_piece;
+  }
   updateVersionLabel();
   window.BLOCKS_REMOTE_RESET();
 });

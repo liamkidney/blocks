@@ -70,8 +70,8 @@ test('remote button icon, state, and label agree during local pause and resume',
   assert.equal(ui.pause.innerHTML,'resume-icon');
   assert.equal(ui.pause.getAttribute('aria-label'),'Resume game');
   assert.equal(ui.pause.disabled,false,'the initiating player can resume');
-  assert.equal(ui.restart.disabled,true);
-  assert.deepEqual(ui.reactions.map(b=>b.disabled),[true,true]);
+  assert.equal(ui.restart.disabled,false,'restart remains active during pause');
+  assert.deepEqual(ui.reactions.map(b=>b.disabled),[false,false]);
 
   ui.state(false,false);
   assert.equal(ui.game.phase,'falling');
@@ -81,7 +81,7 @@ test('remote button icon, state, and label agree during local pause and resume',
   assert.deepEqual(ui.reactions.map(b=>b.disabled),[false,false]);
 });
 
-test('opponent pause shows a disabled resume icon and disables the other three buttons',()=>{
+test('opponent pause shows a disabled resume icon and leaves restart and reactions enabled',()=>{
   const ui=harness();
   ui.render();
   ui.state(false,true);
@@ -91,13 +91,13 @@ test('opponent pause shows a disabled resume icon and disables the other three b
     'remote pause must not leave an old pause icon behind');
   assert.equal(ui.pause.getAttribute('aria-label'),'Paused by opponent');
   assert.equal(ui.pause.disabled,true,'cannot cancel another player\'s pause');
-  assert.equal(ui.restart.disabled,true);
-  assert.deepEqual(ui.reactions.map(b=>b.disabled),[true,true]);
+  assert.equal(ui.restart.disabled,false);
+  assert.deepEqual(ui.reactions.map(b=>b.disabled),[false,false]);
 
   ui.state(true,true);
   assert.equal(ui.pause.disabled,false,'can release one\'s own pause');
   assert.equal(ui.pause.dataset.state,'RESUME');
-  assert.equal(ui.restart.disabled,true);
+  assert.equal(ui.restart.disabled,false);
 
   ui.state(false,true);
   assert.equal(ui.pause.disabled,true);

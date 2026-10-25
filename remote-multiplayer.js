@@ -767,7 +767,7 @@
       broadcastTransient('match-pause',{paused:localPaused});
     },
     sendReaction(reaction){
-      if(!ready||finished||forfeiting||exiting||
+      if(!ready||finished||forfeiting||exiting||held||localPaused||peerPaused||
          !['heart','cry'].includes(reaction)||Date.now()-lastReactionAt<180)return;
       if(broadcastTransient('reaction',{reaction}))lastReactionAt=Date.now();
     },
@@ -777,7 +777,7 @@
       persist();void flush();
     },
     reportLoss(){
-      if(!match||finished||forfeiting||!ready)return;
+      if(!match||finished||forfeiting||!ready||held||localPaused||peerPaused)return;
       ready=false;forfeiting=true;
       clearOpponentBoard();
       window.dispatchEvent(new CustomEvent('blocks:remote-forfeiting'));

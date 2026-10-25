@@ -1021,6 +1021,15 @@ body.remote-multiplayer #remote-reaction-actions button{
   touch-action:manipulation;cursor:pointer;
 }
 body.remote-multiplayer #remote-reaction-actions button:disabled{opacity:.3}
+/* Each accepted tap gets immediate feedback on the sending phone.
+   The floating emoji itself is rendered only on the opponent's board. */
+body.remote-multiplayer #remote-reaction-actions button.reaction-sent{
+  animation:remote-reaction-tap .23s ease-out;
+}
+@keyframes remote-reaction-tap{
+  0%,100%{transform:scale(1)}
+  45%{transform:scale(1.17)}
+}
 body.remote-multiplayer #board-frame.game-paused::after{
   content:"PAUSED";position:absolute;inset:auto 0 0;
   height:var(--single-board-height);

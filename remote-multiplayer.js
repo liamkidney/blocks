@@ -29,8 +29,25 @@
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
   let creating=false,joining=false,startSending=false,rematchSending=false,exiting=false;
   let held=false,heartbeatInFlight=false,lastHeartbeatAt=0;
-  let localPaused=false,peerPaused=false,lastReactionAt=0;
+  let localPaused=false,peerPaused=false;
+  // Tap bursts must not silently lose reactions. Buffer briefly while the
+  // Realtime socket reconnects, without persisting stale emojis to storage.
+  const MAX_PENDING_REACTIONS=12;
+  const REACTION_TTL_MS=8000;
+  let pendingReactions=[];
   let broadcastTransient=()=>false;
+  const flushReactions=()=>{
+    if(!match||!ready||finished||forfeiting||exiting)return;
+    const now=Date.now();
+    pendingReactions=pendingReactions.filter(item=>
+      item.matchId===match.id&&item.round===match.round&&now-item.at<=REACTION_TTL_MS);
+    while(pendingReactions.length){
+      const next=pendingReactions[0];
+      if(!broadcastTransient('reaction',{reaction:next.reaction}))break;
+      pendingReactions.shift();
+    }
+  };
+  const clearReactions=()=>{pendingReactions=[];};
   const emitPause=()=>window.dispatchEvent(new CustomEvent('blocks:remote-pause-state',
     {detail:{local:localPaused,peer:peerPaused}}));
   const clearPauses=()=>{localPaused=false;peerPaused=false;emitPause();};
@@ -309,6 +326,7 @@
              message.payload?.status==='ok'){
             joined=true;
             broadcastTransient('match-pause',{paused:localPaused});
+            flushReactions();
             if(boardTicker)clearInterval(boardTicker);
             boardTicker=setInterval(()=>{
               sendBoard();
@@ -436,6 +454,7 @@
     showLobby(false);showResult(false);
     emitPause();
     broadcastTransient('match-pause',{paused:localPaused});
+    flushReactions();
     window.dispatchEvent(new CustomEvent('blocks:remote-ready',{detail:{round:match.round}}));
   }
   function rematchView(state){
@@ -451,6 +470,7 @@
   }
   function finish(winner,state){
     if(exiting)return;
+    clearReactions();
     if(!finished){
       clearOpponentBoard();
       finished=true;ready=false;forfeiting=false;
@@ -468,6 +488,7 @@
   }
   function nextRound(round){
     if(round<=match.round)return;
+    clearReactions();
     match.round=round;
     match.cursor=0;match.outbox=[];match.snapshot=null;match.progress=0;
     match.finished=false;match.winner=null;
@@ -481,6 +502,7 @@
   // device's local storage. A player who already requested a rematch is also
   // released, instead of waiting forever for the person who exited.
   function returnToNewGame(message=''){
+    clearReactions();
     if(interval){clearInterval(interval);interval=null;}
     if(inviteTicker){clearInterval(inviteTicker);inviteTicker=null;}
     closeSocket();
@@ -589,6 +611,7 @@
     finally{sending=false}
   }
   async function connect(value,fresh=false){
+    clearReactions();
     if(interval){clearInterval(interval);interval=null;}
     if(inviteTicker){clearInterval(inviteTicker);inviteTicker=null;}
     closeSocket();
@@ -768,8 +791,13 @@
     },
     sendReaction(reaction){
       if(!ready||finished||forfeiting||exiting||
-         !['heart','cry'].includes(reaction)||Date.now()-lastReactionAt<180)return;
-      if(broadcastTransient('reaction',{reaction}))lastReactionAt=Date.now();
+         !['heart','cry'].includes(reaction))return false;
+      if(pendingReactions.length>=MAX_PENDING_REACTIONS)pendingReactions.shift();
+      pendingReactions.push({
+        reaction,matchId:match.id,round:match.round,at:Date.now()
+      });
+      flushReactions();
+      return true;
     },
     sendAttack(rows){
       if(!ready||finished||!Number.isInteger(rows)||rows<1||rows>20)return;
@@ -778,6 +806,7 @@
     },
     reportLoss(){
       if(!match||finished||forfeiting||!ready)return;
+      clearReactions();
       ready=false;forfeiting=true;
       clearOpponentBoard();
       window.dispatchEvent(new CustomEvent('blocks:remote-forfeiting'));

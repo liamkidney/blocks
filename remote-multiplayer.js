@@ -561,10 +561,15 @@
       });
       if(current!==match||exiting)return;
       if([0,1,2].includes(data.difficulty)&&['ALL','IO'].includes(data.piece_set)){
-        if(current.difficulty!==data.difficulty||current.piece_set!==data.piece_set){
-          current.difficulty=data.difficulty;current.piece_set=data.piece_set;
+        const ghostPiece=typeof data.ghost_piece==='boolean'?data.ghost_piece:null;
+        if(current.difficulty!==data.difficulty||
+           current.piece_set!==data.piece_set||
+           current.ghost_piece!==ghostPiece){
+          current.difficulty=data.difficulty;
+          current.piece_set=data.piece_set;
+          current.ghost_piece=ghostPiece;
           window.dispatchEvent(new CustomEvent('blocks:remote-config',{
-            detail:{difficulty:data.difficulty,piece_set:data.piece_set}
+            detail:{difficulty:data.difficulty,piece_set:data.piece_set,ghost_piece:ghostPiece}
           }));
           persist();
         }
@@ -656,9 +661,11 @@
     try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     setCreating(true);error.textContent='';
     try{
-      const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||{difficulty:1,piece_set:'ALL'};
-      const response=await rpc('blocks_create_match_short',{
-        p_difficulty:config.difficulty,p_piece_set:config.piece_set
+      const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||
+        {difficulty:1,piece_set:'ALL',ghost_piece:false};
+      const response=await rpc('blocks_create_match_short_v2',{
+        p_difficulty:config.difficulty,p_piece_set:config.piece_set,
+        p_ghost_piece:config.ghost_piece===true
       });
       // RETURNS TABLE is a set-returning PostgreSQL function. PostgREST
       // therefore sends an array even when SQL returns exactly one room.

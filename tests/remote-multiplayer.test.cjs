@@ -164,8 +164,9 @@ function fixture({realtime=false,shortCode='BRT'}={}){
         querySelector(selector){return get(selector.replace('#',''));}
       };
     }
-    const handlers=new Map(),intervals=new Map(),viewportHandlers=new Map();
-    let intervalId=0,resetCount=0;
+    const handlers=new Map(),intervals=new Map(),timeouts=new Map(),viewportHandlers=new Map();
+    let intervalId=0,resetCount=0,virtualNow=Date.now();
+    const VirtualDate=class extends Date{static now(){return virtualNow;}};
     const visualViewport={
       height:400,width:390,offsetTop:0,offsetLeft:0,
       addEventListener(name,handler){viewportHandlers.set(name,handler)},
@@ -247,10 +248,15 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     }
     const context={window,document,location,localStorage,sessionStorage,fetch,
       navigator:{onLine:true,clipboard:{writeText:async()=>{}}},
-      URL,URLSearchParams,WebSocket:realtime?FakeWebSocket:undefined,
+      URL,URLSearchParams,Date:VirtualDate,WebSocket:realtime?FakeWebSocket:undefined,
       setInterval:(fn)=>{const id=++intervalId;intervals.set(id,fn);return id},
       clearInterval:id=>intervals.delete(id),
-      clearTimeout:()=>{},setTimeout:()=>1,
+      setTimeout:(fn,delay=0)=>{
+        const id=++intervalId;
+        timeouts.set(id,{fn,at:virtualNow+Math.max(0,delay)});
+        return id;
+      },
+      clearTimeout:id=>timeouts.delete(id),
       crypto:{randomUUID},console,CustomEvent:class{
         constructor(type,options){this.type=type;this.detail=options?.detail}
       }
@@ -262,6 +268,21 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
+      },
+      async advance(ms){
+        const until=virtualNow+ms;
+        for(let i=0;i<100;i++){
+          const next=[...timeouts.entries()]
+            .filter(([,timer])=>timer.at<=until)
+            .sort((a,b)=>a[1].at-b[1].at)[0];
+          if(!next)break;
+          const [id,timer]=next;
+          virtualNow=timer.at;
+          timeouts.delete(id);
+          timer.fn();
+          await Promise.resolve();
+        }
+        virtualNow=until;
       },
       popup(id){return bodyElements.find(el=>el.id===id)}
     };
@@ -753,6 +774,38 @@ test('restart forfeits successfully during a player-initiated pause',async()=>{
   assert.deepEqual(host.results,[1]);
   assert.deepEqual(guest.results,[1]);
   assert.equal(f.rooms.values().next().value.status,'finished');
+});
+
+test('rapid repeated emoji taps are queued rather than discarded',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  assert.equal(host.window.BLOCKS_REMOTE.sendReaction('heart'),true);
+  assert.equal(host.window.BLOCKS_REMOTE.sendReaction('heart'),true);
+  assert.equal(host.window.BLOCKS_REMOTE.sendReaction('cry'),true);
+  assert.equal(host.window.BLOCKS_REMOTE.sendReaction('heart'),true);
+  assert.deepEqual(guest.reactions,['heart'],
+    'the first tap sends immediately, subsequent taps wait for pacing');
+  await host.advance(600);await settle();
+  assert.deepEqual(guest.reactions,['heart','heart','cry','heart'],
+    'every valid tap is delivered in order despite the send interval');
+  assert.deepEqual(host.reactions,[],
+    'a reaction floats up only on the receiving phone');
+  assert.equal(f.allEvents.length,0,'no PostgreSQL writes for reaction bursts');
+});
+
+test('reactions wait briefly for Realtime reconnect, then drain without duplicate sends',async()=>{
+  const f=fixture({realtime:true}),{host,guest}=await matched(f);
+  const sender=f.sockets[0];
+  sender.readyState=3;sender.onclose();
+  host.window.BLOCKS_REMOTE.sendReaction('heart');
+  host.window.BLOCKS_REMOTE.sendReaction('cry');
+  assert.deepEqual(guest.reactions,[],'no false delivery while socket is closed');
+  await host.advance(3500);await settle();
+  assert.deepEqual(guest.reactions,['heart'],
+    'first queued emoji is delivered once after reconnect');
+  await host.advance(200);await settle();
+  assert.deepEqual(guest.reactions,['heart','cry'],
+    'remaining queued emoji reaches the opponent after pacing');
+  assert.equal(f.allEvents.length,0);
 });
 
 test('hearts and crying emoji are delivered only to the opponent in the current round',async()=>{

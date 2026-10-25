@@ -177,6 +177,7 @@ test("incoming room Ghost Piece overrides the guest without rewriting local pref
     difficulty:1,piece_set:'IO',ghost_piece:false
   });
   assert.equal(b.evaluate('window.BLOCKS_CONFIG.ghostPiece'),false);
+  assert.equal(b.evaluate('session.config.ghostPiece'),false);
   assert.equal(b.evaluate('game.difficulty'),1);
   assert.deepEqual(JSON.parse(JSON.stringify(b.evaluate('session.config.allowedPieces'))),['I','O']);
   assert.equal(b.storage.get('blocks:ghost:v1:/blocks/dev/'),'true');

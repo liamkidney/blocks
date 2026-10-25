@@ -729,7 +729,7 @@ body:not(.two-player) :is(#game-actions,#high-scores-slot) button svg {
 #remote-lobby{position:fixed;inset:0;z-index:10000;background:var(--paper);
   display:grid;place-items:center;padding:max(20px,env(safe-area-inset-top)) 20px
     max(20px,env(safe-area-inset-bottom));overflow-y:auto;touch-action:pan-y}
-#remote-lobby[hidden],#remote-match-bar[hidden]{display:none!important}
+#remote-lobby[hidden]{display:none!important}
 #remote-lobby .remote-panel{width:min(390px,100%);text-align:center}
 #remote-lobby .remote-kicker{font-size:11px;letter-spacing:2px;font-weight:900;opacity:.55}
 #remote-lobby h2{font-size:clamp(33px,10vw,46px);line-height:1.05;letter-spacing:-1.5px;
@@ -746,15 +746,9 @@ body:not(.two-player) :is(#game-actions,#high-scores-slot) button svg {
 #remote-lobby #remote-error{margin:15px 0 0;color:#ae2525;font-weight:700;
   font-size:13px;overflow-wrap:anywhere}
 #remote-lobby #remote-error:empty{display:none}
-#remote-match-bar{position:fixed;z-index:5;top:max(5px,env(safe-area-inset-top));
-  left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;
-  max-width:calc(100% - 20px);white-space:nowrap;background:var(--paper);
-  font:800 10px Helvetica,Arial,sans-serif;letter-spacing:1px;padding:5px 8px;
-  border:1px solid var(--ink);border-radius:5px}
-#remote-match-bar button{background:transparent;border:0;border-left:1px solid var(--ink);
-  padding:4px 2px 4px 9px;font:800 10px Helvetica,Arial,sans-serif;
-  letter-spacing:1px;touch-action:manipulation}
 body.remote-waiting{touch-action:auto}
+/* iOS visualViewport resizing must never expose the game behind the keyboard. */
+body.remote-waiting #console{visibility:hidden}
 body:not(.two-player) #game-actions button[hidden]{display:none}
 #restart-remote{flex:1 1 100%}
 
@@ -973,7 +967,8 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 
 /* Two-phone matches exchange the score and lines HUD for a separate
    opponent preview. Solo and same-phone multiplayer are unchanged. */
-body.remote-multiplayer #hud .metric{display:none}
+body.remote-multiplayer #hud .metric,
+body.remote-multiplayer #high-scores-slot{display:none!important}
 body.remote-multiplayer #opponent-mini-panel{
   min-width:0;
   padding-top:12px;
@@ -1005,4 +1000,55 @@ body.remote-multiplayer #opponent-mini-panel .hud-label{
   body.remote-multiplayer #opponent-mini-board{
     width:min(100%,max(42px,calc((88dvh - 150px)/2)));
   }
+}
+
+/* Two-phone controls: two rows of identical square HUD buttons. */
+body.remote-multiplayer #game-actions,
+body.remote-multiplayer #remote-reaction-actions{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--hud-action-gap,7px);width:100%;
+  margin-top:8px;padding:0;border:0;
+}
+body.remote-multiplayer #game-actions{
+  margin-top:auto;padding-top:10px;border-top:1px solid var(--ink);
+}
+body.remote-multiplayer #remote-reaction-actions button{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;min-width:0;aspect-ratio:1;
+  border:1px solid var(--ink);border-radius:5px;
+  padding:2px;background:transparent;
+  font:normal clamp(18px,6vw,29px)/1 sans-serif;
+  touch-action:manipulation;cursor:pointer;
+}
+body.remote-multiplayer #remote-reaction-actions button:disabled{opacity:.3}
+body.remote-multiplayer #board-frame.game-paused::after{
+  content:"PAUSED";position:absolute;inset:auto 0 0;
+  height:var(--single-board-height);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(243,239,227,.86);z-index:6;
+  font-size:clamp(20px,5vw,32px);font-weight:900;pointer-events:none;
+}
+/* Floating reactions appear above the board, not inside its grid. */
+#remote-reaction-layer{
+  position:absolute;inset:0;z-index:12;pointer-events:none;overflow:hidden;
+}
+.remote-floating-reaction{
+  position:absolute;bottom:12%;font:normal clamp(29px,8vw,48px)/1 sans-serif;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.12));
+  animation:remote-reaction-rise 2s ease-out forwards;
+}
+@keyframes remote-reaction-rise{
+  0%{transform:translate(-50%,0) scale(.8);opacity:0}
+  12%{opacity:1}
+  80%{opacity:1}
+  100%{transform:translate(-50%,-240px) scale(1.25);opacity:0}
+}
+@media(orientation:landscape){
+  body.remote-multiplayer #game-actions,
+  body.remote-multiplayer #remote-reaction-actions{gap:5px}
+  body.remote-multiplayer #game-actions{padding-top:5px}
+  body.remote-multiplayer #remote-reaction-actions button{
+    font-size:clamp(17px,4.5vh,30px)
+  }
+  body.remote-multiplayer #board-frame.game-paused::after{inset:0;height:auto}
 }

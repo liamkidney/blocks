@@ -166,3 +166,57 @@ test('rapid repeated taps reach the reaction button handler without being suppre
   assert.match(css,/remote-reaction-actions button\.reaction-sent/);
   assert.match(css,/@keyframes remote-reaction-tap/);
 });
+
+test('each accepted emoji tap floats on sender; incoming emoji floats on opponent',()=>{
+  // Execute the real UI event wiring with a lightweight mock DOM. This catches
+  // regressions where feedback is shown only as a button pulse.
+  const start=source.indexOf('for(const button of reactionButtons)if(REMOTE_PLAYER)');
+  const end=source.indexOf('let remoteLocalPaused=false,remotePeerPaused=false;',start);
+  assert.ok(start>=0&&end>start);
+  const callbacks=new Map(),listeners=new Map(),layers=[];
+  let accept=true;
+  const sent=[];
+  const reactionButtons=['heart','cry'].map(reaction=>({
+    dataset:{reaction},
+    classList:{add(){},remove(){}},
+    offsetWidth:40
+  }));
+  const window={
+    BLOCKS_REMOTE:{sendReaction(reaction){sent.push(reaction);return accept;}},
+    addEventListener(name,fn){listeners.set(name,fn)},
+    dispatchEvent(event){listeners.get(event.type)?.(event)}
+  };
+  function makeNode(){
+    const node={
+      children:[],style:{},className:'',textContent:'',
+      setAttribute(){},addEventListener(){},
+      appendChild(child){child.parent=this;this.children.push(child)},
+      remove(){if(this.parent)this.parent.children.splice(this.parent.children.indexOf(this),1)},
+      get childElementCount(){return this.children.length},
+      get firstChild(){return this.children[0]}
+    };
+    return node;
+  }
+  const board={parentElement:{appendChild(layer){layers.push(layer)}}};
+  const document={createElement:()=>makeNode()};
+  vm.runInNewContext(source.slice(start,end),{
+    REMOTE_PLAYER:true,reactionButtons,window,document,board,
+    bindImmediateAction(button,fn){callbacks.set(button.dataset.reaction,fn)},
+    CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail}},
+    setTimeout(){},Math
+  });
+  assert.equal(layers.length,1);
+  const visible=()=>layers[0].children.map(cell=>cell.textContent);
+  callbacks.get('heart')();
+  assert.deepEqual(visible(),['❤️'],'sender immediately sees their own floating heart');
+  callbacks.get('cry')();
+  callbacks.get('heart')();
+  assert.deepEqual(visible(),['❤️','😭','❤️'],'repeated taps float locally each time');
+  assert.deepEqual(sent,['heart','cry','heart']);
+  accept=false;
+  callbacks.get('cry')();
+  assert.deepEqual(visible(),['❤️','😭','❤️'],'rejected action does not falsely animate');
+  window.dispatchEvent({type:'blocks:remote-reaction',detail:{reaction:'cry'}});
+  assert.deepEqual(visible(),['❤️','😭','❤️','😭'],
+    'incoming reaction uses identical floating animation');
+});

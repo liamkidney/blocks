@@ -1,5 +1,7 @@
 // Render scores in the current document: avoids nested WebView/iframe loading issues.
 (()=>{
+  // Two-phone matches have no profile or leaderboard controls.
+  if(new URLSearchParams(location.search).get('remote')==='1')return;
  const button=document.getElementById('high-scores-button');
  button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v7a5 5 0 0 1-10 0V3zM7 5H4v3a4 4 0 0 0 4 4M17 5h3v3a4 4 0 0 1-4 4M12 15v4M8 21h8M9 19h6"/></svg>';
  button.setAttribute('aria-label','High scores');button.title='High scores';

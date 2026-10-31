@@ -103,7 +103,6 @@ restartButton.id="restart-button";restartButton.type="button";
 const pauseIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
 const resumeIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" stroke-linejoin="round"/></svg>';
 const restartIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 6M4 4v6h6"/></svg>';
-const resultsIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5v2a4 4 0 0 0 3 4m8-6h3v2a4 4 0 0 1-3 4m-4 1v5m-4 3h8m-8-3h8"/></svg>';
 restartButton.innerHTML=restartIcon;
 restartButton.setAttribute("aria-label","Restart game");
 restartButton.title="Restart game";
@@ -404,8 +403,9 @@ function renderActions(){
     restartButton.disabled=unavailable&&!remoteFinished;
     const actionMode=remoteFinished?"results":"forfeit";
     if(restartButton.dataset.mode!==actionMode){
-      restartButton.innerHTML=remoteFinished?resultsIcon:restartIcon;
-      const restartLabel=remoteFinished?"Show match results":"Restart (forfeit match)";
+      // Keep the familiar restart icon, even when it reopens Play again.
+      restartButton.innerHTML=restartIcon;
+      const restartLabel=remoteFinished?"Restart / play again":"Restart (forfeit match)";
       restartButton.setAttribute("aria-label",restartLabel);
       restartButton.title=restartLabel;
       restartButton.dataset.mode=actionMode;
@@ -541,12 +541,12 @@ window.addEventListener('blocks:remote-event',event=>{
 });
 window.addEventListener('blocks:remote-forfeiting',()=>{
   if(!REMOTE_PLAYER)return;
-  clearOpponentMini();
+  // Keep the last opponent frame visible while the result is settled.
   remoteReady=false;remoteLost=true;game.pause();
 });
 window.addEventListener('blocks:remote-finished',event=>{
   if(!REMOTE_PLAYER||remoteFinished)return;
-  clearOpponentMini();
+  // Preserve the opponent's last received grid for post-match review.
   remoteFinished=true;remoteReady=false;remoteLost=true;
   game.endGame();
   const player=window.BLOCKS_REMOTE?.player;

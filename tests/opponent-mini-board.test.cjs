@@ -80,7 +80,7 @@ test('a completed or forfeited match preserves the rendered opponent mini grid',
 
   const board={children:[],appendChild(cell){this.children.push(cell)}};
   const mini=create(board);
-  const rows=Array(20).fill(0);rows[0]=1;rows[10]=512;
+  const rows=Array(20).fill(0);rows[0]=1;rows[19]=512;
   assert.equal(mini.show(rows),true);
   const listeners=new Map();
   let clears=0,ended=false,saved=false;

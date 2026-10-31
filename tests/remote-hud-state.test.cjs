@@ -39,7 +39,8 @@ function harness(remote=true){
     REMOTE_PLAYER:remote,TWO_PLAYER:false,
     remoteReady:true,remoteFinished:false,remoteLost:false,
     pauseButton:pause,restartButton:restart,reactionButtons:reactions,
-    pauseIcon:'pause-icon',resumeIcon:'resume-icon'
+    pauseIcon:'pause-icon',resumeIcon:'resume-icon',
+    restartIcon:'restart-icon',resultsIcon:'results-icon'
   });
   vm.runInContext(source.slice(begin,end),context,{filename:'remote-hud.js'});
   return {
@@ -129,6 +130,29 @@ test('connection holds disable the other actions and non-remote controls retain 
   solo.game.pause();
   solo.render();
   assert.equal(solo.pause.innerHTML,'resume-icon');
+});
+
+test('after finishing, the old forfeit slot becomes an enabled Results button',()=>{
+  const ui=harness();
+  ui.render();
+  assert.equal(ui.restart.dataset.mode,'forfeit');
+  assert.equal(ui.restart.innerHTML,'restart-icon');
+  assert.equal(ui.restart.getAttribute('aria-label'),'Restart (forfeit match)');
+  ui.context.remoteFinished=true;
+  ui.context.remoteLost=true;
+  ui.render();
+  assert.equal(ui.restart.disabled,false,'players must be able to reopen results');
+  assert.equal(ui.restart.dataset.mode,'results');
+  assert.equal(ui.restart.innerHTML,'results-icon');
+  assert.equal(ui.restart.getAttribute('aria-label'),'Show match results');
+  assert.equal(ui.pause.disabled,true);
+  assert.deepEqual(ui.reactions.map(b=>b.disabled),[true,true]);
+  ui.context.remoteFinished=false;
+  ui.context.remoteLost=false;
+  ui.render();
+  assert.equal(ui.restart.dataset.mode,'forfeit','new games restore the forfeit control');
+  assert.equal(ui.restart.innerHTML,'restart-icon');
+  assert.equal(ui.restart.disabled,false);
 });
 
 test('both remote HUD rows visibly grey out disabled controls',()=>{

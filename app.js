@@ -103,6 +103,7 @@ restartButton.id="restart-button";restartButton.type="button";
 const pauseIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
 const resumeIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" stroke-linejoin="round"/></svg>';
 const restartIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 6M4 4v6h6"/></svg>';
+const resultsIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5v2a4 4 0 0 0 3 4m8-6h3v2a4 4 0 0 1-3 4m-4 1v5m-4 3h8m-8-3h8"/></svg>';
 restartButton.innerHTML=restartIcon;
 restartButton.setAttribute("aria-label","Restart game");
 restartButton.title="Restart game";
@@ -337,7 +338,8 @@ bindImmediateAction(pauseButton,()=>{
 });
 bindImmediateAction(restartButton,()=>{
   if(REMOTE_PLAYER){
-    if(window.confirm("Forfeit this match and restart?"))window.BLOCKS_REMOTE?.reportLoss();
+    if(remoteFinished)window.BLOCKS_REMOTE?.showResults();
+    else if(window.confirm("Forfeit this match and restart?"))window.BLOCKS_REMOTE?.reportLoss();
   }else restartGame();
 });
 for(const button of reactionButtons)if(REMOTE_PLAYER)
@@ -397,8 +399,17 @@ function renderActions(){
     unavailable||(!remoteLocalPaused&&remotePeerPaused):
     TWO_PLAYER?Boolean(session.outcome):game.phase==="game_over";
   if(REMOTE_PLAYER){
-    // Pausing the game does not disable forfeiting or sending reactions.
-    restartButton.disabled=unavailable;
+    // During play, restart forfeits; after a result it reopens the popup
+    // so the frozen board can be reviewed without losing rematch controls.
+    restartButton.disabled=unavailable&&!remoteFinished;
+    const actionMode=remoteFinished?"results":"forfeit";
+    if(restartButton.dataset.mode!==actionMode){
+      restartButton.innerHTML=remoteFinished?resultsIcon:restartIcon;
+      const restartLabel=remoteFinished?"Show match results":"Restart (forfeit match)";
+      restartButton.setAttribute("aria-label",restartLabel);
+      restartButton.title=restartLabel;
+      restartButton.dataset.mode=actionMode;
+    }
     for(const button of reactionButtons)button.disabled=unavailable;
   }
   const label=showResume?"RESUME":"PAUSE";

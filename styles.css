@@ -840,6 +840,17 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
   outline:2px solid var(--ink);outline-offset:1px;
 }
 #remote-result #remote-result-exit:disabled{opacity:.4;cursor:wait}
+/* Keep leaving the multiplayer room explicit; the X only closes results. */
+#remote-result #remote-result-leave{
+  display:block;margin:10px auto 0;padding:7px 12px;
+  min-height:36px;border:0;border-radius:6px;background:transparent;
+  color:var(--ink);font:800 11px Helvetica,Arial,sans-serif;
+  letter-spacing:1px;text-decoration:underline;text-underline-offset:3px;
+  cursor:pointer;touch-action:manipulation;
+}
+#remote-result #remote-result-leave[hidden]{display:none!important}
+#remote-result #remote-result-leave:disabled{opacity:.4;cursor:wait}
+
 
 
 /* Running session score: identical layout on start and post-match screens. */

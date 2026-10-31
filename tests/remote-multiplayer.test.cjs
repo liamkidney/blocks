@@ -898,16 +898,37 @@ test('WebSocket interruption retains the last miniature frame',async()=>{
     'a transient disconnection must not blank the opponent miniature');
 });
 
-test('holding a match retains the miniature; finishing resets it',async()=>{
+test('opponent mini remains after finished result is dismissed, until next round',async()=>{
   const f=fixture({realtime:true}),{host,guest}=await matched(f);
-  const before=guest.clearedBoards.length;
-  guest.window.dispatchEvent({type:'offline'});
-  assert.equal(guest.holds.length,1);
-  assert.equal(guest.clearedBoards.length,before);
+  host.ownBoard[0]=3;
+  guest.ownBoard[0]=7;
+  await host.tick();await guest.tick();await settle();
+  assert.equal(guest.opponentBoards.at(-1)[0],3);
+  assert.equal(host.opponentBoards.at(-1)[0],7);
+  const hostClears=host.clearedBoards.length;
+  const guestClears=guest.clearedBoards.length;
   host.window.BLOCKS_REMOTE.reportLoss();await settle();
-  await guest.tick();await settle();
-  assert.ok(guest.clearedBoards.length>before,
-    'end of match clears the board before the next round');
+  await guest.tick();await host.tick();await settle();
+  assert.equal(host.clearedBoards.length,hostClears,
+    'a losing player must retain the opponent miniature');
+  assert.equal(guest.clearedBoards.length,guestClears,
+    'a winning player must retain the opponent miniature');
+  for(const phone of [host,guest]){
+    phone.get('remote-result-exit').onclick();
+    assert.equal(phone.popup('remote-result').hidden,true);
+    assert.equal(phone.window.BLOCKS_REMOTE.active,true);
+  }
+  assert.equal(host.opponentBoards.at(-1)[0],7);
+  assert.equal(guest.opponentBoards.at(-1)[0],3);
+  host.window.BLOCKS_REMOTE.showResults();
+  guest.window.BLOCKS_REMOTE.showResults();
+  host.get('remote-restart').onclick();await settle();
+  guest.get('remote-restart').onclick();await settle();
+  await host.tick();await guest.tick();await settle();
+  assert.ok(host.clearedBoards.length>hostClears,
+    'new round clears old opponent board');
+  assert.ok(guest.clearedBoards.length>guestClears,
+    'new round clears old opponent board');
 });
 
 test('obsolete ghost overlay and stale event code are removed',()=>{
@@ -917,15 +938,22 @@ test('obsolete ghost overlay and stale event code are removed',()=>{
   assert.doesNotMatch(remote,/staleOpponentBoard|remote-board-stale/);
 });
 
-test('opponent board disappears after disconnection and at end of round',async()=>{
+test('room exit clears the retained opponent miniature on both phones',async()=>{
   const f=fixture({realtime:true}),{host,guest}=await matched(f);
   host.ownBoard[0]=1;
   await host.tick();await settle();
-  const before=guest.clearedBoards.length;
+  const hostClears=host.clearedBoards.length;
+  const guestClears=guest.clearedBoards.length;
   guest.window.BLOCKS_REMOTE.reportLoss();await settle();
-  assert.ok(guest.clearedBoards.length>before);
-  await host.tick();await settle();
-  assert.ok(host.clearedBoards.length>0);
+  await host.tick();await guest.tick();await settle();
+  assert.equal(host.clearedBoards.length,hostClears);
+  assert.equal(guest.clearedBoards.length,guestClears);
+  host.get('remote-result-leave').onclick();await settle();
+  await guest.tick();await settle();
+  assert.ok(host.clearedBoards.length>hostClears,
+    'leaving the room clears the local miniature');
+  assert.ok(guest.clearedBoards.length>guestClears,
+    'opponent leaving clears the remote miniature');
 });
 
 test('Play Together X returns to the main New Game selector without creating a room',()=>{

@@ -505,7 +505,7 @@
     if(exiting)return;
     clearReactions();
     if(!finished){
-      clearOpponentBoard();
+      // Retain the latest opponent frame behind the dismissible result popup.
       finished=true;ready=false;forfeiting=false;
       match.finished=true;match.winner=winner;
       window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner}}));
@@ -855,7 +855,7 @@
       if(!match||finished||forfeiting||!ready)return;
       clearReactions();
       ready=false;forfeiting=true;
-      clearOpponentBoard();
+      // Do not wipe the miniature before the final result can be reviewed.
       window.dispatchEvent(new CustomEvent('blocks:remote-forfeiting'));
       match.outbox.push({key:crypto.randomUUID(),type:'lost',rows:null});
       persist();void flush();

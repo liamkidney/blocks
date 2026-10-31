@@ -27,6 +27,7 @@
   let match=saved?.id&&saved?.token&&[1,2].includes(saved.player)?saved:null;
   if(match){match.round=match.round||1;match.cursor ||= 0;match.outbox ||= [];}
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
+  let resultDismissed=false;
   let creating=false,joining=false,startSending=false,rematchSending=false,exiting=false;
   let held=false,heartbeatInFlight=false,lastHeartbeatAt=0;
   let localPaused=false,peerPaused=false;
@@ -133,6 +134,7 @@
     '</div>'+
     '<button type="button" id="remote-restart">PLAY AGAIN</button>'+
     '<p id="remote-rematch-status" aria-live="polite"></p>'+
+    '<button type="button" id="remote-result-leave" hidden>LEAVE ROOM</button>'+
     '</section>';
   document.body.append(resultPanel);
   const resultKicker=resultPanel.querySelector('#remote-result-kicker');
@@ -140,6 +142,7 @@
   const resultDetail=resultPanel.querySelector('#remote-result-detail');
   const restart=resultPanel.querySelector('#remote-restart');
   const exitResult=resultPanel.querySelector('#remote-result-exit');
+  const leaveResult=resultPanel.querySelector('#remote-result-leave');
   const rematchStatus=resultPanel.querySelector('#remote-rematch-status');
   const scoreYou=resultPanel.querySelector('#remote-score-you');
   const scoreOpponent=resultPanel.querySelector('#remote-score-opponent');
@@ -151,6 +154,20 @@
     syncCodeEntryViewport();
   };
   const showResult=show=>{resultPanel.hidden=!show;document.body.classList.toggle('remote-complete',show)};
+  const configureResultClose=postGame=>{
+    const label=postGame?'Close results':'Exit to new game';
+    exitResult.setAttribute('aria-label',label);
+    exitResult.title=label;
+    leaveResult.hidden=!postGame;
+  };
+  const dismissResults=()=>{
+    if(!finished||exiting)return;
+    resultDismissed=true;showResult(false);
+  };
+  const openResults=()=>{
+    if(!finished||exiting)return;
+    resultDismissed=false;showResult(true);
+  };
   const setError=e=>{error.textContent=e?.message||String(e)};
   const persist=()=>{
     if(!match)return;
@@ -413,7 +430,8 @@
   // Neither local board is started until the server sees both Start presses.
   function showStart(state){
     if(!match||finished||exiting)return;
-    staging=true;ready=false;
+    staging=true;ready=false;resultDismissed=false;
+    configureResultClose(false);
     showLobby(false);showResult(true);
     resultKicker.textContent='ROOM '+match.code+' · PLAYER '+match.player;
     resultTitle.textContent='READY TO START';
@@ -493,11 +511,12 @@
       window.dispatchEvent(new CustomEvent('blocks:remote-finished',{detail:{winner}}));
     }
     clearPauses();showLobby(false);
+    configureResultClose(true);
     resultKicker.textContent='MATCH COMPLETE · ROUND '+match.round;
     resultTitle.textContent=winner===match.player?'YOU WIN':winner===0?'DRAW':'YOU LOSE';
     if(winner===0)resultDetail.textContent='The match ended in a draw.';
     else resultDetail.textContent='PLAYER '+winner+' WON · PLAYER '+(3-winner)+' LOST';
-    showResult(true);
+    showResult(!resultDismissed);
     rematchView(state);
     persist();
   }
@@ -507,7 +526,7 @@
     match.round=round;
     match.cursor=0;match.outbox=[];match.snapshot=null;match.progress=0;
     match.finished=false;match.winner=null;
-    ready=false;staging=false;finished=false;forfeiting=false;startSending=false;rematchSending=false;exiting=false;held=false;
+    ready=false;staging=false;finished=false;forfeiting=false;startSending=false;rematchSending=false;exiting=false;held=false;resultDismissed=false;
     clearOpponentBoard();
     clearPauses();showResult(false);
     window.dispatchEvent(new CustomEvent('blocks:remote-new-round',{detail:{round}}));
@@ -529,13 +548,14 @@
     try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     window.BLOCKS_REMOTE_RESET?.();
     clearPauses();showResult(false);
-    exitResult.disabled=false;codeExit.disabled=false;
+    exitResult.disabled=false;leaveResult.disabled=false;codeExit.disabled=false;
+    resultDismissed=false;configureResultClose(false);
     menu();showLobby(true);
     if(message)status.textContent=message;
   }
   async function exitToNewGame(){
     if(!match||exiting||ready&&!finished)return;
-    exiting=true;exitResult.disabled=true;codeExit.disabled=true;
+    exiting=true;exitResult.disabled=true;leaveResult.disabled=true;codeExit.disabled=true;
     rematchStatus.textContent='Leaving the room…';
     const current=match;
     try{
@@ -545,7 +565,7 @@
       if(match===current)returnToNewGame();
     }catch(e){
       if(match!==current)return;
-      exiting=false;exitResult.disabled=false;codeExit.disabled=false;
+      exiting=false;exitResult.disabled=false;leaveResult.disabled=false;codeExit.disabled=false;
       rematchStatus.textContent='Could not leave the room. Try again.';
       error.textContent='Could not cancel room. Try again.';
       console.warn('Blocks match exit failed:',e);
@@ -637,7 +657,7 @@
     closeSocket();
     match=fresh?{...value,round:1,cursor:0,outbox:[],snapshot:null,progress:0,finished:false}:
       {...value,round:value.round||1,outbox:value.outbox||[]};
-    ready=false;staging=false;finished=false;forfeiting=false;held=false;
+    ready=false;staging=false;finished=false;forfeiting=false;held=false;resultDismissed=false;
     clearPauses();
     startSending=false;rematchSending=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
@@ -797,9 +817,14 @@
     catch(_){setError('Copy the code shown above.')}
   };
   restart.onclick=()=>{if(finished)void requestRematch();else if(staging)void requestStart();};
-  exitResult.onclick=()=>{void exitToNewGame()};
+  exitResult.onclick=()=>{if(finished)dismissResults();else void exitToNewGame()};
+  leaveResult.onclick=()=>{void exitToNewGame()};
+  resultPanel.addEventListener('click',event=>{
+    if(event.target===resultPanel)dismissResults();
+  });
   codeExit.onclick=()=>{void exitToNewGame()};
   window.BLOCKS_REMOTE={
+    showResults:openResults,
     get active(){return Boolean(match)},
     get ready(){return ready},
     get player(){return match?.player||null},

@@ -72,6 +72,43 @@ test('opponent miniature draws settled blocks and falling pieces in the same gre
   assert.equal(mini.show(rows),true,'a new round can render after clearing');
 });
 
+test('a completed or forfeited match preserves the rendered opponent mini grid',()=>{
+  const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+  const from=app.indexOf("window.addEventListener('blocks:remote-forfeiting'");
+  const until=app.indexOf('function loop(now)',from);
+  assert.ok(from>=0&&until>from,'extract actual end-of-match handlers');
+
+  const board={children:[],appendChild(cell){this.children.push(cell)}};
+  const mini=create(board);
+  const rows=Array(20).fill(0);rows[0]=1;rows[10]=512;
+  assert.equal(mini.show(rows),true);
+  const listeners=new Map();
+  let clears=0,ended=false,saved=false;
+  const window={
+    addEventListener(name,callback){listeners.set(name,callback)},
+    BLOCKS_REMOTE:{player:1}
+  };
+  const game={
+    pause(){},
+    endGame(){ended=true}
+  };
+  const appContext=vm.createContext({
+    window,REMOTE_PLAYER:true,remoteReady:true,remoteLost:false,
+    remoteFinished:false,game,gameOver:{textContent:''},
+    clearOpponentMini(){clears++;mini.clear()},
+    saveGame(force){saved=force}
+  });
+  vm.runInContext(app.slice(from,until),appContext);
+  listeners.get('blocks:remote-forfeiting')();
+  assert.equal(board.children[190].className,'opponent-mini-cell occupied');
+  listeners.get('blocks:remote-finished')({detail:{winner:1}});
+  assert.equal(ended,true);
+  assert.equal(saved,true);
+  assert.equal(clears,0,'result handlers must not wipe the final opponent frame');
+  assert.equal(board.children[190].className,'opponent-mini-cell occupied');
+  assert.equal(board.children[9].className,'opponent-mini-cell occupied');
+});
+
 test('two-phone HUD replaces score and lines with a separate miniature',()=>{
   const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
   const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');

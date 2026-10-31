@@ -452,29 +452,43 @@ test('finished match restores its winner when reopened on the same phone',async(
 });
 
 
-test('close X exits a finished match and returns to create/join menu',async()=>{
+test('close X hides completed results without cancelling the room or erasing the board',async()=>{
   const f=fixture(),{host,guest}=await matched(f);
   guest.window.BLOCKS_REMOTE.reportLoss();await settle();
   await host.tick();await guest.tick();await settle();
   assert.equal(host.popup('remote-result').hidden,false);
-  assert.equal(host.get('remote-result-exit').attrs['aria-label'],undefined);
+  assert.equal(host.get('remote-result-exit').attrs['aria-label'],'Close results');
+  assert.equal(host.get('remote-result-leave').hidden,false);
   host.get('remote-result-exit').onclick();await settle();
   assert.equal(host.popup('remote-result').hidden,true);
-  assert.equal(host.popup('remote-lobby').hidden,false);
-  assert.equal(host.get('remote-actions').hidden,false);
-  assert.equal(host.window.BLOCKS_REMOTE.active,false);
-  assert.equal(host.storage.has('blocks:remote-match:/blocks/dev/'),false);
-  assert.equal(f.rooms.values().next().value.status,'cancelled');
-  await guest.tick();await settle();
-  assert.equal(guest.popup('remote-result').hidden,true);
-  assert.equal(guest.popup('remote-lobby').hidden,false);
-  assert.equal(guest.get('remote-actions').hidden,false);
-  assert.match(guest.get('remote-status').textContent,/other player left/i);
-  assert.equal(guest.window.BLOCKS_REMOTE.active,false);
-  assert.equal(guest.storage.has('blocks:remote-match:/blocks/dev/'),false);
+  assert.equal(host.popup('remote-lobby').hidden,true);
+  assert.equal(host.window.BLOCKS_REMOTE.active,true);
+  assert.equal(host.storage.has('blocks:remote-match:/blocks/dev/'),true);
+  assert.equal(f.rooms.values().next().value.status,'finished');
+  await host.tick();await settle();
+  assert.equal(host.popup('remote-result').hidden,true,
+    'the next polling cycle must not reopen dismissed results');
+  host.window.BLOCKS_REMOTE.showResults();
+  assert.equal(host.popup('remote-result').hidden,false);
+  assert.equal(host.get('remote-result-title').textContent,'YOU WIN');
 });
 
-test('close X works while ready to play again and frees waiting opponent',async()=>{
+test('tapping outside results closes only the popup, not the match',async()=>{
+  const f=fixture(),{host,guest}=await matched(f);
+  guest.window.BLOCKS_REMOTE.reportLoss();await settle();
+  await host.tick();await guest.tick();await settle();
+  const overlay=host.popup('remote-result');
+  overlay.listeners.click({target:host.get('remote-restart')});
+  assert.equal(overlay.hidden,false,'taps inside the dialog must not dismiss it');
+  overlay.listeners.click({target:overlay});
+  assert.equal(overlay.hidden,true,'backdrop tap should reveal the board');
+  assert.equal(host.window.BLOCKS_REMOTE.active,true);
+  assert.equal(f.rooms.values().next().value.status,'finished');
+  host.window.BLOCKS_REMOTE.showResults();
+  assert.equal(overlay.hidden,false);
+});
+
+test('reviewing while waiting for rematch preserves readiness, and Leave room still exits',async()=>{
   const f=fixture(),{host,guest}=await matched(f);
   guest.window.BLOCKS_REMOTE.reportLoss();await settle();
   await host.tick();await guest.tick();await settle();
@@ -483,6 +497,14 @@ test('close X works while ready to play again and frees waiting opponent',async(
   assert.equal(host.get('remote-restart').textContent,'READY TO PLAY AGAIN');
   assert.equal(host.get('remote-restart').disabled,true);
   host.get('remote-result-exit').onclick();await settle();
+  assert.equal(host.popup('remote-result').hidden,true);
+  assert.equal(f.rooms.values().next().value.status,'finished');
+  await host.tick();await guest.tick();await settle();
+  assert.equal(guest.window.BLOCKS_REMOTE.active,true);
+  assert.equal(host.popup('remote-result').hidden,true);
+  host.window.BLOCKS_REMOTE.showResults();
+  assert.equal(host.get('remote-restart').textContent,'READY TO PLAY AGAIN');
+  host.get('remote-result-leave').onclick();await settle();
   assert.equal(host.get('remote-actions').hidden,false);
   await guest.tick();await settle();
   assert.equal(guest.popup('remote-result').hidden,true);
@@ -495,7 +517,7 @@ test('a finished room can be exited and a fresh room created without reloading',
   const f=fixture(),{host,guest}=await matched(f);
   guest.window.BLOCKS_REMOTE.reportLoss();await settle();
   await host.tick();await guest.tick();await settle();
-  host.get('remote-result-exit').onclick();await settle();
+  host.get('remote-result-leave').onclick();await settle();
   host.get('remote-create').onclick();await settle();
   assert.equal(f.rooms.size,2);
   assert.equal(host.window.BLOCKS_REMOTE.active,true);
@@ -591,7 +613,7 @@ test('new room starts a fresh 0–0 score after leaving a won session',async()=>
   guest.window.BLOCKS_REMOTE.reportLoss();await settle();
   await host.tick();await guest.tick();await settle();
   assert.equal(host.get('remote-score-you').textContent,'1');
-  host.get('remote-result-exit').onclick();await settle();
+  host.get('remote-result-leave').onclick();await settle();
   host.get('remote-create').onclick();await settle();
   assert.equal(f.rooms.size,2);
   const recent=[...f.rooms.values()].at(-1);

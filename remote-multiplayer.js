@@ -826,10 +826,14 @@
     inviteTicker=setInterval(updateInviteCountdown,1000);
     void flush();
   }
-  async function createRoom(){
-    if(creating||joining)return;
+  async function createRoom(friend=null){
+    if(creating||joining||match)return;
+    if(friend&&(!installedPwa||!window.BLOCKS_PUSH||
+      !savedFriends?.some(person=>person.id===friend.id&&person.canNotify)))return;
     try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     setCreating(true);error.textContent='';
+    if(friend)friendsStatus.textContent='Creating game for '+friend.name+'…';
+    let created=null;
     try{
       const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||
         {difficulty:1,piece_set:'ALL',ghost_piece:false};
@@ -842,10 +846,34 @@
       const row=Array.isArray(response)?response[0]:response;
       if(!row?.match_id||!row?.player_token||!row?.code_expires_at)
         throw Error('Invalid room response. Please try again.');
-      await connect({id:row.match_id,token:row.player_token,code:row.room_code,
-        inviteExpiresAt:row.code_expires_at,player:1,...config},true);
-    }catch(e){setError(e);menu();setError(e)}
-    finally{setCreating(false)}
+      created={id:row.match_id,token:row.player_token,code:row.room_code,
+        inviteExpiresAt:row.code_expires_at,player:1,...config};
+      if(friend){
+        // No game is created merely by opening the friends list. We create
+        // the room only after selection, then send the push with its credentials.
+        friendsStatus.textContent='Sending invitation to '+friend.name+'…';
+        await window.BLOCKS_PUSH.invite(created,friend.id);
+        inviteRecipient=friend.name;
+      }else inviteRecipient=null;
+      await connect(created,true);
+    }catch(e){
+      if(friend){
+        // A failed push must not leave an unwanted waiting room. Do not
+        // cancel after successful delivery; connect() could fail later.
+        if(created&&!inviteRecipient){
+          try{
+            await rpc('blocks_match_exit',{
+              p_match:created.id,p_token:created.token,p_round:1
+            });
+          }catch(cancelError){
+            console.warn('Could not cancel failed invite room:',cancelError);
+          }
+        }
+        if(!match&&friendsPanel.hidden===false)
+          friendsStatus.textContent=e?.message||'Could not send invitation.';
+        else if(match)setError(e);
+      }else{setError(e);menu();setError(e)}
+    }finally{setCreating(false)}
   }
   async function joinRoom(code){
     if(joining||creating||code.length!==3)return;
@@ -940,8 +968,9 @@
     };
   }
   bindLobbyAction(menuExit,()=>{
-    // On the join screen, close the keyboard and return to Create / Join.
+    // Return from Join or Invite Friend without creating/cancelling a room.
     if(!entry.hidden){returnFromCodeEntry();return;}
+    if(!friendsPanel.hidden){if(!creating)menu();return;}
     // There is no match on the Play Together menu. Return to the full
     // New Game selector, not to an automatically resumed solo board.
     if(match||creating||joining)return;

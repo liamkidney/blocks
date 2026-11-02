@@ -7,6 +7,10 @@
   const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
   const STORAGE_KEY='blocks:remote-match:'+location.pathname;
   const PENDING_JOIN_KEY='blocks:remote-pending-join:'+location.pathname;
+  // Invitation links use the existing server-validated, single-use room code.
+  // They cannot grant access after the usual three-minute expiry.
+  const incomingCode=new URLSearchParams(location.search).get('join')?.toUpperCase()||'';
+  const directJoinCode=/^[A-Z]{3}$/.test(incomingCode)?incomingCode:null;
   const NEW_GAME_SCREEN_KEY='blocks:show-new-game-screen:v1:'+location.pathname.replace(/index[.]html$/,'');
   const headers={apikey:KEY,'Content-Type':'application/json'};
   // Official NATO spelling (including Alfa and Juliett). Codes are generated
@@ -86,6 +90,7 @@
         codeTiles('remote-create')+'</div>'+
       '<div id="remote-code-phonetic" aria-hidden="true"></div>'+
       '<p id="remote-code-expires" aria-live="off"></p>'+
+      '<button type="button" id="remote-share">INVITE FRIEND</button>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
     '</div>'+
     '<div id="remote-entry" hidden>'+
@@ -103,12 +108,28 @@
   const title=$('remote-title'),status=$('remote-status'),error=$('remote-error');
   const actions=$('remote-actions'),create=$('remote-create'),join=$('remote-join');
   const menuExit=$('remote-menu-exit');
-  const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),codeExit=$('remote-code-exit');
+  const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),share=$('remote-share'),codeExit=$('remote-code-exit');
   const codeExpiry=$('remote-code-expires');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots');
   const createdLetters=Array.from({length:3},(_,i)=>$('remote-create-letter-'+i));
   const enteredLetters=Array.from({length:3},(_,i)=>$('remote-join-letter-'+i));
   const createdPhonetic=$('remote-code-phonetic');
+  // Nickname is requested only when the person first shares an invitation.
+  // The existing leaderboard identity (blocks:player:v1) remains authoritative.
+  const nameDialog=document.createElement('div');
+  nameDialog.id='remote-name-dialog';
+  nameDialog.hidden=true;
+  nameDialog.innerHTML='<section class="remote-name-panel" role="dialog" aria-modal="true" aria-labelledby="remote-name-title">'+
+    '<h2 id="remote-name-title">What should your friend call you?</h2>'+
+    '<form id="remote-name-form">'+
+      '<input id="remote-name-input" type="text" maxlength="40" autocomplete="nickname" required aria-label="Your name" placeholder="Your name">'+
+      '<div class="remote-name-actions"><button type="button" id="remote-name-cancel">CANCEL</button>'+
+      '<button type="submit" id="remote-name-continue">CONTINUE</button></div>'+
+    '</form></section>';
+  document.body.appendChild(nameDialog);
+  const nameForm=nameDialog.querySelector('#remote-name-form');
+  const nameInput=nameDialog.querySelector('#remote-name-input');
+  const nameCancel=nameDialog.querySelector('#remote-name-cancel');
   function showCodeLetters(letters,code){
     for(let i=0;i<3;i++){
       const letter=code[i]||'—';
@@ -199,10 +220,55 @@
       '. '+code.split('').map(letter=>NATO[letter]||letter).join(', '));
     lobbyStep('code');
     title.textContent='Game created';
-    status.textContent='Share this code with Player 2.';
+    status.textContent='Share an invite or give Player 2 the code.';
     codeExpiry.hidden=!match?.inviteExpiresAt;
     showLobby(true);
     updateInviteCountdown();
+  }
+  function currentPlayerName(){
+    if(typeof window.BLOCKS_PLAYER_NAME==='function')return window.BLOCKS_PLAYER_NAME();
+    // Safe fallback while the profile script is loading.
+    try{
+      const player=JSON.parse(localStorage.getItem('blocks:player:v1')||'null');
+      return !player?.anonymous&&typeof player?.display_name==='string'?
+        player.display_name.trim()||null:null;
+    }catch(_){return null}
+  }
+  function invitationUrl(){
+    const url=new URL(location.href);
+    url.searchParams.set('remote','1');
+    url.searchParams.set('join',match.code);
+    url.searchParams.delete('players');
+    url.searchParams.delete('pieces');
+    url.hash='';
+    return url.href;
+  }
+  function shareInvite(name){
+    if(!match||match.player!==1||codePanel.hidden||!match.code)return;
+    const url=invitationUrl();
+    const invitation=name?name+' invites you to play BLOCKS.':'Join me for a game of BLOCKS.';
+    if(typeof navigator.share==='function'){
+      // Call share synchronously from the tap/submit gesture on iOS.
+      void navigator.share({title:'Play BLOCKS',text:invitation,url}).catch(error=>{
+        if(error?.name==='AbortError')return;
+        // If sharing is unavailable, leave the code visible to share manually.
+        status.textContent='Could not share. Give your friend the room code instead.';
+      });
+    }else if(navigator.clipboard?.writeText){
+      void navigator.clipboard.writeText(url).then(()=>{
+        status.textContent='Invite link copied. Send it to your friend.';
+      }).catch(()=>{
+        status.textContent='Could not copy link. Give your friend the room code instead.';
+      });
+    }else status.textContent='Give your friend the room code shown above.';
+  }
+  function requestShare(){
+    if(!match||match.player!==1||codePanel.hidden)return;
+    const name=currentPlayerName();
+    if(name){shareInvite(name);return;}
+    nameInput.value='';
+    nameDialog.hidden=false;
+    nameInput.focus();
   }
   function displaySlots(){
     // Don't reject or rearrange anything typed, including vowels and Z.
@@ -807,6 +873,25 @@
   });
   bindLobbyAction(create,()=>{void createRoom()});
   bindLobbyAction(join,enterCode);
+  bindLobbyAction(share,requestShare);
+  bindLobbyAction(nameCancel,()=>{
+    nameDialog.hidden=true;
+  });
+  nameDialog.addEventListener('click',event=>{
+    if(event.target===nameDialog)nameDialog.hidden=true;
+  });
+  nameForm.addEventListener('submit',event=>{
+    event.preventDefault();
+    const name=nameInput.value.trim();
+    if(!name||name.length>40)return;
+    const save=window.BLOCKS_SAVE_PLAYER_NAME?.(name);
+    // Share must happen before awaiting I/O: Web Share requires a user gesture.
+    nameDialog.hidden=true;
+    shareInvite(name);
+    void Promise.resolve(save).catch(error=>{
+      console.warn('Could not synchronise BLOCKS nickname:',error);
+    });
+  });
   input.addEventListener('input',()=>{
     const value=displaySlots();
     if(value.length===3&&!joining)void joinRoom(value);
@@ -872,8 +957,19 @@
   window.addEventListener('pageshow',event=>{
     if(event.persisted&&match){openSocket();void heartbeat(true);void poll();}
   });
+  // Remove the room code from the address bar once the PWA has consumed it.
+  // This also prevents a stale invitation being retried after reloading.
+  if(incomingCode&&typeof history?.replaceState==='function'){
+    const clean=new URL(location.href);
+    clean.searchParams.delete('join');
+    history.replaceState(null,'',clean.href);
+  }
   if(match)void connect(match);
-  else if(pendingJoin?.code&&pendingJoin?.token){
+  else if(directJoinCode){
+    menu();showLobby(true);enterCode();
+    input.value=directJoinCode;displaySlots();
+    void joinRoom(directJoinCode);
+  }else if(pendingJoin?.code&&pendingJoin?.token){
     menu();showLobby(true);enterCode();
     input.value=pendingJoin.code;displaySlots();
     void joinRoom(pendingJoin.code);

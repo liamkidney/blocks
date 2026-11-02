@@ -63,6 +63,7 @@ function boot(){
   };
   const window={addEventListener:(name,fn)=>on(winListeners,name,fn)};
   const session={games:[0,1].map(player=>({
+    active:{id:"initial-piece-"+player},
     dropOne(){logs.push({command:"down",player,at:time});},
     press(command){logs.push({command,player,at:time});}
   }))};
@@ -115,7 +116,7 @@ function boot(){
     return {pad:p2,buttons:controls};
   }
   return {buttons,pad,logs,timers,advance,send,pointer,dispatch,notify,
-    addPlayerTwo,docListeners,winListeners,context,now:()=>time};
+    addPlayerTwo,docListeners,winListeners,context,session,now:()=>time};
 }
 const count=(logs,command)=>logs.filter(x=>x.command===command).length;
 
@@ -150,6 +151,43 @@ test("down repeats faster, and another finger can steer simultaneously",()=>{
   assert.equal(count(b.logs,"right"),4);
   assert.equal(count(b.logs,"down"),8);
   b.send(down,"touchend",5,165);
+  assert.equal(b.timers.size,0);
+});
+
+
+test("held Down does not soft-drop the next spawned piece until released",()=>{
+  const b=boot(),down=b.buttons[2];
+  b.send(down,"touchstart",5,165);
+  b.advance(130);
+  assert.equal(count(b.logs,"down"),2);
+  // Gravity locks the piece between two soft-drop repetitions.
+  b.session.games[0].active={id:"next-piece"};
+  b.advance(105);
+  assert.equal(count(b.logs,"down"),2,
+    "old hold must not send a Down command to the next piece");
+  assert.equal(b.timers.size,0,"repeat timer is removed on piece change");
+  b.send(down,"touchend",5,165);
+  b.send(down,"touchstart",6,165);
+  assert.equal(count(b.logs,"down"),3,
+    "releasing and pressing again allows deliberate soft drop");
+  b.send(down,"touchend",6,165);
+});
+
+test("held Down is also isolated by piece and player in two-player games",()=>{
+  const b=boot(),p2=b.addPlayerTwo();
+  const downOne=b.buttons[2],downTwo=p2.buttons[2];
+  b.send(downOne,"touchstart",5,165);
+  b.send(downTwo,"touchstart",6,615);
+  b.advance(130);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,2);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,2);
+  b.session.games[0].active={id:"next-p1"};
+  b.advance(35);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,2);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,3,
+    "player two is unaffected by player one's new piece");
+  b.send(downOne,"touchend",5,165);
+  b.send(downTwo,"touchend",6,615);
   assert.equal(b.timers.size,0);
 });
 

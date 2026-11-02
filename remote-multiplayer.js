@@ -901,6 +901,34 @@
     try{await navigator.clipboard.writeText(match.code);copy.textContent='COPIED'}
     catch(_){setError('Copy the code shown above.')}
   };
+  addFriend.onclick=async()=>{
+    if(!match||!finished||!window.BLOCKS_PUSH||addFriend.disabled)return;
+    const current=match;
+    try{
+      if(!window.BLOCKS_PLAYER_NAME?.())await window.BLOCKS_CHOOSE_PLAYER_NAME?.();
+      if(match!==current)return;
+      addFriend.disabled=true;
+      friendStatus.hidden=false;friendStatus.textContent='Saving friend request…';
+      await window.BLOCKS_PUSH.offer(current);
+      friendCheckAt=0;
+      await refreshFriendStatus();
+    }catch(error){
+      if(match===current&&error.message!=='Cancelled'){
+        friendStatus.textContent=error.message;addFriend.disabled=false;
+      }
+    }
+  };
+  enablePush.onclick=async()=>{
+    if(!window.BLOCKS_PUSH)return;
+    enablePush.disabled=true;
+    friendStatus.textContent='Enabling notifications…';
+    try{
+      await window.BLOCKS_PUSH.enable();
+      enablePush.hidden=true;
+      friendStatus.textContent='FRIENDS ✓ · notifications enabled';
+    }catch(error){friendStatus.textContent=error.message}
+    finally{enablePush.disabled=false}
+  };
   restart.onclick=()=>{if(finished)void requestRematch();else if(staging)void requestStart();};
   exitResult.onclick=()=>{if(finished)dismissResults();else void exitToNewGame()};
   leaveResult.onclick=()=>{void exitToNewGame()};

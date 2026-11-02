@@ -81,6 +81,7 @@
     status:async match=>authenticated('friend_status',credentials(match)),
     offer:async match=>authenticated('offer_friend',credentials(match)),
     friends:()=>authenticated('friends'),
+    removeFriend:friendId=>authenticated('remove_friend',{friendId}),
     invite:(match,friendId)=>authenticated('invite',{...credentials(match),friendId}),
     refresh:restore
   };

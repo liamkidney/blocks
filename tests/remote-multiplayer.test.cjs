@@ -379,7 +379,7 @@ test('named host can share a one-tap invitation that joins the existing room',as
   host.get('remote-create').onclick();await settle();
   assert.equal(host.get('remote-code-panel').hidden,false);
   host.get('remote-share').onclick();await settle();
-  assert.equal(host.get('remote-name-dialog').hidden,true,
+  assert.equal(host.popup('remote-name-dialog').hidden,true,
     'existing leaderboard nickname must not be requested again');
   assert.equal(host.sharedInvitations.length,1);
   const invite=host.sharedInvitations[0];
@@ -406,19 +406,19 @@ test('first share asks for a nickname once and reuses the leaderboard player id'
   const host=f.browser(storage);
   host.get('remote-create').onclick();await settle();
   host.get('remote-share').onclick();await settle();
-  assert.equal(host.get('remote-name-dialog').hidden,false);
+  assert.equal(host.popup('remote-name-dialog').hidden,false);
   assert.equal(host.sharedInvitations.length,0);
   host.get('remote-name-input').value='  Sam  ';
   host.get('remote-name-form').listeners.submit({preventDefault(){}});
   await settle();
-  assert.equal(host.get('remote-name-dialog').hidden,true);
+  assert.equal(host.popup('remote-name-dialog').hidden,true);
   assert.equal(host.sharedInvitations.length,1);
   assert.equal(host.sharedInvitations[0].text,'Sam invites you to play BLOCKS.');
   const stored=JSON.parse(storage.get('blocks:player:v1'));
   assert.equal(stored.player_id,'existing-player-uuid','must reuse leaderboard identity');
   assert.equal(stored.display_name,'Sam');
   host.get('remote-share').onclick();await settle();
-  assert.equal(host.get('remote-name-dialog').hidden,true,'name is not requested again');
+  assert.equal(host.popup('remote-name-dialog').hidden,true,'name is not requested again');
   assert.equal(host.sharedInvitations.length,2);
 });
 

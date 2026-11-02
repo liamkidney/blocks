@@ -1,0 +1,38 @@
+name: Smoke-test BLOCKS Web Push endpoint
+on:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/blocks-push-smoke.yml'
+      - 'supabase/functions/blocks-push/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify public VAPID subscription key is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          reply=$(curl --fail-with-body --silent --show-error \
+            --max-time 25 \
+            -X POST https://psoncybkfsdmjksyrcvv.supabase.co/functions/v1/blocks-push \
+            -H 'Content-Type: application/json' \
+            -d '{"action":"config"}')
+          echo "$reply" | node -e '
+            let data="";
+            process.stdin.on("data",x=>data+=x);
+            process.stdin.on("end",()=>{
+              const p=JSON.parse(data);
+              if(!/^[A-Za-z0-9_-]{80,100}$/.test(p.publicKey||"")){
+                console.error("Web Push setup failed: "+JSON.stringify(p));
+                process.exit(1);
+              }
+              console.log("VAPID public key verified.");
+            });
+          '

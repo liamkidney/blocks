@@ -71,8 +71,14 @@ self.addEventListener("notificationclick",event=>{
       try{return new URL(client.url).pathname===url.pathname}catch(_){return false}
     });
     if(existing){
-      const navigated=await existing.navigate(url.href);
-      await (navigated||existing).focus();
+      // On iOS, navigating an already-open standalone PWA can simply refocus
+      // its existing screen. Send the invitation to the running app as well.
+      // Cold starts still read push_join from the destination URL.
+      let targetClient=existing;
+      try{targetClient=await existing.navigate(url.href)||existing}
+      catch(error){console.warn('BLOCKS notification navigation:',error)}
+      await targetClient.focus();
+      targetClient.postMessage({type:'BLOCKS_PUSH_INVITATION',url:url.href});
     }else await self.clients.openWindow(url.href);
   })());
 });

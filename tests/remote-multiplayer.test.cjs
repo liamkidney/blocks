@@ -132,7 +132,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     return failure('Unknown RPC');
   }
 
-  function browser(storage=new Map(),config={difficulty:1,piece_set:'ALL',ghost_piece:false},search='?remote=1'){
+  function browser(storage=new Map(),config={difficulty:1,piece_set:'ALL',ghost_piece:false},search='?remote=1',options={}){
     const nodes=new Map(),bodyElements=[];
     const get=id=>{
       if(!nodes.has(id))nodes.set(id,node(id));
@@ -179,7 +179,9 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     const attacks=[],results=[],rounds=[],holds=[],unholds=[],configs=[];
     const ownBoard=Array(20).fill(0),opponentBoards=[],clearedBoards=[];
     const reactions=[],pauses=[];
+    let friendLookups=0;
     const window={
+      matchMedia:query=>({matches:options.pwa==='standalone'&&query==='(display-mode: standalone)'}),
       BLOCKS_REMOTE_LOCAL_CONFIG:config,
       visualViewport,innerHeight:800,innerWidth:390,
       BLOCKS_REMOTE_CAPTURE:()=>({snapshot:{applied:attacks.length},progress:0}),
@@ -250,8 +252,20 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     }
     const sharedInvitations=[];
     const navigator={
-      onLine:true,clipboard:{writeText:async()=>{}},
+      onLine:true,standalone:options.pwa==='ios',
+      clipboard:{writeText:async()=>{}},
       share:async invitation=>{sharedInvitations.push(invitation)}
+    };
+    window.BLOCKS_PUSH={
+      enabled:options.notifications===true,
+      attach:async()=>({ok:true}),
+      status:async()=>({friends:false,mine:false,theirs:false}),
+      friends:async()=>{
+        friendLookups++;
+        return {friends:options.friends||[]};
+      },
+      invite:async()=>({ok:true}),
+      offer:async()=>({ok:true})
     };
     window.BLOCKS_PLAYER_NAME=()=>{
       const p=JSON.parse(storage.get('blocks:player:v1')||'null');
@@ -281,6 +295,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     return {
       window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,history,sharedInvitations,bodyElements,
       ownBoard,opponentBoards,clearedBoards,reactions,pauses,
+      get friendLookups(){return friendLookups},
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -369,6 +384,74 @@ async function matched(f){
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
   return {host,guest};
 }
+
+test('installed PWA keeps saved-friend list open through waiting-room polls',async()=>{
+  const f=fixture();
+  const host=f.browser(undefined,undefined,'?remote=1',{
+    pwa:'standalone',friends:[
+      {id:'friend-1',name:'Alex',canNotify:true},
+      {id:'friend-2',name:'Sam',canNotify:false}
+    ]
+  });
+  assert.equal(host.get('remote-invite-friend').hidden,true,'hide until friends load');
+  host.get('remote-create').onclick();
+  await settle();
+  assert.equal(host.get('remote-invite-friend').hidden,false);
+  assert.equal(host.friendLookups,1,'fetch once for the room');
+  host.get('remote-invite-friend').onclick();
+  await settle();
+  assert.equal(host.get('remote-friends-panel').hidden,false);
+  assert.equal(host.get('remote-friends-list').textContent,'');
+  const entries=host.get('remote-friends-list');
+  // Fake DOM stores inserted nodes separately. The real browser renders these
+  // buttons in the panel and must not clear them during background polling.
+  assert.equal(host.get('remote-friends-status').textContent,
+    'Choose a friend to notify.');
+  for(let i=0;i<4;i++){await host.tick();await settle();}
+  assert.equal(host.get('remote-friends-panel').hidden,false,
+    'server polling must not close the open friends panel');
+  assert.equal(host.friendLookups,1,'do not fetch friends every poll');
+  assert.equal(host.get('remote-invite-friend').hidden,false);
+});
+
+test('installed PWA with no saved friends never displays Invite Friend',async()=>{
+  const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
+    pwa:'ios',friends:[]
+  });
+  host.get('remote-create').onclick();await settle();
+  assert.equal(host.friendLookups,1);
+  assert.equal(host.get('remote-invite-friend').hidden,true);
+  host.get('remote-invite-friend').onclick();await settle();
+  assert.equal(host.get('remote-friends-panel').hidden,true);
+  for(let i=0;i<3;i++){await host.tick();await settle();}
+  assert.equal(host.get('remote-invite-friend').hidden,true);
+});
+
+test('Safari game hides all friendship and notification controls even when friends exist',async()=>{
+  const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
+    friends:[{id:'friend-1',name:'Alex',canNotify:true}]
+  }),guest=f.browser();
+  host.get('remote-create').onclick();await settle();
+  assert.equal(host.get('remote-invite-friend').hidden,true);
+  assert.equal(host.friendLookups,0,'do not fetch friends in Safari');
+  host.get('remote-invite-friend').onclick();await settle();
+  assert.equal(host.get('remote-friends-panel').hidden,true);
+  guest.get('remote-join').onclick();
+  guest.get('remote-input').value='BRT';
+  guest.get('remote-input').listeners.input();await settle();
+  await host.tick();await settle();
+  host.get('remote-restart').onclick();
+  await settle();await host.tick();await guest.tick();await settle();
+  guest.get('remote-restart').onclick();
+  await settle();await host.tick();await guest.tick();await settle();
+  guest.window.BLOCKS_REMOTE.reportLoss();await settle();
+  await host.tick();await guest.tick();await settle();
+  for(const phone of [host,guest]){
+    assert.equal(phone.get('remote-add-friend').hidden,true);
+    assert.equal(phone.get('remote-friend-status').hidden,true);
+    assert.equal(phone.get('remote-enable-push').hidden,true);
+  }
+});
 
 test('two-button lobby creates rooms with a spinner and joins after three letters',async()=>{
   const f=fixture(),{host,guest}=await matched(f);

@@ -13,7 +13,7 @@ test('friend invitations are push-only and use the existing room codes internall
   assert.match(remote,/id="remote-add-friend"/);
   assert.match(remote,/id="remote-enable-push"/);
   assert.doesNotMatch(remote,/navigator[.]share|shareInvite|INVITE LINK|remote-share/);
-  assert.match(remote,/get[('"]push_join['")]/);
+  assert.match(remote,/get\(['"]push_join['"]\)/);
   assert.match(edge,/[?]remote=1&push_join=/);
   assert.match(push,/Notification[.]requestPermission/);
   assert.match(push,/window[.]BLOCKS_ENSURE_PLAYER/);

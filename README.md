@@ -21,6 +21,11 @@ the existing multiplayer and room-code UI. The host's **Invite Friend** button
 is hidden unless that installation has saved friends, and an open friend list
 stays visible through waiting-room polling.
 
+In the saved-friends list, tap the **×** beside a name and confirm to remove
+that friend. This revokes invitations in both directions and clears mutual
+friend requests from previous matches. If no friends remain, **Invite Friend**
+disappears.
+
 1. After a completed match, either player can select **Add Friend**. The request
    is mutual: the two installations become saved friends only if both accept.
    BLOCKS reuses the exact player ID and nickname already used for the solo

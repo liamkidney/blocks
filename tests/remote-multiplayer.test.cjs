@@ -1077,7 +1077,7 @@ test('Room Created shows its own cancellation X in place of menu X',async()=>{
   assert.equal(phone.get('remote-menu-exit').hidden,true);
   assert.equal(phone.get('remote-code-exit').hidden,false);
   assert.equal(phone.get('remote-status').textContent,
-    'Share this code with Player 2.');
+    'Share an invite or give Player 2 the code.');
 });
 
 test('Game Created has comfortably spaced code, NATO and countdown',()=>{

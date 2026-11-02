@@ -1,7 +1,8 @@
 // Player identity and Supabase registration. No score writes yet.
 (()=>{
-  // Two-phone matches have no profile or leaderboard controls.
-  if(new URLSearchParams(location.search).get('remote')==='1')return;
+  // The same identity and display name are used for solo leaderboards and
+  // two-phone invitations. Only the profile dialog is hidden in remote mode.
+  const remote=new URLSearchParams(location.search).get('remote')==='1';
   const KEY='blocks:player:v1';
   const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/players';
   const API_KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
@@ -31,7 +32,24 @@
     catch(error){registration=null;throw error;}
   }
   window.BLOCKS_ENSURE_PLAYER=ensurePlayer;
+  window.BLOCKS_PLAYER_NAME=()=>player?.anonymous?null:
+    (typeof player?.display_name==='string'?player.display_name.trim()||null:null);
+  window.BLOCKS_SAVE_PLAYER_NAME=name=>{
+    const clean=String(name||'').trim();
+    if(!clean||clean.length>40)return Promise.reject(Error('Choose a name (up to 40 characters).'));
+    // Save locally immediately so the same name is available in solo and
+    // multiplayer, even if the network update is still in progress.
+    player={player_id:player.player_id,display_name:clean};
+    try{localStorage.setItem(KEY,JSON.stringify(player));}catch(_){}
+    return ensurePlayer().then(id=>fetch(API+'?player_id=eq.'+encodeURIComponent(id),{
+      method:'PATCH',headers,body:JSON.stringify({display_name:clean})
+    })).then(response=>{
+      if(!response.ok)throw Error('Supabase error '+response.status);
+      return clean;
+    });
+  };
   void ensurePlayer().catch(error=>console.warn('Blocks player registration:',error));
+  if(remote)return;
   const dialog=document.createElement('div');
   dialog.id='player-dialog';dialog.hidden=true;
   dialog.innerHTML='<div class="player-panel" role="dialog" aria-modal="true" aria-labelledby="player-title"><form id="player-form"><label id="player-title" for="player-input">PLAYER NAME</label><input id="player-input" type="text" maxlength="40" autocomplete="nickname" required><div class="player-buttons"><button type="button" id="player-cancel">CANCEL</button><button type="submit">SAVE</button></div></form></div>';
@@ -65,13 +83,7 @@
     if(!name)return;
     saveButton.disabled=true;message.textContent='Saving…';
     try{
-      const id=await ensurePlayer();
-      const response=await fetch(API+'?player_id=eq.'+encodeURIComponent(id),{
-        method:'PATCH',headers,body:JSON.stringify({display_name:name})
-      });
-      if(!response.ok)throw new Error('Supabase error '+response.status);
-      player={player_id:id,display_name:name};
-      try{localStorage.setItem(KEY,JSON.stringify(player));}catch(_){}
+      await window.BLOCKS_SAVE_PLAYER_NAME(name);
       close();
     }catch(error){message.textContent='Could not save online. Check connection and retry.';}
     finally{saveButton.disabled=false;}

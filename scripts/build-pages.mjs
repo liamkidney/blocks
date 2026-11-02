@@ -35,6 +35,8 @@ if(channel==="dev"){
     copyFileSync(sourcePath,join(output,name));
   }
 }
+if(channel==="dev"&&existsSync(join(source,"push-client.js")))
+  copyFileSync(join(source,"push-client.js"),join(output,"push-client.js"));
 if(existsSync(join(source,"score-ownership.js")))
   copyFileSync(join(source,"score-ownership.js"),join(output,"score-ownership.js"));
 const name=channel==="dev"?"Blocks Dev":"Blocks";

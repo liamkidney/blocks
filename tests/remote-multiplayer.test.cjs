@@ -140,8 +140,12 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     };
     function node(id=''){
       const classes=new Set();
+      let textValue='';
       return {
-        id,hidden:false,value:'',textContent:'',disabled:false,onclick:null,attrs:{},
+        id,hidden:false,value:'',disabled:false,onclick:null,attrs:{},
+        children:[],
+        get textContent(){return textValue},
+        set textContent(value){textValue=String(value);this.children=[]},},
         classList:{
           toggle(name,on){if(on)classes.add(name);else classes.delete(name)},
           add(name){classes.add(name)},remove(name){classes.delete(name)},
@@ -158,7 +162,8 @@ function fixture({realtime=false,shortCode='BRT'}={}){
         })(),
         setAttribute(key,value){this.attrs[key]=String(value)},
         addEventListener(event,handler){this.listeners[event]=handler},
-        append(){},prepend(){},close(){},
+        append(...elements){this.children.push(...elements)},
+        prepend(...elements){this.children.unshift(...elements)},close(){},
         focus(){document.activeElement=this;this.focused=true;this.listeners.focus?.()},
         blur(){if(document.activeElement===this)document.activeElement=null;
           this.focused=false;this.listeners.blur?.()},
@@ -393,7 +398,8 @@ test('installed PWA keeps saved-friend list open through waiting-room polls',asy
       {id:'friend-2',name:'Sam',canNotify:false}
     ]
   });
-  assert.equal(host.get('remote-invite-friend').hidden,true,'hide until friends load');
+  assert.match(source,/id="remote-invite-friend" hidden/,
+    'button is hidden in the initial HTML, before async friend lookup');
   host.get('remote-create').onclick();
   await settle();
   assert.equal(host.get('remote-invite-friend').hidden,false);
@@ -401,7 +407,8 @@ test('installed PWA keeps saved-friend list open through waiting-room polls',asy
   host.get('remote-invite-friend').onclick();
   await settle();
   assert.equal(host.get('remote-friends-panel').hidden,false);
-  assert.equal(host.get('remote-friends-list').textContent,'');
+  assert.equal(host.get('remote-friends-list').children.length,3,
+    'two saved friends and one missing-notifications hint');
   const entries=host.get('remote-friends-list');
   // Fake DOM stores inserted nodes separately. The real browser renders these
   // buttons in the panel and must not clear them during background polling.
@@ -410,6 +417,10 @@ test('installed PWA keeps saved-friend list open through waiting-room polls',asy
   for(let i=0;i<4;i++){await host.tick();await settle();}
   assert.equal(host.get('remote-friends-panel').hidden,false,
     'server polling must not close the open friends panel');
+  assert.equal(entries.children.length,3,
+    'server polling must not clear the rendered names');
+  assert.equal(entries.children[0].textContent,'Alex');
+  assert.equal(entries.children[1].textContent,'Sam');
   assert.equal(host.friendLookups,1,'do not fetch friends every poll');
   assert.equal(host.get('remote-invite-friend').hidden,false);
 });

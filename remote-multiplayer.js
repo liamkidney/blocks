@@ -561,98 +561,90 @@
       if(match===current)friendStatus.textContent='';
     }finally{friendCheckInFlight=false}
   }
-  async function loadRoomFriends(){
-    if(!installedPwa||!match||match.player!==1||codePanel.hidden||
-       !window.BLOCKS_PUSH)return [];
-    if(roomFriends!==null)return roomFriends;
-    if(roomFriendsPromise)return roomFriendsPromise;
-    const current=match;
+  async function loadMenuFriends(){
+    // Only installed PWAs fetch saved friends. Keep the button invisible until
+    // the server confirms at least one relationship.
+    if(!installedPwa||!window.BLOCKS_PUSH||match)return [];
+    if(savedFriends!==null)return savedFriends;
+    if(friendsRequest)return friendsRequest;
+    const revision=menuRevision;
     const pending=window.BLOCKS_PUSH.friends().then(response=>{
       const list=Array.isArray(response.friends)?response.friends:[];
-      if(match===current&&displayedRoomId===current.id&&!codePanel.hidden){
-        roomFriends=list;
+      if(menuRevision===revision&&!match){
+        savedFriends=list;
         inviteFriend.hidden=list.length===0;
       }
       return list;
     }).catch(error=>{
-      if(match===current&&displayedRoomId===current.id)inviteFriend.hidden=true;
+      if(menuRevision===revision&&!match)inviteFriend.hidden=true;
       console.warn('BLOCKS friends lookup:',error);
       return [];
-    }).finally(()=>{if(roomFriendsPromise===pending)roomFriendsPromise=null});
-    roomFriendsPromise=pending;
+    }).finally(()=>{if(friendsRequest===pending)friendsRequest=null});
+    friendsRequest=pending;
     return pending;
   }
   async function displayFriends(){
-    if(!installedPwa||!match||match.player!==1||codePanel.hidden||
-       inviteFriend.hidden||!window.BLOCKS_PUSH)return;
-    const current=match;
-    const list=await loadRoomFriends();
-    if(match!==current||codePanel.hidden||!list.length)return;
-    friendsPanel.hidden=false;
+    if(!installedPwa||match||creating||joining||inviteFriend.hidden||
+       !window.BLOCKS_PUSH)return;
+    const revision=menuRevision;
+    lobbyStep('friends');
+    title.textContent='Invite a friend';
+    status.textContent='';
     friendsStatus.textContent='Choose a friend to notify.';
     friendsList.textContent='';
-    try{
-      friendsStatus.textContent=list.length?'Choose a friend to notify.':
-        'No saved friends yet. After a game, both players can choose Add Friend.';
-      for(const friend of list){
-        const row=document.createElement('div');
-        row.className='remote-friend-row';
-        const button=document.createElement('button');
-        button.type='button';button.className='remote-friend-choice';
-        button.textContent=friend.name;
-        button.disabled=!friend.canNotify;
-        button.title=friend.canNotify?'Send push invitation':'Friend has not enabled notifications';
-        button.onclick=async()=>{
-          if(match!==current)return;
-          button.disabled=true;friendsStatus.textContent='Sending invitation…';
-          try{
-            await window.BLOCKS_PUSH.invite(current,friend.id);
-            friendsStatus.textContent='Invitation sent to '+friend.name+'.';
-          }catch(error){friendsStatus.textContent=error.message;button.disabled=false}
-        };
-        row.append(button);
-        const remove=document.createElement('button');
-        remove.type='button';
-        remove.className='remote-friend-remove';
-        remove.textContent='×';
-        remove.setAttribute('aria-label','Remove '+friend.name+' from friends');
-        remove.title='Remove '+friend.name+' from friends';
-        remove.onclick=async()=>{
-          if(!installedPwa||match!==current||!window.BLOCKS_PUSH)return;
-          if(!window.confirm('Remove '+friend.name+' from friends? You will no longer be able to invite each other.'))
-            return;
-          remove.disabled=true;
-          friendsStatus.textContent='Removing '+friend.name+'…';
-          try{
-            await window.BLOCKS_PUSH.removeFriend(friend.id);
-            if(match!==current)return;
-            // Update the cached list as well, so waiting-room polls never
-            // bring the deleted friend back or close/reopen the list.
-            roomFriends=(roomFriends||list).filter(person=>person.id!==friend.id);
-            inviteFriend.hidden=roomFriends.length===0;
-            if(roomFriends.length){
-              await displayFriends();
-              friendsStatus.textContent=friend.name+' removed.';
-            }else{
-              friendsPanel.hidden=true;
-              friendsList.textContent='';
-            }
-          }catch(error){
-            if(match===current){
-              friendsStatus.textContent=error.message||'Could not remove friend.';
-              remove.disabled=false;
-            }
+    showLobby(true);
+    const list=await loadMenuFriends();
+    if(menuRevision!==revision||match||friendsPanel.hidden)return;
+    if(!list.length){menu();return}
+    for(const friend of list){
+      const row=document.createElement('div');
+      row.className='remote-friend-row';
+      const button=document.createElement('button');
+      button.type='button';button.className='remote-friend-choice';
+      button.textContent=friend.name;
+      button.disabled=!friend.canNotify;
+      button.title=friend.canNotify?'Send push invitation':'Friend has not enabled notifications';
+      button.onclick=()=>{
+        if(menuRevision!==revision||match||creating||friendsPanel.hidden)return;
+        void createRoom(friend);
+      };
+      row.append(button);
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='remote-friend-remove';
+      remove.textContent='×';
+      remove.setAttribute('aria-label','Remove '+friend.name+' from friends');
+      remove.title='Remove '+friend.name+' from friends';
+      remove.onclick=async()=>{
+        if(!installedPwa||menuRevision!==revision||match||creating||!window.BLOCKS_PUSH)return;
+        if(!window.confirm('Remove '+friend.name+' from friends? You will no longer be able to invite each other.'))
+          return;
+        remove.disabled=true;
+        friendsStatus.textContent='Removing '+friend.name+'…';
+        try{
+          await window.BLOCKS_PUSH.removeFriend(friend.id);
+          if(menuRevision!==revision||match)return;
+          savedFriends=(savedFriends||list).filter(person=>person.id!==friend.id);
+          inviteFriend.hidden=savedFriends.length===0;
+          if(savedFriends.length){
+            await displayFriends();
+            friendsStatus.textContent=friend.name+' removed.';
+          }else menu();
+        }catch(error){
+          if(menuRevision===revision&&!match){
+            friendsStatus.textContent=error.message||'Could not remove friend.';
+            remove.disabled=false;
           }
-        };
-        row.append(remove);
-        if(!friend.canNotify){
-          const note=document.createElement('small');
-          note.textContent='Notifications not enabled';
-          row.append(note);
         }
-        friendsList.append(row);
+      };
+      row.append(remove);
+      if(!friend.canNotify){
+        const note=document.createElement('small');
+        note.textContent='Notifications not enabled';
+        row.append(note);
       }
-    }catch(error){friendsStatus.textContent=error.message}
+      friendsList.append(row);
+    }
   }
   function finish(winner,state){
     if(exiting)return;

@@ -142,7 +142,7 @@ async function handle(body:Input){
     });
     const bodyText=(device.display_name==="Anonymous"?"A friend":device.display_name)+" invites you to play BLOCKS";
     const payload=JSON.stringify({title:"BLOCKS",body:bodyText,
-      path:"/blocks/dev/?remote=1&join="+encodeURIComponent(invitation.code),
+      path:"/blocks/dev/?remote=1&push_join="+encodeURIComponent(invitation.code),
       matchId:room.id});
     await appServer.subscribe(receivers[0].subscription).pushTextMessage(payload,{
       ttl:180,urgency:webpush.Urgency.High

@@ -115,3 +115,48 @@ test("pre-integer string snapshots remain recoverable",()=>{
     assert.equal(Game.fromSnapshot(snapshot).difficulty,expected);
   }
 });
+
+test("soft drop resets gravity timing instead of inheriting a nearly due tick",()=>{
+  const game=new Game({difficulty:0});
+  game.elapsed=game.tickSeconds-.01;
+  const before=game.active.y;
+  game.dropOne();
+  assert.equal(game.active.y,before-1);
+  assert.equal(game.elapsed,0,"manual downward movement starts a fresh gravity period");
+  game.update(.02);
+  assert.equal(game.active.y,before-1,"stale gravity tick must not instantly drop again");
+  game.update(game.tickSeconds-.021);
+  assert.equal(game.active.y,before-1);
+  game.update(.002);
+  assert.equal(game.active.y,before-2,"the next automatic drop occurs after a full interval");
+});
+
+test("blocked Down leaves gravity running and locks at a predictable time",()=>{
+  const game=new Game({difficulty:0});
+  while(game.tryMove(0,-1))game.elapsed=.3;
+  const locked=game.active;
+  game.elapsed=.3;
+  game.dropOne();
+  assert.equal(game.elapsed,.3,"unsuccessful soft-drop repeats must not postpone locking");
+  game.update(.49);
+  assert.strictEqual(game.active,locked,"piece remains until its full gravity tick");
+  game.update(.011);
+  assert.notStrictEqual(game.active,locked,"piece locks and next piece spawns");
+  assert.equal(game.elapsed,0,"next piece inherits no elapsed gravity time");
+  assert.equal(game.phase,"falling");
+});
+
+test("new piece receives a fresh tick even after gravity's own lock event",()=>{
+  const game=new Game({difficulty:2});
+  while(game.tryMove(0,-1)){}
+  const original=game.active;
+  game.elapsed=game.tickSeconds-.01;
+  game.update(.05);
+  assert.notStrictEqual(game.active,original);
+  assert.equal(game.elapsed,0);
+  const spawnY=game.active.y;
+  game.update(game.tickSeconds-.001);
+  assert.equal(game.active.y,spawnY,"next piece cannot drop early");
+  game.update(.002);
+  assert.equal(game.active.y,spawnY-1);
+});

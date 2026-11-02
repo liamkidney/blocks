@@ -256,9 +256,12 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       }
       close(){this.readyState=3;}
     }
-    const sharedInvitations=[];
+    const sharedInvitations=[],serviceWorkerListeners=new Map();
     const navigator={
       onLine:true,standalone:options.pwa==='ios',
+      serviceWorker:{
+        addEventListener(name,callback){serviceWorkerListeners.set(name,callback)}
+      },
       clipboard:{writeText:async()=>{}},
       share:async invitation=>{sharedInvitations.push(invitation)}
     };
@@ -307,6 +310,12 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
       window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,history,sharedInvitations,bodyElements,
+      tapInvite(code){
+        serviceWorkerListeners.get('message')?.({
+          data:{type:'BLOCKS_PUSH_INVITATION',
+            url:'https://example.test/blocks/dev/?remote=1&push_join='+code}
+        });
+      },
       ownBoard,opponentBoards,clearedBoards,reactions,pauses,
       get friendLookups(){return friendLookups},
       removedFriends,
@@ -398,6 +407,48 @@ async function matched(f){
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
   return {host,guest};
 }
+
+test('tapping notification while already on Create Game screen joins that room',async()=>{
+  const f=fixture(),host=f.browser(),guest=f.browser(
+    undefined,undefined,'?remote=1',{pwa:'ios'}
+  );
+  host.get('remote-create').onclick();await settle();
+  assert.equal(guest.get('remote-actions').hidden,false,
+    'guest begins on the Create Game / Join Game screen');
+  guest.tapInvite('BRT');await settle();
+  await host.tick();await settle();
+  assert.equal(f.joins,1,'notification joins the waiting room exactly once');
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(host.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(guest.window.BLOCKS_REMOTE.player,2);
+  guest.tapInvite('BRT');await settle();
+  assert.equal(f.joins,1,'repeated click on the same invite does not rejoin');
+});
+
+test('tapping an invitation exits an existing waiting room before joining',async()=>{
+  const f=fixture(),friend=f.browser(),guest=f.browser(
+    undefined,undefined,'?remote=1',{pwa:'standalone'}
+  );
+  friend.get('remote-create').onclick();await settle();
+  const original=[...f.rooms.values()][0];
+  guest.get('remote-create').onclick();await settle();
+  assert.equal(guest.window.BLOCKS_REMOTE.player,1);
+  guest.tapInvite('BRT');await settle();
+  assert.equal(f.rooms.size,2);
+  // The matching test code is the first waiting room only after the
+  // previous host room was cancelled; verify the old room was left.
+  assert.equal(guest.window.BLOCKS_REMOTE.player,2);
+  assert.equal(f.joins,1);
+  assert.equal(original.status,'ready');
+});
+
+test('notification messages are ignored in ordinary Safari browser tabs',async()=>{
+  const f=fixture(),host=f.browser(),guest=f.browser();
+  host.get('remote-create').onclick();await settle();
+  guest.tapInvite('BRT');await settle();
+  assert.equal(f.joins,0);
+  assert.equal(guest.get('remote-actions').hidden,false);
+});
 
 test('installed PWA keeps saved-friend list open through waiting-room polls',async()=>{
   const f=fixture();

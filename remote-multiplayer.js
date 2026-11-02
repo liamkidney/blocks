@@ -1048,6 +1048,38 @@
     }
   };
 
+  // A notification clicked while the PWA is already open does not always
+  // cause a full navigation on iOS. Join within the running multiplayer app.
+  async function acceptPushInvitation(code){
+    if(!installedPwa||!(/^[A-Z]{3}$/.test(code))||joining)return;
+    if(match){
+      if(match.code===code&&match.player===2){
+        void poll(); // Already joined this invitation.
+        return;
+      }
+      if(ready&&!finished){
+        // Never silently forfeit an active match because a push was tapped.
+        return;
+      }
+      await exitToNewGame();
+      if(match)return; // Exit failed; preserve the existing session.
+    }
+    if(creating)return; // Do not race an in-progress create request.
+    menu();showLobby(true);enterCode();
+    input.value=code;displaySlots();
+    await joinRoom(code);
+  }
+  navigator.serviceWorker?.addEventListener('message',event=>{
+    if(event.data?.type!=='BLOCKS_PUSH_INVITATION'||!installedPwa)return;
+    try{
+      const url=new URL(event.data.url);
+      if(url.origin!==new URL(location.href).origin||
+         url.pathname!==location.pathname||
+         url.searchParams.get('remote')!=='1')return;
+      const code=url.searchParams.get('push_join')?.toUpperCase()||'';
+      void acceptPushInvitation(code);
+    }catch(_){}
+  });
   window.addEventListener('online',()=>{void heartbeat(true);void poll();void flush()});
   window.addEventListener('offline',()=>holdGame('CONNECTION LOST'));
   document.addEventListener('visibilitychange',()=>{
@@ -1064,9 +1096,7 @@
     history.replaceState(null,'',clean.href);
   }
   if(incomingPushCode){
-    menu();showLobby(true);enterCode();
-    input.value=incomingPushCode;displaySlots();
-    void joinRoom(incomingPushCode);
+    void acceptPushInvitation(incomingPushCode);
   }else if(match)void connect(match);
   else if(pendingJoin?.code&&pendingJoin?.token){
     menu();showLobby(true);enterCode();

@@ -7,6 +7,9 @@
   const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
   const STORAGE_KEY='blocks:remote-match:'+location.pathname;
   const PENDING_JOIN_KEY='blocks:remote-pending-join:'+location.pathname;
+  // Internal notification destination (never exposed as a shareable link).
+  const pushCode=new URLSearchParams(location.search).get('push_join')?.toUpperCase()||'';
+  const incomingPushCode=/^[A-Z]{3}$/.test(pushCode)?pushCode:null;
   const NEW_GAME_SCREEN_KEY='blocks:show-new-game-screen:v1:'+location.pathname.replace(/index[.]html$/,'');
   const headers={apikey:KEY,'Content-Type':'application/json'};
   // Official NATO spelling (including Alfa and Juliett). Codes are generated
@@ -872,8 +875,17 @@
   window.addEventListener('pageshow',event=>{
     if(event.persisted&&match){openSocket();void heartbeat(true);void poll();}
   });
-  if(match)void connect(match);
-  }else if(pendingJoin?.code&&pendingJoin?.token){
+  if(pushCode&&typeof history!=='undefined'&&typeof history.replaceState==='function'){
+    const clean=new URL(location.href);
+    clean.searchParams.delete('push_join');
+    history.replaceState(null,'',clean.href);
+  }
+  if(incomingPushCode){
+    menu();showLobby(true);enterCode();
+    input.value=incomingPushCode;displaySlots();
+    void joinRoom(incomingPushCode);
+  }else if(match)void connect(match);
+  else if(pendingJoin?.code&&pendingJoin?.token){
     menu();showLobby(true);enterCode();
     input.value=pendingJoin.code;displaySlots();
     void joinRoom(pendingJoin.code);

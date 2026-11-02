@@ -15,6 +15,12 @@ Run tests and validate the development PWA before releasing. To promote, run Git
 Friend invitations use **Web Push**, not shared URLs. The manual three-letter room
 code remains available for playing with someone for the first time.
 
+Friendship controls and push registration are available **only while running the
+installed standalone PWA**. Safari and other ordinary browser tabs show only
+the existing multiplayer and room-code UI. The host's **Invite Friend** button
+is hidden unless that installation has saved friends, and an open friend list
+stays visible through waiting-room polling.
+
 1. After a completed match, either player can select **Add Friend**. The request
    is mutual: the two installations become saved friends only if both accept.
    BLOCKS reuses the exact player ID and nickname already used for the solo

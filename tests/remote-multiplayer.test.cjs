@@ -217,7 +217,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     };
     const document={
       visibilityState:'visible',activeElement:null,
-      body:{append(el){bodyElements.push(el)},classList:{toggle(){}}},
+      body:{append(el){bodyElements.push(el)},appendChild(el){bodyElements.push(el)},classList:{toggle(){}}},
       createElement:()=>node(),
       getElementById:()=>node(),
       addEventListener(){}

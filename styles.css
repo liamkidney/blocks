@@ -756,40 +756,9 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #player-mode-options button{border-left:0;border-top:1px solid var(--ink);min-height:40px}
 #player-mode-options button:first-child{border-top:0}
 
-#remote-lobby #remote-share{
-  display:block;width:100%;margin:12px auto 0;
-  background:var(--ink);color:var(--paper);min-height:48px;
-}
 #remote-lobby #remote-copy{display:inline-block;min-height:33px;padding:7px 12px;
   margin:12px auto 0;background:transparent;color:var(--ink);
   font-size:10px;border-width:1px}
-/* A simple first-invitation nickname prompt, shared with the leaderboard identity. */
-#remote-name-dialog[hidden]{display:none!important}
-#remote-name-dialog{
-  position:fixed;inset:0;z-index:9500;display:grid;place-items:center;
-  padding:20px;background:rgba(12,12,10,.4);
-}
-#remote-name-dialog .remote-name-panel{
-  width:min(340px,100%);padding:26px 22px;background:var(--paper);
-  border:2px solid var(--ink);border-radius:12px;text-align:center;
-  box-shadow:0 16px 40px rgba(0,0,0,.2);
-}
-#remote-name-title{font-size:23px;line-height:1.15;letter-spacing:-.5px;margin:0 0 19px}
-#remote-name-input{
-  display:block;width:100%;box-sizing:border-box;min-height:48px;
-  padding:10px 12px;border:2px solid var(--ink);border-radius:8px;
-  font:700 18px Helvetica,Arial,sans-serif;text-align:center;
-  background:var(--paper);color:var(--ink);
-}
-.remote-name-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-.remote-name-actions button{
-  min-height:46px;border:2px solid var(--ink);border-radius:8px;
-  font:900 12px Helvetica,Arial,sans-serif;letter-spacing:1px;
-  background:transparent;color:var(--ink);touch-action:manipulation;
-}
-#remote-name-continue{background:var(--ink);color:var(--paper)}
-
-
 
 /* Streamlined two-phone matchmaking: Create / Join, then a three-letter code. */
 #remote-lobby [hidden],#remote-result[hidden]{display:none!important}

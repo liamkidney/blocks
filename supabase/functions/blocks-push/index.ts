@@ -119,6 +119,16 @@ async function handle(body:Input){
     const people=await result(db.from("blocks_push_installations").select("id,display_name,subscription").in("id",ids).eq("channel","dev"));
     return reply({friends:people.map(p=>({id:p.id,name:p.display_name,canNotify:!!p.subscription}))});
   }
+  if(action==="remove_friend"){
+    if(!uuid(body.friendId)||body.friendId===device.id)
+      return fail("Unknown friend");
+    // Device credentials are verified above. Only this installation may
+    // remove its own relationship; both sides lose invitation permission.
+    const removed=await result(db.rpc("blocks_push_remove_friend",{
+      p_self:device.id,p_friend:body.friendId
+    }));
+    return reply({removed});
+  }
   if(action==="invite"){
     if(!uuid(body.friendId))return fail("Unknown friend");
     const {room,side}=await participant(body,device);

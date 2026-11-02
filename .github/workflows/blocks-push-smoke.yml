@@ -36,3 +36,25 @@ jobs:
               console.log("VAPID public key verified.");
             });
           '
+      - name: Verify anonymous device registration and friends API
+        shell: bash
+        run: |
+          node <<'NODE'
+          const {randomUUID}=require('node:crypto');
+          const url='https://psoncybkfsdmjksyrcvv.supabase.co/functions/v1/blocks-push';
+          const id={deviceId:randomUUID(),deviceSecret:randomUUID()};
+          async function action(input){
+            const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({...id,...input})});
+            const data=await r.json();
+            if(!r.ok||data.error)throw Error(input.action+': '+JSON.stringify(data));
+            return data;
+          }
+          (async()=>{
+            await action({action:'register',playerId:randomUUID(),name:'CI smoke test'});
+            const result=await action({action:'friends'});
+            if(!Array.isArray(result.friends)||result.friends.length!==0)
+              throw Error('Unexpected friend registration result');
+            console.log('Anonymous device registration and protected friend query verified.');
+          })().catch(e=>{console.error(e.message);process.exit(1)});
+          NODE

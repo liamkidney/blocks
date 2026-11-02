@@ -1,6 +1,12 @@
 // Push-only friend invitations for installed BLOCKS Dev. No shareable invite links.
 (()=>{
   if(new URLSearchParams(location.search).get('remote')!=='1')return;
+  // Do not register identities or subscriptions for Safari/browser tabs.
+  // On iOS only Home Screen PWAs may receive Web Push notifications.
+  const installedPwa=navigator.standalone===true||
+    window.matchMedia?.('(display-mode: standalone)')?.matches===true||
+    window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches===true;
+  if(!installedPwa)return;
   const API='https://psoncybkfsdmjksyrcvv.supabase.co/functions/v1/blocks-push';
   const ID_KEY='blocks:push-install:v1:'+location.pathname;
   const PLAYER_KEY='blocks:player:v1';

@@ -185,6 +185,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     const ownBoard=Array(20).fill(0),opponentBoards=[],clearedBoards=[];
     const reactions=[],pauses=[];
     let friendLookups=0;
+    const removedFriends=[];
     const window={
       matchMedia:query=>({matches:options.pwa==='standalone'&&query==='(display-mode: standalone)'}),
       BLOCKS_REMOTE_LOCAL_CONFIG:config,
@@ -194,7 +195,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       BLOCKS_REMOTE_RESET:()=>{resetCount++;attacks.length=0;},
       addEventListener(name,fn){handlers.set(name,[...(handlers.get(name)||[]),fn])},
       dispatchEvent(ev){for(const fn of handlers.get(ev.type)||[])fn(ev)},
-      confirm:()=>true
+      confirm:()=>options.confirm!==false
     };
     window.addEventListener('blocks:remote-board',e=>opponentBoards.push(e.detail.rows));
     window.addEventListener('blocks:remote-board-clear',()=>clearedBoards.push(true));
@@ -270,7 +271,14 @@ function fixture({realtime=false,shortCode='BRT'}={}){
         return {friends:options.friends||[]};
       },
       invite:async()=>({ok:true}),
-      offer:async()=>({ok:true})
+      offer:async()=>({ok:true}),
+      removeFriend:async id=>{
+        if(options.removeError)throw Error('Could not remove friend');
+        removedFriends.push(id);
+        const index=options.friends?.findIndex(friend=>friend.id===id)??-1;
+        if(index!==-1)options.friends.splice(index,1);
+        return {removed:index!==-1};
+      }
     };
     window.BLOCKS_PLAYER_NAME=()=>{
       const p=JSON.parse(storage.get('blocks:player:v1')||'null');
@@ -301,6 +309,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,history,sharedInvitations,bodyElements,
       ownBoard,opponentBoards,clearedBoards,reactions,pauses,
       get friendLookups(){return friendLookups},
+      removedFriends,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -407,8 +416,8 @@ test('installed PWA keeps saved-friend list open through waiting-room polls',asy
   host.get('remote-invite-friend').onclick();
   await settle();
   assert.equal(host.get('remote-friends-panel').hidden,false);
-  assert.equal(host.get('remote-friends-list').children.length,3,
-    'two saved friends and one missing-notifications hint');
+  assert.equal(host.get('remote-friends-list').children.length,2,
+    'one stable row for each saved friend');
   const entries=host.get('remote-friends-list');
   // Fake DOM stores inserted nodes separately. The real browser renders these
   // buttons in the panel and must not clear them during background polling.
@@ -417,12 +426,84 @@ test('installed PWA keeps saved-friend list open through waiting-room polls',asy
   for(let i=0;i<4;i++){await host.tick();await settle();}
   assert.equal(host.get('remote-friends-panel').hidden,false,
     'server polling must not close the open friends panel');
-  assert.equal(entries.children.length,3,
+  assert.equal(entries.children.length,2,
     'server polling must not clear the rendered names');
-  assert.equal(entries.children[0].textContent,'Alex');
-  assert.equal(entries.children[1].textContent,'Sam');
+  assert.equal(entries.children[0].children[0].textContent,'Alex');
+  assert.equal(entries.children[1].children[0].textContent,'Sam');
+  assert.equal(entries.children[1].children[2].textContent,
+    'Notifications not enabled');
   assert.equal(host.friendLookups,1,'do not fetch friends every poll');
   assert.equal(host.get('remote-invite-friend').hidden,false);
+});
+
+test('removing a friend updates the list and keeps remaining invitations usable',async()=>{
+  const f=fixture();
+  const friends=[
+    {id:'friend-1',name:'Alex',canNotify:true},
+    {id:'friend-2',name:'Sam',canNotify:false}
+  ];
+  const host=f.browser(undefined,undefined,'?remote=1',{pwa:'ios',friends});
+  host.get('remote-create').onclick();await settle();
+  host.get('remote-invite-friend').onclick();await settle();
+  const entries=host.get('remote-friends-list');
+  const first=entries.children[0];
+  assert.equal(first.children[0].textContent,'Alex');
+  const remove=first.children[1];
+  assert.equal(remove.attrs['aria-label'],'Remove Alex from friends');
+  assert.equal(remove.textContent,'×');
+  remove.onclick();await settle();
+  assert.deepEqual(host.removedFriends,['friend-1']);
+  assert.deepEqual(friends.map(p=>p.name),['Sam']);
+  assert.equal(entries.children.length,1);
+  assert.equal(entries.children[0].children[0].textContent,'Sam');
+  assert.equal(host.get('remote-invite-friend').hidden,false);
+  assert.equal(host.get('remote-friends-panel').hidden,false);
+  assert.equal(host.get('remote-friends-status').textContent,'Alex removed.');
+  await host.tick();await settle();
+  assert.equal(entries.children.length,1,'poll must not recreate deleted friend');
+});
+
+test('removing the last friend hides Invite Friend and the empty list',async()=>{
+  const f=fixture(),friends=[{id:'friend-only',name:'Alex',canNotify:true}];
+  const host=f.browser(undefined,undefined,'?remote=1',{pwa:'standalone',friends});
+  host.get('remote-create').onclick();await settle();
+  host.get('remote-invite-friend').onclick();await settle();
+  host.get('remote-friends-list').children[0].children[1].onclick();
+  await settle();
+  assert.deepEqual(host.removedFriends,['friend-only']);
+  assert.equal(host.get('remote-invite-friend').hidden,true);
+  assert.equal(host.get('remote-friends-panel').hidden,true);
+  assert.equal(host.get('remote-friends-list').children.length,0);
+  await host.tick();await settle();
+  assert.equal(host.get('remote-invite-friend').hidden,true);
+});
+
+test('declining the confirmation preserves the friendship and panel',async()=>{
+  const f=fixture(),friends=[{id:'friend-1',name:'Alex',canNotify:true}];
+  const host=f.browser(undefined,undefined,'?remote=1',{pwa:'ios',friends,confirm:false});
+  host.get('remote-create').onclick();await settle();
+  host.get('remote-invite-friend').onclick();await settle();
+  host.get('remote-friends-list').children[0].children[1].onclick();
+  await settle();
+  assert.deepEqual(host.removedFriends,[]);
+  assert.equal(host.get('remote-invite-friend').hidden,false);
+  assert.equal(host.get('remote-friends-panel').hidden,false);
+  assert.equal(friends.length,1);
+});
+
+test('failed removal leaves the original friend visible with a retryable control',async()=>{
+  const f=fixture(),friends=[{id:'friend-1',name:'Alex',canNotify:true}];
+  const host=f.browser(undefined,undefined,'?remote=1',{
+    pwa:'ios',friends,removeError:true
+  });
+  host.get('remote-create').onclick();await settle();
+  host.get('remote-invite-friend').onclick();await settle();
+  const remove=host.get('remote-friends-list').children[0].children[1];
+  remove.onclick();await settle();
+  assert.equal(remove.disabled,false);
+  assert.deepEqual(host.removedFriends,[]);
+  assert.equal(host.get('remote-friends-list').children.length,1);
+  assert.equal(host.get('remote-friends-status').textContent,'Could not remove friend');
 });
 
 test('installed PWA with no saved friends never displays Invite Friend',async()=>{

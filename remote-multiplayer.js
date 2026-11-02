@@ -520,6 +520,66 @@
     rematchStatus.textContent=mine?'Waiting for the other player…':
       theirs?'Your opponent wants a rematch.':'Both players can choose to play again.';
   }
+
+  async function refreshFriendStatus(){
+    if(!match||!finished||!window.BLOCKS_PUSH||friendCheckInFlight)return;
+    friendCheckInFlight=true;
+    const current=match;
+    try{
+      const state=await window.BLOCKS_PUSH.status(current);
+      if(match!==current||!finished)return;
+      friendStatus.hidden=false;
+      if(state.friends){
+        addFriend.hidden=true;
+        friendStatus.textContent='FRIENDS ✓';
+        enablePush.hidden=window.BLOCKS_PUSH.enabled;
+      }else{
+        addFriend.hidden=false;
+        addFriend.disabled=!!state.mine;
+        addFriend.textContent=state.mine?'REQUEST SENT':
+          state.theirs?'ACCEPT FRIEND':'ADD FRIEND';
+        friendStatus.textContent=state.mine?'Waiting for your opponent to accept.':'';
+        enablePush.hidden=true;
+      }
+    }catch(error){
+      if(match===current)friendStatus.textContent='';
+    }finally{friendCheckInFlight=false}
+  }
+  async function displayFriends(){
+    if(!match||match.player!==1||codePanel.hidden||!window.BLOCKS_PUSH)return;
+    friendsPanel.hidden=false;
+    friendsStatus.textContent='Checking friends…';
+    friendsList.textContent='';
+    const current=match;
+    try{
+      const response=await window.BLOCKS_PUSH.friends();
+      if(match!==current||codePanel.hidden)return;
+      const list=response.friends||[];
+      friendsStatus.textContent=list.length?'Choose a friend to notify.':
+        'No saved friends yet. After a game, both players can choose Add Friend.';
+      for(const friend of list){
+        const button=document.createElement('button');
+        button.type='button';button.className='remote-friend-choice';
+        button.textContent=friend.name;
+        button.disabled=!friend.canNotify;
+        button.title=friend.canNotify?'Send push invitation':'Friend has not enabled notifications';
+        button.onclick=async()=>{
+          if(match!==current)return;
+          button.disabled=true;friendsStatus.textContent='Sending invitation…';
+          try{
+            await window.BLOCKS_PUSH.invite(current,friend.id);
+            friendsStatus.textContent='Invitation sent to '+friend.name+'.';
+          }catch(error){friendsStatus.textContent=error.message;button.disabled=false}
+        };
+        friendsList.append(button);
+        if(!friend.canNotify){
+          const note=document.createElement('small');
+          note.textContent='Notifications not enabled';
+          friendsList.append(note);
+        }
+      }
+    }catch(error){friendsStatus.textContent=error.message}
+  }
   function finish(winner,state){
     if(exiting)return;
     clearReactions();
@@ -537,6 +597,9 @@
     else resultDetail.textContent='PLAYER '+winner+' WON · PLAYER '+(3-winner)+' LOST';
     showResult(!resultDismissed);
     rematchView(state);
+    if(Date.now()-friendCheckAt>5000){
+      friendCheckAt=Date.now();void refreshFriendStatus();
+    }
     persist();
   }
   function nextRound(round){
@@ -681,6 +744,8 @@
     startSending=false;rematchSending=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
     persist();
+    void window.BLOCKS_PUSH?.attach(match).catch(error=>
+      console.warn('BLOCKS friend pairing:',error));
     lobbyStep('code');
     title.textContent='Connecting…';status.textContent='Checking the room…';
     if(match.player===2){codePanel.hidden=true;}
@@ -826,6 +891,7 @@
   });
   bindLobbyAction(create,()=>{void createRoom()});
   bindLobbyAction(join,enterCode);
+  bindLobbyAction(inviteFriend,()=>{void displayFriends()});
   input.addEventListener('input',()=>{
     const value=displaySlots();
     if(value.length===3&&!joining)void joinRoom(value);
@@ -844,6 +910,7 @@
   codeExit.onclick=()=>{void exitToNewGame()};
   window.BLOCKS_REMOTE={
     showResults:openResults,
+    get matchCredentials(){return match?{id:match.id,token:match.token}:null},
     get active(){return Boolean(match)},
     get ready(){return ready},
     get player(){return match?.player||null},

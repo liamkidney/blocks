@@ -185,7 +185,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     const ownBoard=Array(20).fill(0),opponentBoards=[],clearedBoards=[];
     const reactions=[],pauses=[];
     let friendLookups=0;
-    const removedFriends=[];
+    const removedFriends=[],sentInvites=[];
     const window={
       matchMedia:query=>({matches:options.pwa==='standalone'&&query==='(display-mode: standalone)'}),
       BLOCKS_REMOTE_LOCAL_CONFIG:config,
@@ -273,7 +273,11 @@ function fixture({realtime=false,shortCode='BRT'}={}){
         friendLookups++;
         return {friends:options.friends||[]};
       },
-      invite:async()=>({ok:true}),
+      invite:async(match,friendId)=>{
+        sentInvites.push({matchId:match.id,friendId});
+        if(options.inviteError)throw Error('Push delivery failed');
+        return {ok:true};
+      },
       offer:async()=>({ok:true}),
       removeFriend:async id=>{
         if(options.removeError)throw Error('Could not remove friend');
@@ -318,7 +322,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       },
       ownBoard,opponentBoards,clearedBoards,reactions,pauses,
       get friendLookups(){return friendLookups},
-      removedFriends,
+      removedFriends,sentInvites,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();

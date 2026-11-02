@@ -104,6 +104,47 @@ test('push messages still arrive if existing PWA navigation is rejected',async()
   assert.equal(messages.length,1);
 });
 
+test('notification in the installed PWA New Game dialog routes to multiplayer',()=>{
+  const app=file('app.js');
+  const begin=app.indexOf('// A tapped invitation can arrive while');
+  const end=app.indexOf('let remoteStored=null;',begin);
+  assert.ok(begin>0&&end>begin,'new game notification handler must be present');
+  const listeners={};
+  const location={href:'https://example.test/blocks/dev/',pathname:'/blocks/dev/'};
+  const navigator={standalone:true,serviceWorker:{
+    addEventListener:(name,fn)=>{listeners[name]=fn}
+  }};
+  const window={matchMedia:()=>({matches:false})};
+  const context=vm.createContext({navigator,window,location,URL,REMOTE_PLAYER:false});
+  vm.runInContext(app.slice(begin,end),context);
+  listeners.message({data:{
+    type:'BLOCKS_PUSH_INVITATION',
+    url:'https://example.test/blocks/dev/?remote=1&push_join=BRT'
+  }});
+  assert.equal(location.href,'https://example.test/blocks/dev/?remote=1&push_join=BRT');
+});
+
+test('notification cannot redirect a browser tab or another domain',()=>{
+  const app=file('app.js');
+  const begin=app.indexOf('// A tapped invitation can arrive while');
+  const end=app.indexOf('let remoteStored=null;',begin);
+  const listeners={},location={
+    href:'https://example.test/blocks/dev/',pathname:'/blocks/dev/'
+  };
+  const navigator={standalone:false,serviceWorker:{
+    addEventListener:(name,fn)=>{listeners[name]=fn}
+  }};
+  const window={matchMedia:()=>({matches:false})};
+  const context=vm.createContext({navigator,window,location,URL,REMOTE_PLAYER:false});
+  vm.runInContext(app.slice(begin,end),context);
+  for(const url of [
+    'https://example.test/blocks/dev/?remote=1&push_join=BRT',
+    'https://other.test/blocks/dev/?remote=1&push_join=BRT',
+    'https://example.test/blocks/dev/?remote=1&push_join=INVALID'
+  ])listeners.message({data:{type:'BLOCKS_PUSH_INVITATION',url}});
+  assert.equal(location.href,'https://example.test/blocks/dev/');
+});
+
 test('push notifications refuse off-origin or other-app destinations',async()=>{
   const handlers={};
   const shown=[];

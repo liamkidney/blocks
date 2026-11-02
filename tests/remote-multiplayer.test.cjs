@@ -132,7 +132,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     return failure('Unknown RPC');
   }
 
-  function browser(storage=new Map(),config={difficulty:1,piece_set:'ALL',ghost_piece:false}){
+  function browser(storage=new Map(),config={difficulty:1,piece_set:'ALL',ghost_piece:false},search='?remote=1'){
     const nodes=new Map(),bodyElements=[];
     const get=id=>{
       if(!nodes.has(id))nodes.set(id,node(id));
@@ -222,8 +222,9 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       getElementById:()=>node(),
       addEventListener(){}
     };
-    const location={pathname:'/blocks/dev/',search:'?remote=1',
-      href:'https://example.test/blocks/dev/?remote=1'};
+    const location={pathname:'/blocks/dev/',search,
+      href:'https://example.test/blocks/dev/'+search};
+    const history={replaced:[],replaceState(_state,_title,url){this.replaced.push(url)}};
     class FakeWebSocket{
       constructor(){
         this.readyState=1;this.bufferedAmount=0;this.topic=null;
@@ -247,8 +248,22 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       }
       close(){this.readyState=3;}
     }
-    const context={window,document,location,localStorage,sessionStorage,fetch,
-      navigator:{onLine:true,clipboard:{writeText:async()=>{}}},
+    const sharedInvitations=[];
+    const navigator={
+      onLine:true,clipboard:{writeText:async()=>{}},
+      share:async invitation=>{sharedInvitations.push(invitation)}
+    };
+    window.BLOCKS_PLAYER_NAME=()=>{
+      const p=JSON.parse(storage.get('blocks:player:v1')||'null');
+      return p&&!p.anonymous?p.display_name:null;
+    };
+    window.BLOCKS_SAVE_PLAYER_NAME=name=>{
+      const p=JSON.parse(storage.get('blocks:player:v1')||'null')||{player_id:randomUUID()};
+      storage.set('blocks:player:v1',JSON.stringify({player_id:p.player_id,display_name:name}));
+      return Promise.resolve(name);
+    };
+    const context={window,document,location,history,localStorage,sessionStorage,fetch,
+      navigator,
       URL,URLSearchParams,Date:VirtualDate,WebSocket:realtime?FakeWebSocket:undefined,
       setInterval:(fn)=>{const id=++intervalId;intervals.set(id,fn);return id},
       clearInterval:id=>intervals.delete(id),
@@ -264,7 +279,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     };
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
-      window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,bodyElements,
+      window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,history,sharedInvitations,bodyElements,
       ownBoard,opponentBoards,clearedBoards,reactions,pauses,
       get resetCount(){return resetCount},
       async tick(){
@@ -354,6 +369,70 @@ async function matched(f){
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
   return {host,guest};
 }
+
+test('named host can share a one-tap invitation that joins the existing room',async()=>{
+  const f=fixture();
+  const profile=new Map([['blocks:player:v1',JSON.stringify({
+    player_id:'player-already-used-for-leaderboard',display_name:'Pat'
+  })]]);
+  const host=f.browser(profile);
+  host.get('remote-create').onclick();await settle();
+  assert.equal(host.get('remote-code-panel').hidden,false);
+  host.get('remote-share').onclick();await settle();
+  assert.equal(host.get('remote-name-dialog').hidden,true,
+    'existing leaderboard nickname must not be requested again');
+  assert.equal(host.sharedInvitations.length,1);
+  const invite=host.sharedInvitations[0];
+  assert.equal(invite.text,'Pat invites you to play BLOCKS.');
+  const url=new URL(invite.url);
+  assert.equal(url.searchParams.get('remote'),'1');
+  assert.equal(url.searchParams.get('join'),'BRT');
+
+  const guest=f.browser(new Map(),undefined,'?remote=1&join=BRT');
+  await settle();await host.tick();await settle();
+  assert.equal(f.joins,1,'one link should trigger one automatic join');
+  assert.equal(f.rooms.size,1,'invitation must reuse the host room');
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(host.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(guest.history.replaced.length,1,'consume link parameter after opening');
+  assert.equal(new URL(guest.history.replaced[0]).searchParams.has('join'),false);
+});
+
+test('first share asks for a nickname once and reuses the leaderboard player id',async()=>{
+  const f=fixture();
+  const storage=new Map([['blocks:player:v1',JSON.stringify({
+    player_id:'existing-player-uuid',display_name:'Anonymous',anonymous:true
+  })]]);
+  const host=f.browser(storage);
+  host.get('remote-create').onclick();await settle();
+  host.get('remote-share').onclick();await settle();
+  assert.equal(host.get('remote-name-dialog').hidden,false);
+  assert.equal(host.sharedInvitations.length,0);
+  host.get('remote-name-input').value='  Sam  ';
+  host.get('remote-name-form').listeners.submit({preventDefault(){}});
+  await settle();
+  assert.equal(host.get('remote-name-dialog').hidden,true);
+  assert.equal(host.sharedInvitations.length,1);
+  assert.equal(host.sharedInvitations[0].text,'Sam invites you to play BLOCKS.');
+  const stored=JSON.parse(storage.get('blocks:player:v1'));
+  assert.equal(stored.player_id,'existing-player-uuid','must reuse leaderboard identity');
+  assert.equal(stored.display_name,'Sam');
+  host.get('remote-share').onclick();await settle();
+  assert.equal(host.get('remote-name-dialog').hidden,true,'name is not requested again');
+  assert.equal(host.sharedInvitations.length,2);
+});
+
+test('an expired invite link does not join or create a different room',async()=>{
+  const f=fixture();
+  const host=f.browser();
+  host.get('remote-create').onclick();await settle();
+  f.expireCode();
+  const guest=f.browser(new Map(),undefined,'?remote=1&join=BRT');
+  await settle();
+  assert.equal(guest.window.BLOCKS_REMOTE.active,false);
+  assert.equal(f.rooms.size,1);
+  assert.match(guest.get('remote-error').textContent,/expired/i);
+});
 
 test('two-button lobby creates rooms with a spinner and joins after three letters',async()=>{
   const f=fixture(),{host,guest}=await matched(f);
@@ -881,7 +960,7 @@ test('two-phone controls replace profile and scoreboard and hide underlying keyb
   assert.match(css,/body\.remote-waiting #console\{visibility:hidden\}/);
   assert.match(css,/body\.remote-multiplayer #high-scores-slot\{display:none!important\}/);
   assert.doesNotMatch(remote,/remote-match-bar|remote-match-label|remote-leave/);
-  assert.match(profiles,/get\('remote'\)==='1'\)return/);
+  assert.match(profiles,/if\(remote\)return;/);
   assert.match(scores,/get\('remote'\)==='1'\)return/);
 });
 

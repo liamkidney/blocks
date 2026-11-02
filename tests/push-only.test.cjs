@@ -88,3 +88,17 @@ test('push client explicitly supports installed iOS and standalone PWAs',()=>{
   assert.match(remote,/if\(!installedPwa\|\|!match\|\|!finished/);
   assert.match(remote,/inviteFriend\.hidden=list\.length===0/);
 });
+
+test('friend deletion requires installation credentials and clears mutual relationship',()=>{
+  const edge=file('supabase/functions/blocks-push/index.ts');
+  const client=file('push-client.js');
+  const sql=file('supabase/migrations/20261102_remove_push_friend.sql');
+  assert.match(edge,/const device=await installation\(body\)/);
+  assert.match(edge,/if\(action==="remove_friend"\)/);
+  assert.match(edge,/p_self:device\.id,p_friend:body\.friendId/);
+  assert.match(client,/removeFriend:friendId=>authenticated\('remove_friend'/);
+  assert.match(sql,/delete from public\.blocks_push_friends/);
+  assert.match(sql,/set wants_friend = false/);
+  assert.match(sql,/grant execute on function public\.blocks_push_remove_friend\(uuid,uuid\) to service_role/);
+  assert.doesNotMatch(sql,/grant execute .* to anon/);
+});

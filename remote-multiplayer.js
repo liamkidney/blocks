@@ -2,6 +2,10 @@
 // One-phone multiplayer and solo play never load this mode's transport.
 (()=>{
   if(new URLSearchParams(location.search).get('remote')!=='1')return;
+  // Friend invitations require the installed app, not an ordinary Safari tab.
+  const installedPwa=navigator.standalone===true||
+    window.matchMedia?.('(display-mode: standalone)')?.matches===true||
+    window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches===true;
 
   const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/rpc/';
   const KEY='sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH';
@@ -89,7 +93,7 @@
         codeTiles('remote-create')+'</div>'+
       '<div id="remote-code-phonetic" aria-hidden="true"></div>'+
       '<p id="remote-code-expires" aria-live="off"></p>'+
-      '<button type="button" id="remote-invite-friend">INVITE FRIEND</button>'+
+      '<button type="button" id="remote-invite-friend" hidden>INVITE FRIEND</button>'+
       '<div id="remote-friends-panel" hidden><p id="remote-friends-status" role="status"></p>'+
         '<div id="remote-friends-list"></div></div>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
@@ -161,6 +165,9 @@
   const friendStatus=resultPanel.querySelector('#remote-friend-status');
   const enablePush=resultPanel.querySelector('#remote-enable-push');
   let friendCheckAt=0,friendCheckInFlight=false;
+  // The waiting-room poll redraws the code frequently; preserve its friend
+  // panel and cache across polls, clearing only for an actually new room.
+  let displayedRoomId=null,roomFriends=null,roomFriendsPromise=null;
 
   const showLobby=show=>{
     lobby.hidden=!show;
@@ -216,10 +223,17 @@
     title.textContent='Game created';
     status.textContent='Share this code with Player 2.';
     codeExpiry.hidden=!match?.inviteExpiresAt;
-    friendsPanel.hidden=true;
-    friendsStatus.textContent='';
-    friendsList.textContent='';
+    if(displayedRoomId!==match?.id){
+      displayedRoomId=match?.id||null;
+      roomFriends=null;roomFriendsPromise=null;
+      inviteFriend.hidden=true;
+      friendsPanel.hidden=true;
+      friendsStatus.textContent='';
+      friendsList.textContent='';
+    }
     showLobby(true);
+    if(installedPwa&&match?.player===1&&window.BLOCKS_PUSH)
+      void loadRoomFriends();
     updateInviteCountdown();
   }
   function displaySlots(){
@@ -522,7 +536,7 @@
   }
 
   async function refreshFriendStatus(){
-    if(!match||!finished||!window.BLOCKS_PUSH||friendCheckInFlight)return;
+    if(!installedPwa||!match||!finished||!window.BLOCKS_PUSH||friendCheckInFlight)return;
     friendCheckInFlight=true;
     const current=match;
     try{
@@ -545,16 +559,37 @@
       if(match===current)friendStatus.textContent='';
     }finally{friendCheckInFlight=false}
   }
-  async function displayFriends(){
-    if(!match||match.player!==1||codePanel.hidden||!window.BLOCKS_PUSH)return;
-    friendsPanel.hidden=false;
-    friendsStatus.textContent='Checking friends…';
-    friendsList.textContent='';
+  async function loadRoomFriends(){
+    if(!installedPwa||!match||match.player!==1||codePanel.hidden||
+       !window.BLOCKS_PUSH)return [];
+    if(roomFriends!==null)return roomFriends;
+    if(roomFriendsPromise)return roomFriendsPromise;
     const current=match;
+    const pending=window.BLOCKS_PUSH.friends().then(response=>{
+      const list=Array.isArray(response.friends)?response.friends:[];
+      if(match===current&&displayedRoomId===current.id&&!codePanel.hidden){
+        roomFriends=list;
+        inviteFriend.hidden=list.length===0;
+      }
+      return list;
+    }).catch(error=>{
+      if(match===current&&displayedRoomId===current.id)inviteFriend.hidden=true;
+      console.warn('BLOCKS friends lookup:',error);
+      return [];
+    }).finally(()=>{if(roomFriendsPromise===pending)roomFriendsPromise=null});
+    roomFriendsPromise=pending;
+    return pending;
+  }
+  async function displayFriends(){
+    if(!installedPwa||!match||match.player!==1||codePanel.hidden||
+       inviteFriend.hidden||!window.BLOCKS_PUSH)return;
+    const current=match;
+    const list=await loadRoomFriends();
+    if(match!==current||codePanel.hidden||!list.length)return;
+    friendsPanel.hidden=false;
+    friendsStatus.textContent='Choose a friend to notify.';
+    friendsList.textContent='';
     try{
-      const response=await window.BLOCKS_PUSH.friends();
-      if(match!==current||codePanel.hidden)return;
-      const list=response.friends||[];
       friendsStatus.textContent=list.length?'Choose a friend to notify.':
         'No saved friends yet. After a game, both players can choose Add Friend.';
       for(const friend of list){
@@ -597,7 +632,7 @@
     else resultDetail.textContent='PLAYER '+winner+' WON · PLAYER '+(3-winner)+' LOST';
     showResult(!resultDismissed);
     rematchView(state);
-    if(Date.now()-friendCheckAt>5000){
+    if(installedPwa&&Date.now()-friendCheckAt>5000){
       friendCheckAt=Date.now();void refreshFriendStatus();
     }
     persist();
@@ -744,7 +779,7 @@
     startSending=false;rematchSending=false;
     if(fresh)window.BLOCKS_REMOTE_RESET?.();
     persist();
-    void window.BLOCKS_PUSH?.attach(match).catch(error=>
+    if(installedPwa)void window.BLOCKS_PUSH?.attach(match).catch(error=>
       console.warn('BLOCKS friend pairing:',error));
     lobbyStep('code');
     title.textContent='Connecting…';status.textContent='Checking the room…';
@@ -891,7 +926,7 @@
   });
   bindLobbyAction(create,()=>{void createRoom()});
   bindLobbyAction(join,enterCode);
-  bindLobbyAction(inviteFriend,()=>{void displayFriends()});
+  bindLobbyAction(inviteFriend,()=>{if(installedPwa)void displayFriends()});
   input.addEventListener('input',()=>{
     const value=displaySlots();
     if(value.length===3&&!joining)void joinRoom(value);
@@ -902,7 +937,7 @@
     catch(_){setError('Copy the code shown above.')}
   };
   addFriend.onclick=async()=>{
-    if(!match||!finished||!window.BLOCKS_PUSH||addFriend.disabled)return;
+    if(!installedPwa||!match||!finished||!window.BLOCKS_PUSH||addFriend.disabled)return;
     const current=match;
     try{
       if(!window.BLOCKS_PLAYER_NAME?.())await window.BLOCKS_CHOOSE_PLAYER_NAME?.();
@@ -919,7 +954,7 @@
     }
   };
   enablePush.onclick=async()=>{
-    if(!window.BLOCKS_PUSH)return;
+    if(!installedPwa||!window.BLOCKS_PUSH)return;
     enablePush.disabled=true;
     friendStatus.textContent='Enabling notifications…';
     try{

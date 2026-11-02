@@ -77,8 +77,11 @@ self.addEventListener("notificationclick",event=>{
       let targetClient=existing;
       try{targetClient=await existing.navigate(url.href)||existing}
       catch(error){console.warn('BLOCKS notification navigation:',error)}
-      await targetClient.focus();
+      // Deliver independently of focus(): on some iOS versions focusing a
+      // background Home Screen app may fail or complete after navigation.
       targetClient.postMessage({type:'BLOCKS_PUSH_INVITATION',url:url.href});
+      try{await targetClient.focus()}
+      catch(error){console.warn('BLOCKS notification focus:',error)}
     }else await self.clients.openWindow(url.href);
   })());
 });

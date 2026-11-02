@@ -63,6 +63,7 @@ jobs:
               node --check "$source/$script"
             done
           done
+          node --check development/push-client.js
           (cd development && node --test tests/*.test.cjs)
           (cd production && node --test tests/*.test.cjs)
 

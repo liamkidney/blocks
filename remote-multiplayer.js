@@ -86,16 +86,16 @@
     '<div class="remote-actions" id="remote-actions">'+
       '<button type="button" id="remote-create">CREATE GAME</button>'+
       '<button type="button" id="remote-join">JOIN GAME</button>'+
+      '<button type="button" id="remote-invite-friend" hidden>INVITE FRIEND</button>'+
     '</div>'+
+    '<div id="remote-friends-panel" hidden><p id="remote-friends-status" role="status"></p>'+
+      '<div id="remote-friends-list"></div></div>'+
     '<div id="remote-code-panel" hidden>'+
       '<button id="remote-code-exit" type="button" aria-label="Cancel room" title="Cancel room">×</button>'+
       '<div id="remote-code" class="remote-code-tiles" aria-live="polite">'+
         codeTiles('remote-create')+'</div>'+
       '<div id="remote-code-phonetic" aria-hidden="true"></div>'+
       '<p id="remote-code-expires" aria-live="off"></p>'+
-      '<button type="button" id="remote-invite-friend" hidden>INVITE FRIEND</button>'+
-      '<div id="remote-friends-panel" hidden><p id="remote-friends-status" role="status"></p>'+
-        '<div id="remote-friends-list"></div></div>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
     '</div>'+
     '<div id="remote-entry" hidden>'+
@@ -165,9 +165,9 @@
   const friendStatus=resultPanel.querySelector('#remote-friend-status');
   const enablePush=resultPanel.querySelector('#remote-enable-push');
   let friendCheckAt=0,friendCheckInFlight=false;
-  // The waiting-room poll redraws the code frequently; preserve its friend
-  // panel and cache across polls, clearing only for an actually new room.
-  let displayedRoomId=null,roomFriends=null,roomFriendsPromise=null;
+  // Friend selection is a menu step. No room exists until a friend is selected.
+  let savedFriends=null,friendsRequest=null,inviteRecipient=null;
+  let menuRevision=0;
 
   const showLobby=show=>{
     lobby.hidden=!show;
@@ -204,9 +204,11 @@
     // The menu and code-entry steps share the same top-right close control.
     // The room screen has its own control because cancelling it also ends the room.
     menuExit.hidden=step==='code';
-    menuExit.setAttribute('aria-label',step==='entry'?'Back to Play Together':'Back to New Game');
-    menuExit.title=step==='entry'?'Back to Play Together':'Back to New Game';
+    menuExit.setAttribute('aria-label',
+      step==='entry'||step==='friends'?'Back to Play Together':'Back to New Game');
+    menuExit.title=step==='entry'||step==='friends'?'Back to Play Together':'Back to New Game';
     actions.hidden=step!=='menu';
+    friendsPanel.hidden=step!=='friends';
     codePanel.hidden=step!=='code';
     entry.hidden=step!=='entry';
     status.hidden=step==='entry';
@@ -220,20 +222,12 @@
     room.setAttribute('aria-label','Room code '+code.split('').join(' ')+
       '. '+code.split('').map(letter=>NATO[letter]||letter).join(', '));
     lobbyStep('code');
-    title.textContent='Game created';
-    status.textContent='Share this code with Player 2.';
+    title.textContent=inviteRecipient?'Friend invited':'Game created';
+    status.textContent=inviteRecipient?
+      'Invitation sent to '+inviteRecipient+'. Waiting for them to join…':
+      'Share this code with Player 2.';
     codeExpiry.hidden=!match?.inviteExpiresAt;
-    if(displayedRoomId!==match?.id){
-      displayedRoomId=match?.id||null;
-      roomFriends=null;roomFriendsPromise=null;
-      inviteFriend.hidden=true;
-      friendsPanel.hidden=true;
-      friendsStatus.textContent='';
-      friendsList.textContent='';
-    }
     showLobby(true);
-    if(installedPwa&&match?.player===1&&window.BLOCKS_PUSH)
-      void loadRoomFriends();
     updateInviteCountdown();
   }
   function displaySlots(){
@@ -319,15 +313,23 @@
     }finally{checkingInvite=false;}
   }
   function menu(){
+    menuRevision++;
+    inviteRecipient=null;
+    savedFriends=null;friendsRequest=null;
     lobbyStep('menu');
     title.textContent='Play together';
     status.textContent='Clear two lines to send a junk line to your opponent.';
-    create.disabled=false;join.disabled=false;
+    friendsList.textContent='';
+    friendsStatus.textContent='';
+    create.disabled=false;join.disabled=false;inviteFriend.disabled=false;
+    inviteFriend.hidden=true;
+    if(installedPwa&&!match&&window.BLOCKS_PUSH)void loadMenuFriends();
   }
   function setCreating(on){
     creating=on;
-    create.disabled=on;join.disabled=on;
+    create.disabled=on;join.disabled=on;inviteFriend.disabled=on;
     create.classList.toggle('is-loading',on);
+    inviteFriend.setAttribute('aria-busy',String(on));
     create.setAttribute('aria-busy',String(on));
   }
 

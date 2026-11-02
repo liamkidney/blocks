@@ -593,6 +593,8 @@
       friendsStatus.textContent=list.length?'Choose a friend to notify.':
         'No saved friends yet. After a game, both players can choose Add Friend.';
       for(const friend of list){
+        const row=document.createElement('div');
+        row.className='remote-friend-row';
         const button=document.createElement('button');
         button.type='button';button.className='remote-friend-choice';
         button.textContent=friend.name;
@@ -606,12 +608,47 @@
             friendsStatus.textContent='Invitation sent to '+friend.name+'.';
           }catch(error){friendsStatus.textContent=error.message;button.disabled=false}
         };
-        friendsList.append(button);
+        row.append(button);
+        const remove=document.createElement('button');
+        remove.type='button';
+        remove.className='remote-friend-remove';
+        remove.textContent='×';
+        remove.setAttribute('aria-label','Remove '+friend.name+' from friends');
+        remove.title='Remove '+friend.name+' from friends';
+        remove.onclick=async()=>{
+          if(!installedPwa||match!==current||!window.BLOCKS_PUSH)return;
+          if(!window.confirm('Remove '+friend.name+' from friends? You will no longer be able to invite each other.'))
+            return;
+          remove.disabled=true;
+          friendsStatus.textContent='Removing '+friend.name+'…';
+          try{
+            await window.BLOCKS_PUSH.removeFriend(friend.id);
+            if(match!==current)return;
+            // Update the cached list as well, so waiting-room polls never
+            // bring the deleted friend back or close/reopen the list.
+            roomFriends=(roomFriends||list).filter(person=>person.id!==friend.id);
+            inviteFriend.hidden=roomFriends.length===0;
+            if(roomFriends.length){
+              await displayFriends();
+              friendsStatus.textContent=friend.name+' removed.';
+            }else{
+              friendsPanel.hidden=true;
+              friendsList.textContent='';
+            }
+          }catch(error){
+            if(match===current){
+              friendsStatus.textContent=error.message||'Could not remove friend.';
+              remove.disabled=false;
+            }
+          }
+        };
+        row.append(remove);
         if(!friend.canNotify){
           const note=document.createElement('small');
           note.textContent='Notifications not enabled';
-          friendsList.append(note);
+          row.append(note);
         }
+        friendsList.append(row);
       }
     }catch(error){friendsStatus.textContent=error.message}
   }

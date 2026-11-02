@@ -80,5 +80,9 @@
   };
   // Make the persistent anonymous installation available for room pairing
   // without showing notification permission on game launch.
-  void register().then(restore).catch(error=>console.warn('BLOCKS push device setup:',error));
+  void register().then(async()=>{
+    const current=window.BLOCKS_REMOTE?.matchCredentials;
+    if(current)await window.BLOCKS_PUSH.attach(current);
+    await restore();
+  }).catch(error=>console.warn('BLOCKS push device setup:',error));
 })();

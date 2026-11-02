@@ -47,6 +47,63 @@ test('push shows a scoped notification and clicking it launches the installed ap
   assert.equal(opened[0],scope+'?remote=1&push_join=BRT');
 });
 
+test('tapping push while PWA is open posts invitation to existing screen',async()=>{
+  const handlers={},messages=[],focuses=[];
+  const scope='https://example.test/blocks/dev/';
+  const existing={
+    url:scope+'?remote=1',
+    async navigate(url){
+      assert.equal(url,scope+'?remote=1&push_join=BRT');
+      // On iOS navigation may leave the same running window visible.
+      return this;
+    },
+    async focus(){focuses.push('focused')},
+    postMessage(message){messages.push(message)}
+  };
+  const self={
+    registration:{scope},
+    clients:{matchAll:async()=>[existing],openWindow:async()=>{throw Error('Already open')}},
+    addEventListener:(type,fn)=>{handlers[type]=fn}
+  };
+  vm.runInNewContext(file('sw.js'),{self,URL,Set,Request,console});
+  let done;
+  handlers.notificationclick({
+    notification:{
+      data:{url:scope+'?remote=1&push_join=BRT'},close(){}
+    },
+    waitUntil:p=>{done=p}
+  });
+  await done;
+  assert.equal(focuses.length,1);
+  assert.equal(messages.length,1);
+  assert.equal(messages[0].type,'BLOCKS_PUSH_INVITATION');
+  assert.equal(messages[0].url,scope+'?remote=1&push_join=BRT');
+});
+
+test('push messages still arrive if existing PWA navigation is rejected',async()=>{
+  const handlers={},messages=[];
+  const scope='https://example.test/blocks/dev/';
+  const existing={
+    url:scope+'?remote=1',
+    async navigate(){throw Error('iOS did not navigate')},
+    async focus(){},
+    postMessage(message){messages.push(message)}
+  };
+  const self={
+    registration:{scope},
+    clients:{matchAll:async()=>[existing]},
+    addEventListener:(type,fn)=>{handlers[type]=fn}
+  };
+  vm.runInNewContext(file('sw.js'),{self,URL,Set,Request,console});
+  let done;
+  handlers.notificationclick({
+    notification:{data:{url:scope+'?remote=1&push_join=BRT'},close(){}},
+    waitUntil:p=>{done=p}
+  });
+  await done;
+  assert.equal(messages.length,1);
+});
+
 test('push notifications refuse off-origin or other-app destinations',async()=>{
   const handlers={};
   const shown=[];

@@ -89,6 +89,9 @@
         codeTiles('remote-create')+'</div>'+
       '<div id="remote-code-phonetic" aria-hidden="true"></div>'+
       '<p id="remote-code-expires" aria-live="off"></p>'+
+      '<button type="button" id="remote-invite-friend">INVITE FRIEND</button>'+
+      '<div id="remote-friends-panel" hidden><p id="remote-friends-status" role="status"></p>'+
+        '<div id="remote-friends-list"></div></div>'+
       '<button type="button" id="remote-copy">COPY CODE</button>'+
     '</div>'+
     '<div id="remote-entry" hidden>'+
@@ -108,6 +111,8 @@
   const menuExit=$('remote-menu-exit');
   const codePanel=$('remote-code-panel'),room=$('remote-code'),copy=$('remote-copy'),codeExit=$('remote-code-exit');
   const codeExpiry=$('remote-code-expires');
+  const inviteFriend=$('remote-invite-friend'),friendsPanel=$('remote-friends-panel');
+  const friendsStatus=$('remote-friends-status'),friendsList=$('remote-friends-list');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots');
   const createdLetters=Array.from({length:3},(_,i)=>$('remote-create-letter-'+i));
   const enteredLetters=Array.from({length:3},(_,i)=>$('remote-join-letter-'+i));
@@ -137,6 +142,9 @@
     '</div>'+
     '<button type="button" id="remote-restart">PLAY AGAIN</button>'+
     '<p id="remote-rematch-status" aria-live="polite"></p>'+
+    '<button type="button" id="remote-add-friend" hidden>ADD FRIEND</button>'+
+    '<p id="remote-friend-status" role="status" hidden></p>'+
+    '<button type="button" id="remote-enable-push" hidden>ENABLE NOTIFICATIONS</button>'+
     '<button type="button" id="remote-result-leave" hidden>LEAVE ROOM</button>'+
     '</section>';
   document.body.append(resultPanel);
@@ -149,6 +157,10 @@
   const rematchStatus=resultPanel.querySelector('#remote-rematch-status');
   const scoreYou=resultPanel.querySelector('#remote-score-you');
   const scoreOpponent=resultPanel.querySelector('#remote-score-opponent');
+  const addFriend=resultPanel.querySelector('#remote-add-friend');
+  const friendStatus=resultPanel.querySelector('#remote-friend-status');
+  const enablePush=resultPanel.querySelector('#remote-enable-push');
+  let friendCheckAt=0,friendCheckInFlight=false;
 
   const showLobby=show=>{
     lobby.hidden=!show;
@@ -204,6 +216,9 @@
     title.textContent='Game created';
     status.textContent='Share this code with Player 2.';
     codeExpiry.hidden=!match?.inviteExpiresAt;
+    friendsPanel.hidden=true;
+    friendsStatus.textContent='';
+    friendsList.textContent='';
     showLobby(true);
     updateInviteCountdown();
   }
@@ -440,6 +455,7 @@
     resultTitle.textContent='READY TO START';
     resultDetail.textContent='Both players must press Start to begin.';
     updateSessionScore(state);
+    addFriend.hidden=true;friendStatus.hidden=true;enablePush.hidden=true;
     const mine=match.player===1?state.host_ready:state.guest_ready;
     const theirs=match.player===1?state.guest_ready:state.host_ready;
     restart.disabled=Boolean(mine)||startSending;

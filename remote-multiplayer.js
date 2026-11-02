@@ -959,7 +959,7 @@
   });
   // Remove the room code from the address bar once the PWA has consumed it.
   // This also prevents a stale invitation being retried after reloading.
-  if(incomingCode&&typeof history?.replaceState==='function'){
+  if(incomingCode&&typeof history!=='undefined'&&typeof history.replaceState==='function'){
     const clean=new URL(location.href);
     clean.searchParams.delete('join');
     history.replaceState(null,'',clean.href);

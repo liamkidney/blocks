@@ -49,6 +49,42 @@
     });
   };
   void ensurePlayer().catch(error=>console.warn('Blocks player registration:',error));
+  // Remote multiplayer uses the same leaderboard nickname, requested only
+  // when a player first chooses to save a friend.
+  window.BLOCKS_CHOOSE_PLAYER_NAME=()=>{
+    const existing=window.BLOCKS_PLAYER_NAME();
+    if(existing)return Promise.resolve(existing);
+    return new Promise((resolve,reject)=>{
+      const dialog=document.createElement('div');
+      dialog.id='remote-name-dialog';
+      dialog.innerHTML='<section class="remote-name-panel" role="dialog" aria-modal="true" aria-labelledby="remote-name-title">'+
+        '<h2 id="remote-name-title">What should your friend call you?</h2>'+
+        '<form id="remote-name-form"><input id="remote-name-input" maxlength="40" type="text" autocomplete="nickname" required aria-label="Your name" placeholder="Your name">'+
+        '<div class="remote-name-actions"><button type="button" id="remote-name-cancel">CANCEL</button>'+
+        '<button type="submit" id="remote-name-continue">CONTINUE</button></div>'+
+        '<p id="remote-name-error" role="alert"></p></form></section>';
+      document.body.appendChild(dialog);
+      const input=dialog.querySelector('#remote-name-input');
+      const form=dialog.querySelector('form');
+      const finish=()=>dialog.remove();
+      dialog.querySelector('#remote-name-cancel').onclick=()=>{finish();reject(Error('Cancelled'));};
+      form.onsubmit=async event=>{
+        event.preventDefault();
+        const name=input.value.trim();
+        if(!name)return;
+        const save=form.querySelector('[type=submit]');
+        save.disabled=true;
+        try{
+          await window.BLOCKS_SAVE_PLAYER_NAME(name);
+          finish();resolve(name);
+        }catch(error){
+          dialog.querySelector('#remote-name-error').textContent='Could not save name. Try again.';
+          save.disabled=false;
+        }
+      };
+      input.focus();
+    });
+  };
   if(remote)return;
   const dialog=document.createElement('div');
   dialog.id='player-dialog';dialog.hidden=true;

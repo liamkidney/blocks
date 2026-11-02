@@ -64,3 +64,27 @@ test('push notifications refuse off-origin or other-app destinations',async()=>{
   }
   assert.equal(shown.length,0);
 });
+
+test('ordinary browser mode never initializes push or registers a player',()=>{
+  const window={matchMedia:()=>({matches:false})};
+  const navigator={standalone:false};
+  const storage={
+    getItem:()=>{throw Error('browser should not read push credentials')},
+    setItem:()=>{throw Error('browser should not create push credentials')}
+  };
+  vm.runInNewContext(file('push-client.js'),{
+    window,navigator,location:{search:'?remote=1',pathname:'/blocks/dev/'},
+    URLSearchParams,localStorage:storage
+  });
+  assert.equal(window.BLOCKS_PUSH,undefined);
+});
+
+test('push client explicitly supports installed iOS and standalone PWAs',()=>{
+  const push=file('push-client.js');
+  const remote=file('remote-multiplayer.js');
+  assert.match(push,/navigator\.standalone===true/);
+  assert.match(push,/display-mode: standalone/);
+  assert.match(push,/if\(!installedPwa\)return/);
+  assert.match(remote,/if\(!installedPwa\|\|!match\|\|!finished/);
+  assert.match(remote,/inviteFriend\.hidden=list\.length===0/);
+});

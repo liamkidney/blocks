@@ -145,7 +145,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
         id,hidden:false,value:'',disabled:false,onclick:null,attrs:{},
         children:[],
         get textContent(){return textValue},
-        set textContent(value){textValue=String(value);this.children=[]},},
+        set textContent(value){textValue=String(value);this.children=[]},
         classList:{
           toggle(name,on){if(on)classes.add(name);else classes.delete(name)},
           add(name){classes.add(name)},remove(name){classes.delete(name)},

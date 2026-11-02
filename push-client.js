@@ -24,7 +24,7 @@
     return body;
   }
   async function register(subscription){
-    if(registering)return registering;
+    if(registering){await registering;if(!subscription)return;}
     registering=(async()=>{
       await window.BLOCKS_ENSURE_PLAYER?.();
       const p=player();

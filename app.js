@@ -575,6 +575,9 @@ board.addEventListener("animationend",event=>{
 // Held inputs repeat independently; a second finger can steer while Down is held.
 const repeatTimers=new Map();
 const repeatable=new Set(["down","left","right"]);
+// A held Down applies only to the piece it began moving. Releasing and
+// pressing again is required to soft-drop the next piece.
+const downPieceAtPress=new WeakMap();
 const gameControlResetters=[];
 function applyCommand(command,player=0){
   const target=session.games[player];
@@ -585,11 +588,17 @@ function applyCommand(command,player=0){
 function stopRepeat(button){
   clearTimeout(repeatTimers.get(button));
   repeatTimers.delete(button);
+  downPieceAtPress.delete(button);
 }
 function repeat(button){
   if(!repeatTimers.has(button))return;
   const command=button.dataset.command;
-  applyCommand(command,Number(button.dataset.player||0));
+  const player=Number(button.dataset.player||0);
+  if(command==="down"&&session.games[player]?.active!==downPieceAtPress.get(button)){
+    stopRepeat(button);
+    return;
+  }
+  applyCommand(command,player);
   repeatTimers.set(button,setTimeout(()=>repeat(button),
     command==="down"?DOWN_REPEAT_INTERVAL:REPEAT_INTERVAL));
 }
@@ -597,7 +606,9 @@ function press(button){
   const command=button.dataset.command;
   if(button.classList.contains("pressed"))return;
   button.classList.add("pressed");
-  applyCommand(command,Number(button.dataset.player||0));
+  const player=Number(button.dataset.player||0);
+  if(command==="down")downPieceAtPress.set(button,session.games[player]?.active);
+  applyCommand(command,player);
   if(repeatable.has(command))
     repeatTimers.set(button,setTimeout(()=>repeat(button),REPEAT_DELAY));
 }

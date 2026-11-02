@@ -10,6 +10,33 @@ All changes are made on `dev`; `main` is the last released, validated dev commit
 
 Run tests and validate the development PWA before releasing. To promote, run GitHub Actions → **Promote validated Dev to Main** on `main`. The workflow verifies Git ancestry, tests and builds the exact dev SHA, then fast-forwards main without generating new application commits. The Pages pipeline deploys both channels after the successful release workflow. Never commit directly to main, use cherry-picks, or squash/rebase a release. Production and development differ only in generated URLs, PWA titles, optional development inspectors, revision stamps and cache isolation.
 
+## Push-only invitations (development)
+
+Friend invitations use **Web Push**, not shared URLs. The manual three-letter room
+code remains available for playing with someone for the first time.
+
+1. After a completed match, either player can select **Add Friend**. The request
+   is mutual: the two installations become saved friends only if both accept.
+   BLOCKS reuses the exact player ID and nickname already used for the solo
+   leaderboard; unnamed players choose a nickname once.
+2. When the friendship is confirmed, **Enable Notifications** registers this
+   installation for Web Push. On iPhone, install **Blocks Dev** to the Home Screen,
+   open it from the icon, and grant permission when prompted. No Apple developer
+   account or personal sign-in is needed.
+3. Next time, the host creates a room normally, taps **Invite Friend**, and
+   selects a saved friend. Supabase sends an encrypted push notification to that
+   friend's subscribed installation. Tapping it opens the **installed PWA**
+   directly into the same room's **Ready to Start** screen.
+4. Notification invitations currently respect the original **three-minute**
+   waiting-room expiry. A connected match and subsequent rematches still live
+   independently of that short expiry. The friend cannot be invited while
+   notifications are off.
+
+The backend stores per-installation secret digests, mutual friend relationships,
+subscriptions and VAPID keys in private RLS-protected tables. The private VAPID
+key is never included in the public application. Push transport and installation
+behaviour must be validated on real devices; automated tests do not simulate APNs.
+
 ## Two-phone multiplayer (development)
 
 Play at https://liamkidney.github.io/blocks/dev/?remote=1 on both phones,

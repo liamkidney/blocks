@@ -156,7 +156,13 @@ class Game {
     else if(name==="rotate_ccw") this.tryRotate(-1);
     else if(name==="rotate_cw") this.tryRotate(1);
   }
-  dropOne(){ if(this.phase==="falling"&&this.tryMove(0,-1)) this.score++; }
+  dropOne(){
+    if(this.phase!=="falling"||!this.tryMove(0,-1))return;
+    this.score++;
+    // Soft drop is a player-controlled gravity step. Start a full gravity
+    // interval from this movement so landing never depends on an old tick.
+    this.elapsed=0;
+  }
   tick(){
     if(!this.active) return;
     if(this.tryMove(0,-1)) return;
@@ -216,6 +222,9 @@ class Game {
   }
   advance(){ this.queue.advance(); this.nextTetromino=this.queue.next(); this.spawn(); }
   spawn(){
+    // Never let the previous piece's partially consumed gravity interval
+    // advance the newly spawned one (including on a lock during update()).
+    this.elapsed=0;
     const t=this.queue.current(), offsets=t.orientations[0];
     const xs=offsets.map(p=>p[0]),ys=offsets.map(p=>p[1]);
     const minX=Math.min(...xs),maxX=Math.max(...xs),maxY=Math.max(...ys);

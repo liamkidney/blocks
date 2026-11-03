@@ -38,7 +38,6 @@
             '<p class="blocks-settings-hint">Rearrange the controls directly on the game screen. The game pauses while editing.</p>',
             '<div class="settings-control-options">',
               '<button type="button" id="settings-control-start">Rearrange buttons</button>',
-              '<button type="button" id="settings-control-reset">Reset order</button>',
             '</div>',
             '<p id="settings-control-status" class="blocks-settings-hint" role="status" aria-live="polite"></p>',
           '</div>',
@@ -65,7 +64,6 @@
   const speed=$('settings-speed');
   const ghost=$('settings-ghost');
   const orderStart=$('settings-control-start');
-  const orderReset=$('settings-control-reset');
   const orderStatus=$('settings-control-status');
   const social=$('settings-social-section');
   const friendsList=$('settings-friends-list');
@@ -92,10 +90,6 @@
   orderStart.onclick=()=>{
     if(window.BLOCKS_BEGIN_CONTROL_EDIT?.()===true)close();
     else orderStatus.textContent='Rearranging is available in single-player portrait.';
-  };
-  orderReset.onclick=()=>{
-    if(window.BLOCKS_RESET_CONTROL_ORDER?.()===true)
-      orderStatus.textContent='Default order restored.';
   };
   function updateDefaults(){
     window.dispatchEvent(new CustomEvent('blocks:settings-updated',{

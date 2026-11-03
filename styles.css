@@ -1358,11 +1358,11 @@ body.remote-multiplayer #board-frame.game-paused::after{
   body.controls-editing:not(.two-player) #controls .control:not(.control-edit-placeholder){
     transform-origin:50% 50%;
     transition:none;
-    animation:blocks-control-wiggle .18s ease-in-out infinite alternate
+    animation:blocks-control-wiggle .14s ease-in-out infinite alternate
   }
   body.controls-editing:not(.two-player) #controls .control[data-command="right"],
   body.controls-editing:not(.two-player) #controls .control[data-command="rotate_cw"]{
-    animation-delay:-.18s
+    animation-delay:-.14s
   }
   body.controls-editing:not(.two-player) #controls .control.control-edit-placeholder{
     visibility:hidden
@@ -1382,6 +1382,10 @@ body.remote-multiplayer #board-frame.game-paused::after{
     font:900 13px/1 Helvetica,Arial,sans-serif;
     touch-action:manipulation;cursor:pointer
   }
+  #controls-edit-toolbar #controls-edit-reset{
+    border:1px solid var(--paper);
+    background:transparent;color:var(--paper)
+  }
 }
 @keyframes blocks-control-wiggle{
   from{transform:rotate(-4deg)}
@@ -1400,7 +1404,6 @@ body > .control.control-edit-ghost{
 #blocks-settings .settings-button-layout .blocks-settings-hint{margin:0 0 12px}
 #blocks-settings .settings-control-options{display:flex;gap:10px;flex-wrap:wrap}
 #blocks-settings .settings-control-options button{flex:1;min-width:125px}
-#blocks-settings #settings-control-reset{background:transparent;color:var(--ink)}
 #blocks-settings #settings-control-status{margin-top:10px}
 /* A chosen editing mode is the player's explicit request to animate the keys.
    Do not suppress this animation under prefers-reduced-motion. */

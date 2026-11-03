@@ -1183,6 +1183,14 @@ function stopSoloControlDrag(commit){
     applySoloControlOrder(state.order);
   }
 }
+function resetSoloControlEdit(){
+  const state=soloControlEditor;
+  if(!state)return;
+  // Reset the preview without saving or resuming the paused game.
+  stopSoloControlDrag(false);
+  state.order=SOLO_CONTROL_ACTIONS.slice();
+  applySoloControlOrder(state.order);
+}
 function finishSoloControlEdit(){
   const state=soloControlEditor;
   if(!state)return;
@@ -1210,9 +1218,10 @@ window.BLOCKS_BEGIN_CONTROL_EDIT=()=>{
   restartDialog.hidden=true;
   const toolbar=document.createElement("div");
   toolbar.id="controls-edit-toolbar";
-  toolbar.innerHTML='<span>Drag controls to rearrange</span><button type="button" id="controls-edit-done">Done</button>';
+  toolbar.innerHTML='<button type="button" id="controls-edit-reset">Reset</button><button type="button" id="controls-edit-done">Done</button>';
   soloControlPad.appendChild(toolbar);
-  toolbar.querySelector("button").addEventListener("click",finishSoloControlEdit);
+  toolbar.querySelector("#controls-edit-reset").addEventListener("click",resetSoloControlEdit);
+  toolbar.querySelector("#controls-edit-done").addEventListener("click",finishSoloControlEdit);
   soloControlEditor={order:soloControlOrder.slice(),resumeGame,showModeMenu,toolbar,drag:null};
   controlEditing=true;
   document.body.classList.add("controls-editing");

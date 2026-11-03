@@ -58,10 +58,11 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
     getBoundingClientRect:()=>({left:0,top:0,width:276,height:66}),
     appendChild(child){this.children.push(child);child.parent=this}
   };
-  const done={
+  const makeToolbarControl=()=>({
     listeners:{},addEventListener(type,listener){this.listeners[type]=listener},
     click(){this.listeners.click?.()}
-  };
+  });
+  const done=makeToolbarControl(),reset=makeToolbarControl();
   const document={
     body,getElementById:id=>id==='controls'?pad:null,
     createElement:()=>({
@@ -69,7 +70,8 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
         if(this.parent)this.parent.children=this.parent.children.filter(x=>x!==this);
         this.parent=null;
       },
-      querySelector:()=>done
+      querySelector:selector=>selector==='#controls-edit-reset'?reset:
+        selector==='#controls-edit-done'?done:null
     }),
     addEventListener:(type,callback)=>on(docEvents,type,callback)
   };
@@ -111,7 +113,7 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   const pointer=(type,button,id,x)=>dispatch(type,{
     target:button,pointerId:id,pointerType:'touch',clientX:x,clientY:30
   });
-  return {window,document,pad,buttons,done,game,storage,visualOrder,pointer,
+  return {window,document,pad,buttons,done,reset,game,storage,visualOrder,pointer,
     restartDialog,context,get clears(){return clears},get saves(){return saves}};
 }
 
@@ -195,7 +197,8 @@ test('touch input is gated during edit mode and portrait CSS provides wiggle',()
 
 test('wiggle remains enabled in user-entered edit mode, including Reduce Motion',()=>{
   assert.match(css,/body\.controls-editing:not\(\.two-player\) #controls \.control:not\(\.control-edit-placeholder\)/);
-  assert.match(css,/animation:blocks-control-wiggle \.18s/);
+  assert.match(css,/animation:blocks-control-wiggle \.14s/);
+  assert.match(css,/animation-delay:-\.14s/);
   assert.match(css,/from\{transform:rotate\(-4deg\)\}/);
   assert.match(css,/to\{transform:rotate\(4deg\)\}/);
   assert.doesNotMatch(css,/body\.controls-editing #controls \.control\{animation:none!important\}/);
@@ -230,4 +233,39 @@ test('HUD Settings uses the official Lucide gear with internal padding',()=>{
   assert.match(app,/M9\.671 4\.136a2\.34/,'official Lucide Settings path');
   assert.doesNotMatch(app,/M12 2\.5v3M12 18\.5v3/);
   assert.doesNotMatch(app,/scale\(\.975\)/,'no icon scaling that could clip its edge');
+});
+
+test('floating editor offers Reset and Done without instruction text',()=>{
+  assert.match(app,/id="controls-edit-reset">Reset<\/button>/);
+  assert.match(app,/id="controls-edit-done">Done<\/button>/);
+  assert.doesNotMatch(app,/<span>Drag controls to rearrange<\/span>/);
+  assert.doesNotMatch(settings,/id="settings-control-reset"/);
+});
+test('Reset stays in edit mode and Done persists the default arrangement',()=>{
+  const saved='["rotate_cw","left","down","right"]';
+  const b=boot({saved});
+  b.window.BLOCKS_BEGIN_CONTROL_EDIT();
+  assert.equal(b.game.phase,'paused');
+  b.reset.click();
+  assert.deepEqual(b.visualOrder(),ACTIONS);
+  assert.equal(b.game.phase,'paused');
+  assert.equal(b.document.body.classList.contains('controls-editing'),true);
+  assert.equal(b.storage.get(KEY),saved);
+  b.done.click();
+  assert.deepEqual(JSON.parse(b.storage.get(KEY)),ACTIONS);
+  assert.equal(b.game.phase,'falling');
+});
+test('Reset while dragging removes placeholder and keeps editor open',()=>{
+  const b=boot({saved:'["rotate_cw","left","down","right"]'});
+  b.window.BLOCKS_BEGIN_CONTROL_EDIT();
+  const dragged=b.buttons[0];
+  b.pointer('pointerdown',dragged,33,100);
+  b.pointer('pointermove',dragged,33,252);
+  assert.equal(dragged.classList.contains('control-edit-placeholder'),true);
+  b.reset.click();
+  assert.equal(dragged.classList.contains('control-edit-placeholder'),false);
+  assert.deepEqual(b.visualOrder(),ACTIONS);
+  assert.equal(b.document.body.classList.contains('controls-editing'),true);
+  b.done.click();
+  assert.deepEqual(JSON.parse(b.storage.get(KEY)),ACTIONS);
 });

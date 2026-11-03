@@ -1228,8 +1228,11 @@ body.remote-multiplayer #board-frame.game-paused::after{
 #restart-dialog .restart-mode-screen #restart-one{
   background:var(--ink);color:var(--paper)
 }
-#restart-dialog .restart-mode-screen #restart-settings{
-  min-height:44px;border-width:1px;font-weight:700;margin-top:6px
+#restart-dialog .restart-utilities{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px
+}
+#restart-dialog .restart-utilities :is(#restart-high-scores,#restart-settings){
+  min-height:44px;border-width:1px;font-weight:700;font-size:11px
 }
 #restart-dialog #restart-rules-screen{margin-top:14px}
 #restart-dialog .restart-back{

@@ -330,3 +330,35 @@ test('notification data cannot persist external, unscoped or arbitrary redirects
   assert.equal(worker.saved.size,0);
   assert.equal(worker.opened.length,0);
 });
+
+
+test('installed New Game requests a pending push intent when worker becomes ready',async()=>{
+  const app=file('app.js');
+  const start=app.indexOf('// A tapped invitation can arrive while');
+  const end=app.indexOf('let remoteStored=null;',start);
+  const requests=[],listeners={};
+  const location={pathname:'/blocks/dev/',
+    href:'https://example.test/blocks/dev/'};
+  const worker={postMessage:message=>requests.push(message)};
+  const navigator={standalone:true,serviceWorker:{
+    controller:worker,
+    ready:Promise.resolve({active:worker}),
+    addEventListener:(name,fn)=>{listeners[name]=fn}
+  }};
+  const window={matchMedia:()=>({matches:false}),
+    addEventListener:(name,fn)=>{listeners[name]=fn}};
+  const document={visibilityState:'visible',
+    addEventListener:(name,fn)=>{listeners[name]=fn}};
+  const context=vm.createContext({navigator,window,document,location,URL});
+  vm.runInContext(app.slice(start,end),context);
+  await Promise.resolve();
+  assert.equal(requests.filter(x=>x.type==='BLOCKS_GET_PUSH_INVITATION').length,2);
+  listeners.message({data:{
+    type:'BLOCKS_PUSH_INVITATION',
+    url:'https://example.test/blocks/dev/?remote=1&push_join=BRT'
+  }});
+  assert.equal(location.href,
+    'https://example.test/blocks/dev/?remote=1&push_join=BRT');
+  listeners.visibilitychange();
+  assert.equal(requests.filter(x=>x.type==='BLOCKS_GET_PUSH_INVITATION').length,3);
+});

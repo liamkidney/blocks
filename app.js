@@ -258,6 +258,136 @@ restartDialog.innerHTML=`
     <button type="button" id="restart-cancel" class="restart-cancel" aria-label="Close New Game" title="Close New Game">×</button>
   </div>`;
 document.body.appendChild(restartDialog);
+// One invitation dialog works for solo, one-phone and live two-phone games.
+// Notification clicks should never silently discard a game in progress.
+const inviteDialog=document.createElement("div");
+inviteDialog.id="blocks-invite-dialog";
+inviteDialog.hidden=true;
+inviteDialog.innerHTML=
+  '<section class="blocks-invite-panel" role="dialog" aria-modal="true" aria-labelledby="blocks-invite-title">'+
+    '<h2 id="blocks-invite-title">GAME INVITATION</h2>'+
+    '<p id="blocks-invite-message">A friend invited you to play BLOCKS.</p>'+
+    '<p id="blocks-invite-warning"></p>'+
+    '<p id="blocks-invite-status" role="alert"></p>'+
+    '<div class="blocks-invite-buttons">'+
+      '<button type="button" id="blocks-invite-join">JOIN GAME</button>'+
+      '<button type="button" id="blocks-invite-dismiss">DISMISS</button>'+
+    '</div>'+
+  '</section>';
+document.body.appendChild(inviteDialog);
+const inviteMessage=document.getElementById("blocks-invite-message");
+const inviteWarning=document.getElementById("blocks-invite-warning");
+const inviteStatus=document.getElementById("blocks-invite-status");
+const inviteJoin=document.getElementById("blocks-invite-join");
+const inviteDismiss=document.getElementById("blocks-invite-dismiss");
+let presentedInvite=null;
+function acknowledgeIncomingInvite(url){
+  const ack={type:'BLOCKS_ACK_PUSH_INVITATION',url};
+  const worker=navigator.serviceWorker;
+  if(worker?.controller?.postMessage)worker.controller.postMessage(ack);
+  else void worker?.ready?.then?.(registration=>
+    registration.active?.postMessage(ack)).catch?.(()=>{});
+}
+function closeIncomingInvite(resume=true){
+  const invite=presentedInvite;
+  presentedInvite=null;
+  inviteDialog.hidden=true;
+  inviteJoin.disabled=false;
+  inviteDismiss.disabled=false;
+  if(resume&&invite?.pausedSoloGame){
+    if(TWO_PLAYER)session.resume();
+    else game.resume();
+    renderActions();saveGame(true);
+  }
+  invite?.previousFocus?.focus?.();
+}
+window.BLOCKS_PRESENT_INVITATION=(destination,options={})=>{
+  const installed=navigator.standalone===true||
+    window.matchMedia?.('(display-mode: standalone)')?.matches===true||
+    window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches===true;
+  if(!installed)return false;
+  let target;
+  try{
+    target=new URL(destination);
+    const current=new URL(location.href);
+    if(target.origin!==current.origin||
+       target.pathname.replace(/index[.]html$/,'')!==
+         current.pathname.replace(/index[.]html$/,'')||
+       target.searchParams.get('remote')!=='1'||
+       !/^[A-Z]{3}$/.test(target.searchParams.get('push_join')||''))return false;
+  }catch(_){return false}
+  if(presentedInvite?.url===target.href)return true;
+  const soloHasGame=!REMOTE_PLAYER&&!awaitingInitialStart&&
+    game.phase!=='game_over';
+  const remoteHasGame=REMOTE_PLAYER&&
+    window.BLOCKS_REMOTE?.active===true;
+  const needsChoice=options.foreground===true||soloHasGame||remoteHasGame;
+  const join=options.onJoin||(()=>{
+    // Switching from solo or one-phone deliberately abandons that game.
+    skipSaveOnNavigation=true;
+    try{localStorage.removeItem(SAVE_KEY)}catch(_){}
+    location.href=target.href;
+    return true;
+  });
+  const dismiss=options.onDismiss||
+    (()=>acknowledgeIncomingInvite(target.href));
+  if(!needsChoice){
+    void Promise.resolve().then(join).catch(error=>
+      console.warn('BLOCKS invitation open failed:',error));
+    return true;
+  }
+  if(presentedInvite){
+    // A second invitation supersedes the first; restore its pause first.
+    closeIncomingInvite(true);
+  }
+  const pausedSoloGame=soloHasGame&&game.phase!=='paused';
+  if(pausedSoloGame){
+    if(TWO_PLAYER)session.pause();
+    else game.pause();
+    renderActions();saveGame(true);
+  }
+  presentedInvite={
+    url:target.href,join,dismiss,pausedSoloGame,
+    previousFocus:document.activeElement
+  };
+  inviteMessage.textContent=typeof options.body==='string'&&
+    options.body.length<180?options.body:'A friend invited you to play BLOCKS.';
+  inviteWarning.textContent=remoteHasGame?
+    'Joining forfeits your current match. Your opponent will win.':
+    soloHasGame?'Joining abandons your current game.':
+      'Would you like to join the game?';
+  inviteStatus.textContent='';
+  inviteDialog.hidden=false;
+  inviteJoin.disabled=false;inviteDismiss.disabled=false;
+  inviteJoin.focus();
+  return true;
+};
+inviteDismiss.onclick=()=>{
+  if(!presentedInvite)return;
+  try{presentedInvite.dismiss()}catch(_){}
+  closeIncomingInvite(true);
+};
+inviteJoin.onclick=async()=>{
+  const invite=presentedInvite;
+  if(!invite||inviteJoin.disabled)return;
+  inviteJoin.disabled=true;inviteDismiss.disabled=true;
+  inviteStatus.textContent='Joining…';
+  try{
+    const result=await invite.join();
+    if(result===false)throw Error('Unable to join that room. You can try again.');
+    if(presentedInvite===invite)closeIncomingInvite(false);
+  }catch(error){
+    if(presentedInvite===invite){
+      inviteStatus.textContent=error?.message||'Could not join that game.';
+      inviteJoin.disabled=false;inviteDismiss.disabled=false;
+    }
+  }
+};
+if(window.BLOCKS_EARLY_INVITE){
+  const earlier=window.BLOCKS_EARLY_INVITE;
+  window.BLOCKS_EARLY_INVITE=null;
+  window.BLOCKS_PRESENT_INVITATION(earlier.url,earlier);
+}
 const cancelRestartButton=document.getElementById("restart-cancel");
 const startGameButton=document.getElementById("restart-start");
 const restartModeScreen=document.getElementById("restart-mode-screen");

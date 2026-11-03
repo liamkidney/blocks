@@ -1122,12 +1122,17 @@
     });
   }
   function acknowledgePush(code){
-    const url=new URL(location.pathname,location.href);
+    // Use the canonical scope root even when the page was launched as
+    // /index.html. The service worker compares exact destinations on ACK.
+    const url=new URL('./',location.href);
     url.searchParams.set('remote','1');
     url.searchParams.set('push_join',code);
-    navigator.serviceWorker?.controller?.postMessage?.({
-      type:'BLOCKS_ACK_PUSH_INVITATION',url:url.href
-    });
+    const ack={type:'BLOCKS_ACK_PUSH_INVITATION',url:url.href};
+    const worker=navigator.serviceWorker;
+    if(worker?.controller?.postMessage)worker.controller.postMessage(ack);
+    else void worker?.ready?.then?.(registration=>{
+      registration.active?.postMessage(ack);
+    }).catch?.(()=>{});
   }
   async function acceptPushInvitation(code){
     if(!installedPwa||!(/^[A-Z]{3}$/.test(code))||joining||

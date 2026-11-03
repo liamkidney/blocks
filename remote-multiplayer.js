@@ -32,6 +32,9 @@
   const saved=read();
   let match=saved?.id&&saved?.token&&[1,2].includes(saved.player)?saved:null;
   if(match){match.round=match.round||1;match.cursor ||= 0;match.outbox ||= [];}
+  // Saved room settings are not evidence that the running game engine has
+  // applied them. Each new/reconnected match must receive a server sync.
+  let configAppliedForMatch=null;
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;
   let resultDismissed=false;
   let creating=false,joining=false,startSending=false,rematchSending=false,exiting=false;
@@ -747,12 +750,16 @@
       if(current!==match||exiting)return;
       if([0,1,2].includes(data.difficulty)&&['ALL','IO'].includes(data.piece_set)){
         const ghostPiece=typeof data.ghost_piece==='boolean'?data.ghost_piece:null;
-        if(current.difficulty!==data.difficulty||
+        if(configAppliedForMatch!==current.id||
+           current.difficulty!==data.difficulty||
            current.piece_set!==data.piece_set||
            current.ghost_piece!==ghostPiece){
           current.difficulty=data.difficulty;
           current.piece_set=data.piece_set;
           current.ghost_piece=ghostPiece;
+          configAppliedForMatch=current.id;
+          // The server is authoritative for BOTH phones, including the
+          // creator whose match object already contains the selected rules.
           window.dispatchEvent(new CustomEvent('blocks:remote-config',{
             detail:{difficulty:data.difficulty,piece_set:data.piece_set,ghost_piece:ghostPiece}
           }));
@@ -816,6 +823,7 @@
     finally{sending=false}
   }
   async function connect(value,fresh=false){
+    configAppliedForMatch=null;
     clearReactions();
     if(interval){clearInterval(interval);interval=null;}
     if(inviteTicker){clearInterval(inviteTicker);inviteTicker=null;}

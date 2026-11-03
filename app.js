@@ -762,7 +762,13 @@ window.addEventListener('blocks:remote-config',event=>{
   // preferences in that one backwards-compatible case.
   const ghostChanged=typeof ghost_piece==='boolean'&&
     window.BLOCKS_CONFIG.ghostPiece!==ghost_piece;
-  if(session.config.difficulty===difficulty&&currentSet===piece_set&&!ghostChanged)return;
+  // Saved game snapshots carry their own difficulty. Comparing the session
+  // configuration alone can miss a resumed board using stale match rules.
+  const actualSet=game.queue.tetrominoes.length===2&&
+    game.queue.tetrominoes.some(t=>t.name==='I')&&
+    game.queue.tetrominoes.some(t=>t.name==='O')?'IO':'ALL';
+  if(session.config.difficulty===difficulty&&currentSet===piece_set&&
+     game.difficulty===difficulty&&actualSet===piece_set&&!ghostChanged)return;
   session.config.difficulty=difficulty;
   session.config.allowedPieces=piece_set==='IO'?['I','O']:TETROMINOES.map(t=>t.name);
   if(typeof ghost_piece==='boolean'){

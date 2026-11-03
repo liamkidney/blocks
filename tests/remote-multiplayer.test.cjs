@@ -1058,6 +1058,49 @@ test('new room starts a fresh 0–0 score after leaving a won session',async()=>
 });
 
 
+
+test('host-selected speed and ghost reach both phones even when host defaults differ',async()=>{
+  const f=fixture();
+  const host=f.browser(new Map(),{difficulty:0,piece_set:'IO',ghost_piece:false});
+  const guest=f.browser(new Map(),{difficulty:1,piece_set:'ALL',ghost_piece:false});
+  host.get('remote-create').onclick();
+  host.get('remote-host-speed').value='2';
+  host.get('remote-host-ghost').value='true';
+  host.get('remote-host-confirm').onclick();
+  await settle();
+  const rules={difficulty:2,piece_set:'ALL',ghost_piece:true};
+  assert.deepEqual(JSON.parse(JSON.stringify(host.configs)),[rules],
+    'creator must apply server rules even if its saved room already matches them');
+  guest.get('remote-join').onclick();
+  guest.get('remote-input').value='BRT';
+  guest.get('remote-input').listeners.input();
+  await settle();await host.tick();await guest.tick();await settle();
+  assert.deepEqual(JSON.parse(JSON.stringify(guest.configs)),[rules]);
+  for(const phone of [host,guest]){
+    assert.match(phone.get('remote-result-detail').textContent,
+      /Speed: Hard.*Ghost piece: On/);
+  }
+  await host.tick();await guest.tick();await settle();
+  assert.equal(host.configs.length,1,'polling must not reconfigure the host repeatedly');
+  assert.equal(guest.configs.length,1,'polling must not reconfigure the guest repeatedly');
+});
+
+test('reopening a saved match reapplies authoritative rules to the running client',async()=>{
+  const f=fixture(),host=f.browser(new Map(),{difficulty:0,piece_set:'ALL',ghost_piece:false});
+  host.get('remote-create').onclick();
+  host.get('remote-host-speed').value='2';
+  host.get('remote-host-ghost').value='true';
+  host.get('remote-host-confirm').onclick();
+  await settle();
+  const restored=f.browser(host.storage,{difficulty:0,piece_set:'IO',ghost_piece:false});
+  await settle();
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.configs)),
+    [{difficulty:2,piece_set:'ALL',ghost_piece:true}],
+    'a saved room config must not suppress the first engine sync after reload');
+  await restored.tick();await settle();
+  assert.equal(restored.configs.length,1);
+});
+
 test('host speed and Ghost Piece are enforced while the standard piece set is used',async()=>{
   const f=fixture();
   const host=f.browser(new Map(),{difficulty:2,piece_set:'IO',ghost_piece:true});

@@ -1145,3 +1145,72 @@ body.remote-multiplayer #board-frame.game-paused::after{
 }
 #remote-name-dialog #remote-name-continue{background:var(--ink);color:var(--paper)}
 #remote-name-dialog #remote-name-error{font-size:12px;color:#b02c2c}
+
+
+/* Shared native Settings panel: compact, readable, accessible from every mode. */
+#blocks-settings[hidden]{display:none!important}
+#blocks-settings{
+  position:fixed;inset:0;z-index:12000;display:grid;place-items:center;
+  padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));
+  background:rgba(0,0,0,.45);overflow:auto;box-sizing:border-box
+}
+#blocks-settings .blocks-settings-panel{
+  width:min(430px,100%);max-height:calc(100dvh - 28px);
+  border:2px solid var(--ink);border-radius:13px;background:var(--paper);
+  color:var(--ink);display:flex;flex-direction:column;overflow:hidden
+}
+#blocks-settings .blocks-settings-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:20px 20px 12px;flex:0 0 auto
+}
+#blocks-settings h2{font:900 30px/1.1 Helvetica,Arial,sans-serif;margin:0;letter-spacing:-1px}
+#blocks-settings .blocks-settings-header button{
+  border:0;background:transparent;color:var(--ink);
+  min-width:44px;min-height:44px;font:400 30px/1 Helvetica,Arial,sans-serif
+}
+#blocks-settings .blocks-settings-body{overflow:auto;overscroll-behavior:contain;padding:0 20px 24px}
+#blocks-settings .blocks-settings-body section{
+  border-top:1px solid rgba(11,11,10,.2);padding:18px 0
+}
+#blocks-settings h3{
+  font:800 15px/1.3 Helvetica,Arial,sans-serif;
+  margin:0 0 16px
+}
+#blocks-settings label{
+  display:block;font:700 13px/1.4 Helvetica,Arial,sans-serif;margin:14px 0 6px
+}
+#blocks-settings input,#blocks-settings select{
+  width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+  min-height:44px;padding:10px;border:1px solid var(--ink);
+  border-radius:8px;background:var(--paper);color:var(--ink);
+  font:600 16px Helvetica,Arial,sans-serif
+}
+#blocks-settings .blocks-settings-field{display:flex;align-items:center;gap:9px}
+#blocks-settings .blocks-settings-field input{flex:1}
+#blocks-settings button{
+  cursor:pointer;touch-action:manipulation;border:1px solid var(--ink);
+  border-radius:8px;padding:9px 12px;min-height:44px;
+  font:800 12px Helvetica,Arial,sans-serif;
+  background:var(--ink);color:var(--paper)
+}
+#blocks-settings button:disabled{opacity:.55}
+#blocks-settings .blocks-settings-hint,#blocks-settings #settings-name-status,
+#blocks-settings #settings-friends-status,#blocks-settings #settings-notification-status{
+  font:500 12px/1.5 Helvetica,Arial,sans-serif;margin:8px 0 0
+}
+#blocks-settings .blocks-settings-hint{opacity:.65}
+#blocks-settings .blocks-settings-friend{
+  display:flex;justify-content:space-between;align-items:center;
+  min-height:49px;gap:14px;border-bottom:1px solid rgba(11,11,10,.14)
+}
+#blocks-settings .blocks-settings-friend span{
+  font:700 14px/1.3 Helvetica,Arial,sans-serif;overflow-wrap:anywhere
+}
+#blocks-settings .blocks-settings-friend button{
+  background:transparent;color:var(--ink);min-width:78px
+}
+#blocks-settings .blocks-settings-notifications{
+  margin-top:18px;padding-top:6px
+}
+#blocks-settings .blocks-settings-notifications button{margin-top:12px}
+#blocks-settings [hidden]{display:none!important}

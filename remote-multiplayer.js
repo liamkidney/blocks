@@ -349,6 +349,25 @@
     inviteFriend.hidden=true;
     if(installedPwa&&!match&&window.BLOCKS_PUSH)void loadMenuFriends();
   }
+  function showHostConfig(friend=null){
+    // This screen is for creating rooms only. Joining skips it completely.
+    if(match||creating||joining)return;
+    if(friend&&(!installedPwa||!window.BLOCKS_PUSH||
+       !savedFriends?.some(person=>person.id===friend.id&&person.canNotify)))return;
+    hostRecipient=friend;
+    const saved=window.BLOCKS_REMOTE_LOCAL_CONFIG||{};
+    hostSpeed.value=String([0,1,2].includes(saved.difficulty)?saved.difficulty:1);
+    hostPieces.value=saved.piece_set==='IO'?'IO':'ALL';
+    hostGhost.value=String(saved.ghost_piece===true);
+    hostContext.textContent=friend?
+      'Invite '+friend.name+'. Both players will use these rules.':
+      'Choose the rules for both players.';
+    hostConfirm.textContent=friend?'SEND INVITATION':'CREATE GAME';
+    hostStatus.textContent='';
+    lobbyStep('host');
+    title.textContent=friend?'Invite '+friend.name:'Game settings';
+    showLobby(true);
+  }
   function setCreating(on){
     creating=on;
     create.disabled=on;join.disabled=on;inviteFriend.disabled=on;
@@ -631,38 +650,9 @@
       button.title=friend.canNotify?'Send push invitation':'Friend has not enabled notifications';
       button.onclick=()=>{
         if(menuRevision!==revision||match||creating||friendsPanel.hidden)return;
-        void createRoom(friend);
+        showHostConfig(friend);
       };
       row.append(button);
-      const remove=document.createElement('button');
-      remove.type='button';
-      remove.className='remote-friend-remove';
-      remove.textContent='×';
-      remove.setAttribute('aria-label','Remove '+friend.name+' from friends');
-      remove.title='Remove '+friend.name+' from friends';
-      remove.onclick=async()=>{
-        if(!installedPwa||menuRevision!==revision||match||creating||!window.BLOCKS_PUSH)return;
-        if(!window.confirm('Remove '+friend.name+' from friends? You will no longer be able to invite each other.'))
-          return;
-        remove.disabled=true;
-        friendsStatus.textContent='Removing '+friend.name+'…';
-        try{
-          await window.BLOCKS_PUSH.removeFriend(friend.id);
-          if(menuRevision!==revision||match)return;
-          savedFriends=(savedFriends||list).filter(person=>person.id!==friend.id);
-          inviteFriend.hidden=savedFriends.length===0;
-          if(savedFriends.length){
-            await displayFriends();
-            friendsStatus.textContent=friend.name+' removed.';
-          }else menu();
-        }catch(error){
-          if(menuRevision===revision&&!match){
-            friendsStatus.textContent=error.message||'Could not remove friend.';
-            remove.disabled=false;
-          }
-        }
-      };
-      row.append(remove);
       if(!friend.canNotify){
         const note=document.createElement('small');
         note.textContent='Notifications not enabled';
@@ -996,6 +986,12 @@
     // Return from Join or Invite Friend without creating/cancelling a room.
     if(!entry.hidden){returnFromCodeEntry();return;}
     if(!friendsPanel.hidden){if(!creating)menu();return;}
+    if(!hostPanel.hidden){
+      if(creating)return;
+      if(hostRecipient)void displayFriends();
+      else menu();
+      return;
+    }
     // There is no match on the Play Together menu. Return to the full
     // New Game selector, not to an automatically resumed solo board.
     if(match||creating||joining)return;
@@ -1009,7 +1005,9 @@
     url.searchParams.delete('players');
     location.href=url.href;
   });
-  bindLobbyAction(create,()=>{void createRoom()});
+  bindLobbyAction(create,()=>showHostConfig());
+  bindLobbyAction(hostConfirm,()=>{void createRoom(hostRecipient)});
+  bindLobbyAction(menuSettings,()=>window.BLOCKS_OPEN_SETTINGS?.());
   bindLobbyAction(join,enterCode);
   bindLobbyAction(inviteFriend,()=>{if(installedPwa)void displayFriends()});
   input.addEventListener('input',()=>{

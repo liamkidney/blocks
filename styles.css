@@ -768,6 +768,7 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
 #remote-lobby .remote-code-label{font-size:11px;font-weight:900;letter-spacing:1.6px;margin:24px 0 12px}
 /* The created code itself is the focal point; no redundant heading. */
 #remote-lobby #remote-code-panel{padding-top:42px}
+#remote-lobby #remote-code-panel.is-friend-invite{padding-top:12px}
 /* Keep three large code letters aligned in both screens. Only the Create
    screen has a single centred phonetic line beneath the complete code. */
 #remote-lobby .remote-code-tiles{

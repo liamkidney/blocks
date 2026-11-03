@@ -1132,35 +1132,65 @@
       registration.active?.postMessage(ack);
     }).catch?.(()=>{});
   }
-  async function acceptPushInvitation(code){
+  async function acceptPushInvitation(code,allowForfeit=false){
     if(!installedPwa||!(/^[A-Z]{3}$/.test(code))||joining||
-       acceptingPush)return;
+       acceptingPush)return false;
     acceptingPush=true;
     let handled=false;
     try{
       if(match){
         if(match.code===code&&match.player===2){
           void poll(); // Already joined this invitation.
-          handled=true;return;
+          handled=true;return true;
         }
         if(ready&&!finished){
-          // Never silently forfeit an active match. Explain why it cannot
-          // switch rooms instead of just discarding the notification.
-          error.textContent='Finish the current game before joining a different room.';
-          handled=true;return;
+          if(!allowForfeit)return false;
+          // The user explicitly accepted the in-game prompt. Record a real
+          // loss on the server before leaving, so the opponent wins rather
+          // than seeing their room mysteriously cancelled.
+          const current=match;
+          await rpc('blocks_match_send',{
+            p_match:current.id,p_token:current.token,
+            p_type:'lost',p_rows:null,p_key:crypto.randomUUID(),
+            p_round:current.round
+          });
+          if(match!==current)return false;
+          returnToNewGame();
+        }else{
+          await exitToNewGame();
+          if(match)return false; // Preserve existing room if exit failed.
         }
-        await exitToNewGame();
-        if(match)return; // Exit failed; preserve the session for later retry.
       }
-      if(creating)return; // Never race an unfinished host room creation.
+      if(creating)return false;
       menu();showLobby(true);enterCode();
       input.value=code;displaySlots();
-      // A network failure can occur after the first tap. Do not clear the
-      // persisted notification until a guest session is actually joined.
       handled=await joinRoom(code);
+      return handled;
     }finally{
       acceptingPush=false;
       if(handled)acknowledgePush(code);
+    }
+  }
+  function presentPushInvitation(destination,foreground=false,body=null){
+    let url;
+    try{
+      url=new URL(destination);
+      if(url.origin!==new URL(location.href).origin||
+         url.pathname.replace(/index[.]html$/,'')!==
+           location.pathname.replace(/index[.]html$/,'')||
+         url.searchParams.get('remote')!=='1')return;
+    }catch(_){return}
+    const code=url.searchParams.get('push_join')?.toUpperCase()||'';
+    if(!/^[A-Z]{3}$/.test(code))return;
+    if(window.BLOCKS_PRESENT_INVITATION){
+      window.BLOCKS_PRESENT_INVITATION(url.href,{
+        foreground,body,
+        onJoin:()=>acceptPushInvitation(code,true),
+        onDismiss:()=>acknowledgePush(code)
+      });
+    }else if(!foreground){
+      // Compatibility fallback for an older app shell.
+      void acceptPushInvitation(code);
     }
   }
   // A notification may launch an installed iPhone PWA at its start URL.
@@ -1172,15 +1202,13 @@
     });
   }).catch?.(()=>{});
   navigator.serviceWorker?.addEventListener('message',event=>{
-    if(event.data?.type!=='BLOCKS_PUSH_INVITATION'||!installedPwa)return;
-    try{
-      const url=new URL(event.data.url);
-      if(url.origin!==new URL(location.href).origin||
-         url.pathname!==location.pathname||
-         url.searchParams.get('remote')!=='1')return;
-      const code=url.searchParams.get('push_join')?.toUpperCase()||'';
-      void acceptPushInvitation(code);
-    }catch(_){}
+    const type=event.data?.type;
+    if(!installedPwa||
+       !['BLOCKS_PUSH_INVITATION','BLOCKS_PUSH_RECEIVED'].includes(type)||
+       (type==='BLOCKS_PUSH_RECEIVED'&&document.visibilityState!=='visible'))return;
+    presentPushInvitation(event.data.url,
+      type==='BLOCKS_PUSH_RECEIVED',
+      typeof event.data.body==='string'?event.data.body:null);
   });
   window.addEventListener('blocks:friends-changed',()=>{
     if(match||creating||joining)return;
@@ -1206,7 +1234,10 @@
     history.replaceState(null,'',clean.href);
   }
   if(incomingPushCode){
-    void acceptPushInvitation(incomingPushCode);
+    // Keep the existing saved match alive until the recipient explicitly
+    // accepts or dismisses an invitation to switch games.
+    if(match)void connect(match);
+    presentPushInvitation(new URL(location.href).href);
   }else if(match)void connect(match);
   else{
     // A pending join token is only a retry credential for a deliberately

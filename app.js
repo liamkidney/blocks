@@ -1080,6 +1080,26 @@ if("serviceWorker" in navigator){
   });
 }
 
+// Gameplay blocks long-press menus, but profile/settings text inputs must
+// retain ordinary iOS editing, selection, paste and correction behaviour.
+function isEditableUi(target){
+  return Boolean(target?.closest?.('input,textarea,select,[contenteditable="true"],#blocks-settings'));
+}
+document.addEventListener("contextmenu",e=>{
+  if(!isEditableUi(e.target))e.preventDefault();
+});
+document.addEventListener("selectstart",e=>{
+  if(!isEditableUi(e.target))e.preventDefault();
+});
+
+const versionElement=document.getElementById("version");
+const baseVersion=window.BLOCKS_VERSION||versionElement?.textContent||"";
+function updateVersionLabel(){
+  if(versionElement)versionElement.textContent=baseVersion+
+    (window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
+}
+updateVersionLabel();
+
 // Solo portrait control arrangement. Always drag the real game's control row;
 // the floating proxy is an exact clone of the grabbed control, including its SVG.
 const SOLO_CONTROL_ACTIONS=["left","right","down","rotate_cw"];
@@ -1242,22 +1262,3 @@ window.addEventListener("resize",()=>{
 });
 // End solo portrait control arrangement.
 
-// Gameplay blocks long-press menus, but profile/settings text inputs must
-// retain ordinary iOS editing, selection, paste and correction behaviour.
-function isEditableUi(target){
-  return Boolean(target?.closest?.('input,textarea,select,[contenteditable="true"],#blocks-settings'));
-}
-document.addEventListener("contextmenu",e=>{
-  if(!isEditableUi(e.target))e.preventDefault();
-});
-document.addEventListener("selectstart",e=>{
-  if(!isEditableUi(e.target))e.preventDefault();
-});
-
-const versionElement=document.getElementById("version");
-const baseVersion=window.BLOCKS_VERSION||versionElement?.textContent||"";
-function updateVersionLabel(){
-  if(versionElement)versionElement.textContent=baseVersion+
-    (window.BLOCKS_CONFIG?.ghostPiece?" · Ghost piece on, which is cheating btw":"");
-}
-updateVersionLabel();

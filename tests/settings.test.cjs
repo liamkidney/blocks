@@ -61,7 +61,7 @@ function boot({installed=false,savedSpeed='1',savedGhost='false',name='Pat',frie
     async refreshProfile(){profileUpdates++}
   };
   const sandbox={
-    document,window,location:{pathname:'/blocks/dev/'},
+    document,window,location:{pathname:'/blocks/dev/',search:''},URLSearchParams,
     GAME_MODE_IDS:[0,1,2],
     GAME_MODES:{0:{label:'Beginner'},1:{label:'Easy'},2:{label:'Hard'}},
     DEFAULT_GAME_MODE:1,

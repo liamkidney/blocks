@@ -309,7 +309,12 @@ class Game {
     const x=Math.floor((this.width-(maxX-minX+1))/2)-minX;
     const y=this.height+HIDDEN_ROWS-1-maxY;
     if(this.canPlace(offsets,x,y)){
-      this.active={tetromino:t,x,y,orientation:0};this.syncLockTimer();
+      this.active={tetromino:t,x,y,orientation:0};
+      // The piece originates in the buffer but enters the visible field
+      // immediately, avoiding up to 800 ms of invisible initial movement.
+      while(this.offsets.every(([,oy])=>this.active.y+oy>=this.height)&&
+            this.canPlace(offsets,x,this.active.y-1))this.active.y--;
+      this.syncLockTimer();
     }else this.endGame(); // Block-out in the hidden spawn area.
   }
   tryMove(dx,dy){

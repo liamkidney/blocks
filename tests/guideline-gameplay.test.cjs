@@ -27,22 +27,23 @@ test("green S has upper pair to the right; red Z has upper pair to the left",()=
   assert.equal(TETROMINO_BY_NAME.Z.color,"#d93340");
 });
 
-test("all seven pieces spawn entirely in the two hidden rows above the field",()=>{
+test("all seven pieces enter view immediately from the two-row spawn buffer",()=>{
   for(const piece of TETROMINOES){
     const game=new Game({allowedPieces:[piece.name]});
     assert.equal(game.grid.length,20);
     assert.equal(game.hiddenGrid.length,2);
     assert.equal(game.phase,"falling");
     const cells=game.offsets.map(([x,y])=>[x+game.active.x,y+game.active.y]);
-    assert.ok(cells.every(([x,y])=>x>=0&&x<10&&y>=20&&y<22),piece.name);
+    assert.ok(cells.every(([x,y])=>x>=0&&x<10&&y>=0&&y<22),piece.name);
+    assert.ok(cells.some(([,y])=>y<20),"piece must be visible immediately: "+piece.name);
   }
 });
 
 test("an occupied hidden spawn cell causes immediate block-out",()=>{
   const game=new Game({allowedPieces:["O"]});
   const [ox,oy]=game.offsets[0];
-  const y=game.active.y+oy;
-  game.hiddenGrid[y-20][game.active.x+ox]="I";
+  const spawnY=game.height+1-Math.max(...game.offsets.map(([,y])=>y));
+  game.hiddenGrid[spawnY+oy-20][game.active.x+ox]="I";
   game.spawn();
   assert.equal(game.phase,"game_over");
   assert.equal(game.active,null);
@@ -50,6 +51,7 @@ test("an occupied hidden spawn cell causes immediate block-out",()=>{
 
 test("a piece supported entirely above the visible field locks out",()=>{
   const game=new Game({allowedPieces:["O"]});
+  game.active.y=20; // Keep the O piece entirely in the spawn buffer.
   game.grid[19][4]="I";
   game.syncLockTimer();
   assert.equal(game.lockElapsed,0);
@@ -61,7 +63,8 @@ test("a piece supported entirely above the visible field locks out",()=>{
 test("a piece partly above the visible field stores all its blocks before block-out",()=>{
   const game=new Game({allowedPieces:["O"]});
   game.grid[18][4]="I";
-  assert.equal(game.tryMove(0,-1),true);
+  game.syncLockTimer();
+  assert.equal(game.active.y,19);
   assert.equal(game.lockElapsed,0);
   game.update(.5);
   assert.equal(game.grid[19][4],"O");
@@ -113,7 +116,7 @@ test("v4 S/Z snapshots preserve their occupied shape under corrected v5 names",(
 
 test("v5 preserves hidden rows and bounded lock-reset state across pause",()=>{
   const game=new Game({allowedPieces:["O"]});
-  game.hiddenGrid[0][0]="I";
+  game.hiddenGrid[0][0]="O";
   while(game.tryMove(0,-1)){}
   game.tryRotate(1);game.tryRotate(1);
   game.update(.2);
@@ -121,7 +124,7 @@ test("v5 preserves hidden rows and bounded lock-reset state across pause",()=>{
   const saved=game.toSnapshot();
   const restored=Game.fromSnapshot(saved,{allowedPieces:["O"]});
   assert.equal(restored.phase,"paused");
-  assert.equal(restored.hiddenGrid[0][0],"I");
+  assert.equal(restored.hiddenGrid[0][0],"O");
   assert.equal(restored.lockResets,2);
   assert.equal(restored.lockElapsed,.2);
 });

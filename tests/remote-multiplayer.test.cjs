@@ -353,6 +353,13 @@ function fixture({realtime=false,shortCode='BRT'}={}){
   };
 }
 async function settle(){for(let i=0;i<60;i++)await Promise.resolve();}
+function createHost(phone){
+  phone.get('remote-create').onclick();
+  // Creating a two-phone game requires explicit host approval of speed,
+  // pieces and synchronised ghost piece before a room is allocated.
+  assert.equal(phone.get('remote-host-panel').hidden,false);
+  phone.get('remote-host-confirm').onclick();
+}
 function shownCode(phone,prefix){
   return Array.from({length:3},(_,i)=>phone.get(prefix+'-letter-'+i).textContent).join('');
 }
@@ -367,7 +374,7 @@ async function matched(f){
   assert.equal(host.get('remote-entry').hidden,true);
   assert.equal(host.get('remote-code-panel').hidden,true);
   assert.equal(host.get('remote-actions').hidden,false);
-  host.get('remote-create').onclick();
+  createHost(host);
   assert.equal(host.get('remote-create').classList.contains('is-loading'),true);
   assert.equal(host.get('remote-create').attrs['aria-busy'],'true');
   await settle();
@@ -416,7 +423,7 @@ test('tapping notification while already on Create Game screen joins that room',
   const f=fixture(),host=f.browser(),guest=f.browser(
     undefined,undefined,'?remote=1',{pwa:'ios'}
   );
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(guest.get('remote-actions').hidden,false,
     'guest begins on the Create Game / Join Game screen');
   guest.tapInvite('BRT');await settle();
@@ -433,9 +440,9 @@ test('tapping an invitation exits an existing waiting room before joining',async
   const f=fixture(),friend=f.browser(),guest=f.browser(
     undefined,undefined,'?remote=1',{pwa:'standalone'}
   );
-  friend.get('remote-create').onclick();await settle();
+  createHost(friend);await settle();
   const original=[...f.rooms.values()][0];
-  guest.get('remote-create').onclick();await settle();
+  createHost(guest);await settle();
   assert.equal(guest.window.BLOCKS_REMOTE.player,1);
   guest.tapInvite('BRT');await settle();
   assert.equal(f.rooms.size,2);
@@ -448,7 +455,7 @@ test('tapping an invitation exits an existing waiting room before joining',async
 
 test('notification messages are ignored in ordinary Safari browser tabs',async()=>{
   const f=fixture(),host=f.browser(),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   guest.tapInvite('BRT');await settle();
   assert.equal(f.joins,0);
   assert.equal(guest.get('remote-actions').hidden,false);
@@ -526,7 +533,7 @@ test('Create Game remains a separate manual room-code flow',async()=>{
     pwa:'ios',friends:[{id:'friend-1',name:'Alex',canNotify:true}]
   });
   await settle();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(f.rooms.size,1);
   assert.equal(host.sentInvites.length,0,'creating a code does not send push');
   assert.equal(host.get('remote-code-panel').hidden,false);
@@ -644,7 +651,7 @@ test('Safari game hides all friendship and notification controls even when frien
   const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
     friends:[{id:'friend-1',name:'Alex',canNotify:true}]
   }),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(host.get('remote-invite-friend').hidden,true);
   assert.equal(host.friendLookups,0,'do not fetch friends in Safari');
   host.get('remote-invite-friend').onclick();await settle();
@@ -829,7 +836,7 @@ test('a finished room can be exited and a fresh room created without reloading',
   guest.window.BLOCKS_REMOTE.reportLoss();await settle();
   await host.tick();await guest.tick();await settle();
   host.get('remote-result-leave').onclick();await settle();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(f.rooms.size,2);
   assert.equal(host.window.BLOCKS_REMOTE.active,true);
   assert.equal(shownCode(host,'remote-create'),'BRT');
@@ -875,7 +882,7 @@ test('session wins are shown from each player perspective on both result screens
 test('ready screen survives reconnect and preserves first player Start readiness',async()=>{
   const f=fixture();
   const host=f.browser(),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   guest.get('remote-join').onclick();
   guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();
@@ -903,7 +910,7 @@ test('ready screen survives reconnect and preserves first player Start readiness
 test('close X on initial ready screen cancels the room for both players',async()=>{
   const f=fixture();
   const host=f.browser(),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   guest.get('remote-join').onclick();
   guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();
@@ -925,7 +932,7 @@ test('new room starts a fresh 0–0 score after leaving a won session',async()=>
   await host.tick();await guest.tick();await settle();
   assert.equal(host.get('remote-score-you').textContent,'1');
   host.get('remote-result-leave').onclick();await settle();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(f.rooms.size,2);
   const recent=[...f.rooms.values()].at(-1);
   assert.equal(recent.host_wins,0);
@@ -937,7 +944,7 @@ test('room difficulty, pieces, and Ghost Piece are enforced on the joining phone
   const f=fixture();
   const host=f.browser(new Map(),{difficulty:2,piece_set:'IO',ghost_piece:true});
   const guest=f.browser(new Map(),{difficulty:0,piece_set:'ALL',ghost_piece:false});
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   guest.get('remote-join').onclick();
   guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();await settle();
@@ -958,7 +965,7 @@ test('Ghost Piece OFF on host overrides a guest who normally plays with it ON',a
   const f=fixture();
   const host=f.browser(new Map(),{difficulty:1,piece_set:'ALL',ghost_piece:false});
   const guest=f.browser(new Map(),{difficulty:1,piece_set:'ALL',ghost_piece:true});
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   guest.get('remote-join').onclick();
   guest.get('remote-input').value='BRT';
   guest.get('remote-input').listeners.input();
@@ -975,7 +982,7 @@ test('Ghost Piece OFF on host overrides a guest who normally plays with it ON',a
 test('lost join acknowledgement retries with the same token and starts a single room',async()=>{
   const f=fixture();
   const host=f.browser(),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   guest.get('remote-join').onclick();
   f.setDropJoinAck();
   guest.get('remote-input').value='BRT';
@@ -994,7 +1001,7 @@ test('lost join acknowledgement retries with the same token and starts a single 
 
 test('host can cancel waiting room and return to create and join options',async()=>{
   const f=fixture(),host=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(host.get('remote-code-panel').hidden,false);
   host.get('remote-code-exit').onclick();await settle();
   assert.equal(host.window.BLOCKS_REMOTE.active,false);
@@ -1303,7 +1310,7 @@ test('Join Game X returns to Play Together without attempting to join',async()=>
 
 test('Room Created shows its own cancellation X in place of menu X',async()=>{
   const f=fixture(),phone=f.browser();
-  phone.get('remote-create').onclick();
+  createHost(phone);
   await settle();
   assert.equal(phone.get('remote-code-panel').hidden,false);
   assert.equal(phone.get('remote-menu-exit').hidden,true);
@@ -1338,7 +1345,7 @@ test('New Game screen launch flag is consumed by the main app',()=>{
 
 test('three-consonant room code displays countdown and expires without ending a match',async()=>{
   const f=fixture(),host=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(shownCode(host,'remote-create'),'BRT');
   assert.match(host.get('remote-code-expires').textContent,/Code expires in (?:3:0[01]|2:5\d)/);
   const state=JSON.parse(host.storage.get('blocks:remote-match:/blocks/dev/'));
@@ -1369,7 +1376,7 @@ test('an already joined match continues after its original code expires',async()
 
 test('Join accepts Z and vowels without filtering; the server checks existence',async()=>{
   const f=fixture(),host=f.browser(),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(shownCode(host,'remote-create'),'BRT');
   assert.equal(shownNato(host),'bravo - romeo - tango');
   assert.match(host.get('remote-code').attrs['aria-label'],
@@ -1407,7 +1414,7 @@ test('Join accepts Z and vowels without filtering; the server checks existence',
 
 test('Create Game shows one centered NATO line; Join Game shows no NATO words',async()=>{
   const f=fixture({shortCode:'BDL'}),host=f.browser(),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(shownCode(host,'remote-create'),'BDL');
   assert.equal(shownNato(host),'bravo - delta - lima');
   assert.match(source,/codeTiles\('remote-create'\)/);
@@ -1443,7 +1450,7 @@ test('Room code entry never discards Z, including trailing Z',async()=>{
 
 test('Z in a generated code joins a real room successfully',async()=>{
   const f=fixture({shortCode:'BRZ'}),host=f.browser(),guest=f.browser();
-  host.get('remote-create').onclick();await settle();
+  createHost(host);await settle();
   assert.equal(shownCode(host,'remote-create'),'BRZ');
   assert.equal(shownNato(host),'bravo - romeo - zulu');
   guest.get('remote-join').onclick();
@@ -1458,7 +1465,7 @@ test('Z in a generated code joins a real room successfully',async()=>{
 
 test('room creation accepts the actual PostgREST RETURNS TABLE array response',async()=>{
   const f=fixture(),host=f.browser();
-  host.get('remote-create').onclick();
+  createHost(host);
   await settle();
   assert.equal(f.rooms.size,1);
   assert.equal(host.window.BLOCKS_REMOTE.active,true);

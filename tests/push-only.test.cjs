@@ -349,7 +349,7 @@ test('installed New Game requests a pending push intent when worker becomes read
     addEventListener:(name,fn)=>{listeners[name]=fn}};
   const document={visibilityState:'visible',
     addEventListener:(name,fn)=>{listeners[name]=fn}};
-  const context=vm.createContext({navigator,window,document,location,URL});
+  const context=vm.createContext({navigator,window,document,location,URL,REMOTE_PLAYER:false});
   vm.runInContext(app.slice(start,end),context);
   await Promise.resolve();
   assert.equal(requests.filter(x=>x.type==='BLOCKS_GET_PUSH_INVITATION').length,2);

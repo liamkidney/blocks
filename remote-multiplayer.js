@@ -94,8 +94,6 @@
       '<p id="remote-host-context">Both players use these rules.</p>'+
       '<label for="remote-host-speed">SPEED</label>'+
       '<select id="remote-host-speed"><option value="0">Beginner</option><option value="1">Easy</option><option value="2">Hard</option></select>'+
-      '<label for="remote-host-pieces">PIECES</label>'+
-      '<select id="remote-host-pieces"><option value="ALL">All pieces</option><option value="IO">I and O only</option></select>'+
       '<label for="remote-host-ghost">GHOST PIECE</label>'+
       '<select id="remote-host-ghost"><option value="true">On</option><option value="false">Off</option></select>'+
       '<p class="remote-host-hint">Ghost piece is a shared match rule, not a display preference.</p>'+
@@ -130,7 +128,7 @@
   const inviteFriend=$('remote-invite-friend'),friendsPanel=$('remote-friends-panel');
   const friendsStatus=$('remote-friends-status'),friendsList=$('remote-friends-list');
   const hostPanel=$('remote-host-panel'),hostConfirm=$('remote-host-confirm');
-  const hostSpeed=$('remote-host-speed'),hostPieces=$('remote-host-pieces');
+  const hostSpeed=$('remote-host-speed');
   const hostGhost=$('remote-host-ghost'),hostContext=$('remote-host-context');
   const hostStatus=$('remote-host-status'),menuSettings=$('remote-settings');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots');
@@ -358,7 +356,6 @@
     hostRecipient=friend;
     const saved=window.BLOCKS_REMOTE_LOCAL_CONFIG||{};
     hostSpeed.value=String([0,1,2].includes(saved.difficulty)?saved.difficulty:1);
-    hostPieces.value=saved.piece_set==='IO'?'IO':'ALL';
     hostGhost.value=String(saved.ghost_piece===true);
     hostContext.textContent=friend?
       'Invite '+friend.name+'. Both players will use these rules.':
@@ -515,9 +512,9 @@
     resultKicker.textContent='ROOM '+match.code+' · PLAYER '+match.player;
     resultTitle.textContent='READY TO START';
     const speedName=['Beginner','Easy','Hard'][match.difficulty]||'Easy';
-    const pieces=match.piece_set==='IO'?'I and O':'All';
     const ghost=match.ghost_piece===true?'On':'Off';
-    resultDetail.textContent='Speed: '+speedName+' · Pieces: '+pieces+
+    const legacyPieces=match.piece_set==='IO'?' · I and O only':'';
+    resultDetail.textContent='Speed: '+speedName+legacyPieces+
       ' · Ghost piece: '+ghost+'. Both players must press Start.';
     updateSessionScore(state);
     addFriend.hidden=true;friendStatus.hidden=true;enablePush.hidden=true;
@@ -860,12 +857,11 @@
       // match rules. They are stored server-side and synced to the guest.
       const config={
         difficulty:Number(hostSpeed.value),
-        piece_set:hostPieces.value,
+        piece_set:'ALL',
         ghost_piece:hostGhost.value==='true'
       };
-      if(![0,1,2].includes(config.difficulty)||
-         !['ALL','IO'].includes(config.piece_set))
-        throw Error('Select valid game settings.');
+      if(![0,1,2].includes(config.difficulty))
+        throw Error('Select a valid game speed.');
       const response=await rpc('blocks_create_match_short_v2',{
         p_difficulty:config.difficulty,p_piece_set:config.piece_set,
         p_ghost_piece:config.ghost_piece===true

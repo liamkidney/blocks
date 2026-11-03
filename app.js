@@ -259,12 +259,44 @@ function selectPlayerCount(count){
   remotePlayerButton.setAttribute("aria-pressed",String(count===3));
 }
 let restartWasPaused=false;
+function showModeMenu(){
+  restartDialog.hidden=false;
+  restartModeScreen.hidden=false;
+  restartRulesScreen.hidden=true;
+  restartTitle.textContent='NEW GAME';
+  restartDescription.textContent='CHOOSE HOW TO PLAY.';
+  cancelRestartButton.hidden=awaitingInitialStart;
+}
+function showRulesFor(playerCount){
+  // Only a solo or single-device game asks the person starting it to
+  // choose rules. A guest in two-phone play inherits the creator's rules.
+  if(playerCount!==1&&playerCount!==2)return;
+  selectPlayerCount(playerCount);
+  restartModeScreen.hidden=true;
+  restartRulesScreen.hidden=false;
+  restartTitle.textContent=playerCount===1?'PLAY SOLO':'TWO PLAYERS';
+  restartDescription.textContent='CHOOSE SPEED AND GHOST PIECE.';
+  startGameButton.textContent='START GAME';
+  restartBackButton.focus();
+}
+function openPlayTogether(){
+  // Enter multiplayer matchmaking immediately, with no irrelevant speed or
+  // ghost selection. Those choices are made by the actual room creator.
+  if(REMOTE_PLAYER)return;
+  skipSaveOnNavigation=true;
+  try{
+    sessionStorage.removeItem(AUTO_START_KEY);
+    localStorage.removeItem(SAVE_KEY);
+  }catch(_){}
+  const url=new URL(location.href);
+  url.searchParams.delete('players');
+  url.searchParams.set('remote','1');
+  location.href=url.href;
+}
 function closeRestartDialog(){
   restartDialog.hidden=true;
-  selectDifficulty(game.difficulty);
-  selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
   selectPlayerCount(currentPlayerMode);
-  if(!restartWasPaused&&game.phase==="paused"){
+  if(!restartWasPaused&&game.phase==='paused'){
     if(TWO_PLAYER)session.resume();
     else game.resume();
   }
@@ -273,20 +305,20 @@ function closeRestartDialog(){
   restartButton.focus();
 }
 function startNewGame(playerCount=selectedPlayers){
+  if(playerCount!==1&&playerCount!==2)return;
   try{
     localStorage.setItem(DIFFICULTY_KEY,selectedDifficulty);
     localStorage.setItem(GHOST_KEY,String(selectedGhostPiece));
   }catch(_){}
-  if(!TWO_PLAYER&&!awaitingInitialStart)window.dispatchEvent(new Event("blocks:restart"));
+  if(!TWO_PLAYER&&!awaitingInitialStart)window.dispatchEvent(new Event('blocks:restart'));
   if(playerCount!==currentPlayerMode){
     skipSaveOnNavigation=true;
-    try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(saveKeyFor(playerCount));}catch(_){}
-    try{sessionStorage.setItem(AUTO_START_KEY,"1")}catch(_){}
+    try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(saveKeyFor(playerCount))}catch(_){}
+    try{sessionStorage.setItem(AUTO_START_KEY,'1')}catch(_){}
     const url=new URL(location.href);
-    url.searchParams.delete("players");
-    url.searchParams.delete("remote");
-    if(playerCount===2)url.searchParams.set("players","2");
-    if(playerCount===3)url.searchParams.set("remote","1");
+    url.searchParams.delete('players');
+    url.searchParams.delete('remote');
+    if(playerCount===2)url.searchParams.set('players','2');
     location.href=url.href;
     return;
   }
@@ -308,28 +340,24 @@ function startNewGame(playerCount=selectedPlayers){
 }
 function restartGame(){
   if(REMOTE_PLAYER||!restartDialog.hidden)return;
-  selectDifficulty(game.difficulty);
-  selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
-  selectPlayerCount(TWO_PLAYER?2:1);
-  restartTitle.textContent="NEW GAME";
-  restartDescription.textContent="CHANGING SETTINGS WILL DISCARD THE CURRENT GAME.";
-  startGameButton.textContent="START NEW GAME";
-  cancelRestartButton.hidden=false;
-  restartWasPaused=game.phase==="paused";
+  restartWasPaused=game.phase==='paused';
   if(!restartWasPaused){
     if(TWO_PLAYER)session.pause();
     else game.pause();
   }
-  restartDialog.hidden=false;
+  showModeMenu();
   renderActions();
   saveGame(true);
-  startGameButton.focus();
+  onePlayerButton.focus();
 }
 bindImmediateAction(cancelRestartButton,closeRestartDialog);
+bindImmediateAction(restartBackButton,showModeMenu);
 bindImmediateAction(startGameButton,()=>startNewGame());
-bindImmediateAction(onePlayerButton,()=>selectPlayerCount(1));
-bindImmediateAction(twoPlayerButton,()=>selectPlayerCount(2));
-bindImmediateAction(remotePlayerButton,()=>selectPlayerCount(3));
+bindImmediateAction(onePlayerButton,()=>showRulesFor(1));
+bindImmediateAction(twoPlayerButton,()=>showRulesFor(2));
+bindImmediateAction(remotePlayerButton,openPlayTogether);
+bindImmediateAction(restartSettingsButton,()=>window.BLOCKS_OPEN_SETTINGS?.());
+bindImmediateAction(settingsButton,()=>window.BLOCKS_OPEN_SETTINGS?.());
 for(const [id,button] of difficultyButtons)
   bindImmediateAction(button,()=>selectDifficulty(id));
 bindImmediateAction(ghostOffButton,()=>selectGhostPiece(false));
@@ -337,14 +365,16 @@ bindImmediateAction(ghostOnButton,()=>selectGhostPiece(true));
 selectDifficulty(selectedDifficulty);
 selectGhostPiece(selectedGhostPiece);
 selectPlayerCount(selectedPlayers);
-
-if(initialStart&&!REMOTE_PLAYER){
-  restartTitle.textContent="START GAME";
-  restartDescription.textContent="CHOOSE SPEED, GHOST PIECE AND PLAYER COUNT.";
-  startGameButton.textContent="START GAME";
-  cancelRestartButton.hidden=true;
-  restartDialog.hidden=false;
-}
+window.addEventListener('blocks:settings-updated',event=>{
+  const config=event.detail||{};
+  if(Object.hasOwn(GAME_MODES,config.difficulty))selectDifficulty(config.difficulty);
+  if(typeof config.ghostPiece==='boolean')selectGhostPiece(config.ghostPiece);
+  window.BLOCKS_REMOTE_LOCAL_CONFIG={
+    ...window.BLOCKS_REMOTE_LOCAL_CONFIG,
+    difficulty:selectedDifficulty,ghost_piece:selectedGhostPiece
+  };
+});
+if(initialStart&&!REMOTE_PLAYER)showModeMenu();
 function bindImmediateAction(button,action){
   let lastTouchAt=-Infinity;
   button.addEventListener("touchstart",event=>{

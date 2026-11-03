@@ -79,7 +79,7 @@
   const lobby=document.createElement('div');
   lobby.id='remote-lobby';
   lobby.innerHTML='<section class="remote-panel" role="dialog" aria-label="Two-phone multiplayer">'+
-    '<button type="button" id="remote-menu-exit" aria-label="Back to New Game" title="Back to New Game">×</button>'+
+    '<button type="button" id="remote-menu-exit" aria-label="Back to New Game" title="Back to New Game">←</button>'+
     '<div class="remote-kicker">BLOCKS · TWO PHONES</div>'+
     '<h2 id="remote-title">Play together</h2>'+
     '<p id="remote-status">Clear two lines to send a junk line to your opponent.</p>'+
@@ -1169,9 +1169,11 @@
   if(incomingPushCode){
     void acceptPushInvitation(incomingPushCode);
   }else if(match)void connect(match);
-  else if(pendingJoin?.code&&pendingJoin?.token){
-    menu();showLobby(true);enterCode();
-    input.value=pendingJoin.code;displaySlots();
-    void joinRoom(pendingJoin.code);
-  }else{menu();showLobby(true);}
+  else{
+    // A pending join token is only a retry credential for a deliberately
+    // re-entered code. It is NOT a navigation request. Opening Play Together
+    // from New Game must always show its three choices, even after a dropped
+    // join acknowledgement or interrupted app session.
+    menu();showLobby(true);
+  }
 })();

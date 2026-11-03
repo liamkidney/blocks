@@ -909,7 +909,7 @@
     }finally{setCreating(false)}
   }
   async function joinRoom(code){
-    if(joining||creating||code.length!==3)return;
+    if(joining||creating||code.length!==3)return false;
     joining=true;input.disabled=true;
     entry.classList.add('is-loading');error.textContent='';
     try{
@@ -927,10 +927,12 @@
       if(!row?.match_id||!row?.player_token)throw Error('Room unavailable.');
       await connect({id:row.match_id,token:row.player_token,code,player:2},true);
       localStorage.removeItem(PENDING_JOIN_KEY);
+      return true;
     }catch(e){
       input.value='';displaySlots();
       setError(e);input.disabled=false;
       input.focus();
+      return false;
     }finally{joining=false;entry.classList.remove('is-loading');}
   }
   async function requestStart(){
@@ -1157,8 +1159,9 @@
       if(creating)return; // Never race an unfinished host room creation.
       menu();showLobby(true);enterCode();
       input.value=code;displaySlots();
-      await joinRoom(code);
-      handled=true; // A join error is visible on the code-entry screen.
+      // A network failure can occur after the first tap. Do not clear the
+      // persisted notification until a guest session is actually joined.
+      handled=await joinRoom(code);
     }finally{
       acceptingPush=false;
       if(handled)acknowledgePush(code);

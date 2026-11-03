@@ -488,7 +488,7 @@ test('Invite Friend is the third Play Together option and lists friends before r
   assert.equal(entries.children[1].children[0].textContent,'Sam');
   assert.equal(entries.children[1].children[0].disabled,true,
     'friend without push permission cannot be invited');
-  assert.equal(entries.children[1].children[2].textContent,
+  assert.equal(entries.children[1].children[1].textContent,
     'Notifications not enabled');
   for(let i=0;i<3;i++){await host.tick();await settle();}
   assert.equal(entries.children.length,2,'the list stays stable');

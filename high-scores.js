@@ -90,7 +90,7 @@
   el.addEventListener('touchstart',e=>{e.preventDefault();last=performance.now();fn();},{passive:false});
   el.addEventListener('click',e=>{if(performance.now()-last<750){e.preventDefault();return;}fn();});
  }
- window.BLOCKS_OPEN_HIGH_SCORES=open;
+ if(typeof window!=='undefined')window.BLOCKS_OPEN_HIGH_SCORES=open;
  tap(button,open);tap(overlay.querySelector('#scores-back'),close);tap(retry,()=>void load());
  for(const tab of modeButtons)tap(tab,()=>selectMode(tab.dataset.mode));
  button.hidden=false;

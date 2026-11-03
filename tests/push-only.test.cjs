@@ -242,6 +242,70 @@ function handoffWorker(){
   return {scope,opened,windows,messages,fire,saved,setNow:value=>{now=value}};
 }
 
+test('notification starts opening the PWA before touching CacheStorage',async()=>{
+  const scope='https://example.test/blocks/dev/';
+  const events=[],handlers={},saved=new Map();
+  const cache={
+    async put(k,v){events.push('cache put');saved.set(k,v)},
+    async match(k){return saved.get(k)},
+    async delete(k){return saved.delete(k)}
+  };
+  const self={
+    registration:{scope},
+    clients:{
+      async matchAll(){events.push('match all');return []},
+      openWindow(url){events.push('open window');return Promise.resolve(null)}
+    },
+    addEventListener:(type,fn)=>{handlers[type]=fn}
+  };
+  class FakeResponse{
+    constructor(value){this.value=value}
+    async json(){return JSON.parse(this.value)}
+  }
+  vm.runInNewContext(file('sw.js'),{
+    self,console,URL,Date,Response:FakeResponse,
+    caches:{async open(){events.push('cache open');return cache}}
+  },{filename:'sw.js'});
+  let done;
+  handlers.notificationclick({
+    notification:{data:{url:scope+'?remote=1&push_join=BRT'},close(){}},
+    waitUntil:p=>{done=p}
+  });
+  await done;
+  assert.ok(events.indexOf('open window')>=0);
+  assert.ok(events.indexOf('cache open')>=0);
+  assert.ok(events.indexOf('open window')<events.indexOf('cache open'),
+    'iOS user activation must be used before any awaited storage operation');
+});
+
+test('already-open PWA handles notifications before handoff persistence begins',async()=>{
+  const scope='https://example.test/blocks/dev/';
+  const events=[],handlers={};
+  const existing={
+    url:scope+'?remote=1',
+    postMessage(){events.push('message')},
+    focus(){events.push('focus');return Promise.resolve()},
+    navigate(){throw Error('Navigate would destroy message handler')}
+  };
+  const self={
+    registration:{scope},
+    clients:{async matchAll(){return [existing]}},
+    addEventListener:(type,fn)=>{handlers[type]=fn}
+  };
+  const cache={async put(){},async match(){return null},async delete(){}};
+  vm.runInNewContext(file('sw.js'),{
+    self,console,URL,Date,Response:class {},
+    caches:{async open(){events.push('cache open');return cache}}
+  },{filename:'sw.js'});
+  let done;
+  handlers.notificationclick({
+    notification:{data:{url:scope+'?remote=1&push_join=BRT'},close(){}},
+    waitUntil:p=>{done=p}
+  });
+  await done;
+  assert.deepEqual(events.slice(0,3),['message','focus','cache open']);
+});
+
 test('a cold iPhone launch recovers the clicked invite even if iOS opens at start URL',async()=>{
   const worker=handoffWorker();
   const invite=worker.scope+'?remote=1&push_join=BRT';

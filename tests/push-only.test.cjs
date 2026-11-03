@@ -433,7 +433,7 @@ function bootInGameInvitePrompt({remote=false,phase='falling',awaitingStart=fals
   const begin=app.indexOf('// One invitation dialog works for solo');
   const end=app.indexOf('const cancelRestartButton=',begin);
   assert.ok(begin>0&&end>begin,'shared invitation choice must exist');
-  const nodes=new Map(),storage=new Map([['game-save','in-progress']]);
+  const nodes=new Map(),appended=[],storage=new Map([['game-save','in-progress']]);
   let paused=0,resumed=0,saved=0;
   const document={activeElement:null};
   function element(id=''){
@@ -448,7 +448,7 @@ function bootInGameInvitePrompt({remote=false,phase='falling',awaitingStart=fals
   };
   document.createElement=()=>element();
   document.getElementById=get;
-  document.body={appendChild(){}};
+  document.body={appendChild(node){appended.push(node)}};
   const game={
     phase,
     pause(){paused++;this.phase='paused'},
@@ -475,7 +475,7 @@ function bootInGameInvitePrompt({remote=false,phase='falling',awaitingStart=fals
   };
   vm.runInNewContext(app.slice(begin,end),sandbox,{filename:'app-invite-dialog.js'});
   return {
-    get,game,window,location,navigator,sandbox,storage,
+    get,dialog:appended[0],game,window,location,navigator,sandbox,storage,
     get paused(){return paused},get resumed(){return resumed},
     get saved(){return saved}
   };
@@ -488,13 +488,11 @@ test('foreground invitation pauses solo game; Dismiss restores exactly that game
     foreground:true,body:'Alex invited you to play BLOCKS'
   }),true);
   assert.equal(b.paused,1);
-  assert.equal(b.get('blocks-invite-dialog').hidden,true,
-    'fake document does not parse innerHTML, but appended dialog is controlled');
-  // The created overlay is the first appended div in a real browser.
-  // Its state is exposed via the Join and Dismiss button handlers.
+  assert.equal(b.dialog.hidden,false,'visible invitation prompt covers active game');
   assert.match(b.get('blocks-invite-warning').textContent,/abandons your current game/i);
   assert.equal(b.get('blocks-invite-message').textContent,'Alex invited you to play BLOCKS');
   b.get('blocks-invite-dismiss').onclick();
+  assert.equal(b.dialog.hidden,true);
   assert.equal(b.resumed,1);
   assert.equal(b.game.phase,'falling');
   assert.equal(b.navigator.serviceWorker.controller.messages[0].type,

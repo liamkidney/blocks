@@ -511,6 +511,11 @@ test('selecting a friend creates one room and sends one push notification',async
   assert.equal(host.get('remote-friends-panel').hidden,true);
   assert.equal(host.get('remote-title').textContent,'Friend invited');
   assert.match(host.get('remote-status').textContent,/Invitation sent to Alex/);
+  assert.equal(host.get('remote-code').hidden,true,
+    'push invitation does not show a manual code');
+  assert.equal(host.get('remote-code-phonetic').hidden,true);
+  assert.equal(host.get('remote-copy').hidden,true);
+  assert.match(host.get('remote-code-expires').textContent,/Invitation expires in/);
   for(let i=0;i<3;i++){await host.tick();await settle();}
   assert.match(host.get('remote-status').textContent,/Invitation sent to Alex/,
     'room poll should preserve invited-friend status');
@@ -526,6 +531,8 @@ test('Create Game remains a separate manual room-code flow',async()=>{
   assert.equal(host.sentInvites.length,0,'creating a code does not send push');
   assert.equal(host.get('remote-code-panel').hidden,false);
   assert.equal(host.get('remote-friends-panel').hidden,true);
+  assert.equal(host.get('remote-code').hidden,false,'manual Create Game shows code');
+  assert.equal(host.get('remote-copy').hidden,false);
   assert.equal(host.get('remote-invite-friend').hidden,false,
     'button stays defined on menu, but menu itself is hidden');
   assert.equal(host.get('remote-actions').hidden,true);

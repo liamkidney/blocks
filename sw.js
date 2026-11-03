@@ -15,7 +15,7 @@ self.addEventListener("install",event=>{
 // retry. Keep it for a maximum of three minutes so iOS can relaunch the PWA
 // at its start URL or replace the page without losing the invite.
 const INVITE_CACHE='blocks-push-handoff-'+encodeURIComponent(self.registration.scope);
-const INVITE_REQUEST=new Request(new URL('__push_handoff__',self.registration.scope).href);
+const INVITE_REQUEST=new URL('__push_handoff__',self.registration.scope).href;
 const INVITE_TTL_MS=180000;
 function validInviteURL(value){
   if(typeof value!=='string')return null;

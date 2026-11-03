@@ -102,12 +102,12 @@ body:not(.two-player) #board-frame #board {
   inset:0;
   z-index:3;
   background:var(--ink);
-  animation:clearFlash 250ms steps(1,end) 1}
+  animation:clearFlash 250ms steps(1,end) 1 forwards}
 @keyframes clearFlash {
-  0%,33.333%,66.666% {
-  background:var(--ink)}
-16.666%,50%,83.333%,100% {
-  background:var(--paper)}
+  0%,49.999% {
+    background:var(--ink)}
+  50%,100% {
+    background:var(--paper)}
 }
 body:not(.two-player) #hud {
   width:25vw;

@@ -132,7 +132,13 @@ test("v5 preserves hidden rows and bounded lock-reset state across pause",()=>{
 test("250ms line-clear animation and opaque pause masking are retained",()=>{
   const css=fs.readFileSync(path.join(root,"styles.css"),"utf8");
   const app=fs.readFileSync(path.join(root,"app.js"),"utf8");
-  assert.match(css,/animation:clearFlash 250ms/);
+  assert.match(css,/animation:clearFlash 250ms steps\(1,end\) 1 forwards/);
+  const flash=css.match(/@keyframes clearFlash \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(flash,"line-clear keyframes should be present");
+  assert.match(flash,/0%,49\.999%\s*\{\s*background:var\(--ink\)/);
+  assert.match(flash,/50%,100%\s*\{\s*background:var\(--paper\)/);
+  assert.doesNotMatch(flash,/16\.666%|33\.333%|66\.666%|83\.333%/,
+    "the original triple-flash strobe must not return");
   assert.match(css,/#board-frame\.game-paused #board\{visibility:hidden\}/);
   assert.match(css,/body\.match-paused \.second-board\{visibility:hidden\}/);
   assert.match(css,/body\.blocks-game-paused :is\(#preview,#preview-card,\.second-preview\)\{visibility:hidden\}/);

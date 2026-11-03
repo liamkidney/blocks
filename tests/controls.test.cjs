@@ -15,6 +15,8 @@ test("global gameplay keyboard shortcuts are removed",()=>{
 function boot(){
   const source=fs.readFileSync(path.join(__dirname,"..","app.js"),"utf8");
   const config=source.match(/^const REPEAT_DELAY=.*$/m)?.[0];
+  const downFn=source.slice(source.indexOf("function downRepeatInterval("),
+    source.indexOf("for(let y=19",source.indexOf("function downRepeatInterval(")));
   const start=source.indexOf("// Held inputs repeat independently");
   const end=source.indexOf('board.addEventListener("pointerdown"',start);
   assert.ok(config&&start>=0&&end>start,"control code should be discoverable");
@@ -64,6 +66,7 @@ function boot(){
   const window={addEventListener:(name,fn)=>on(winListeners,name,fn)};
   const session={games:[0,1].map(player=>({
     active:{id:"initial-piece-"+player},
+    tickSeconds:player===0?0.8:0.4,
     dropOne(){logs.push({command:"down",player,at:time});},
     press(command){logs.push({command,player,at:time});}
   }))};
@@ -76,7 +79,7 @@ function boot(){
     },
     clearTimeout:id=>timers.delete(id)
   });
-  vm.runInContext(config+"\n"+source.slice(start,end),context,{filename:"input-controls"});
+  vm.runInContext(config+"\n"+downFn+"\n"+source.slice(start,end),context,{filename:"input-controls"});
   function advance(ms){
     const target=time+ms;
     for(let steps=0;steps<200;steps++){
@@ -136,24 +139,24 @@ test("left/right repeat immediately, after 130ms, then every 50ms",()=>{
   assert.equal(b.timers.size,0);
 });
 
-test("down repeats immediately every 35ms, and another finger can steer",()=>{
+test("down repeats immediately at 20x gravity, and another finger can steer",()=>{
   const b=boot(),[left,right,down]=b.buttons;
   b.send(down,"touchstart",5,165);
   b.send(right,"touchstart",6,95);
-  b.advance(34);
+  b.advance(39);
   assert.equal(count(b.logs,"down"),1,"no artificial 130 ms pause");
   b.advance(1);
-  assert.equal(count(b.logs,"down"),2,"soft drop accelerates after 35 ms");
-  b.advance(95);
+  assert.equal(count(b.logs,"down"),2,"Beginner: 800ms gravity / 20 = 40ms");
+  b.advance(90);
   assert.equal(count(b.logs,"down"),4);
   assert.equal(count(b.logs,"right"),2);
   b.advance(140);
-  assert.equal(count(b.logs,"down"),8);
+  assert.equal(count(b.logs,"down"),7);
   assert.equal(count(b.logs,"right"),4);
   b.send(right,"touchend",6,95);
   b.advance(70);
   assert.equal(count(b.logs,"right"),4);
-  assert.equal(count(b.logs,"down"),10);
+  assert.equal(count(b.logs,"down"),9);
   b.send(down,"touchend",5,165);
   assert.equal(b.timers.size,0);
 });
@@ -162,10 +165,10 @@ test("down repeats immediately every 35ms, and another finger can steer",()=>{
 test("a held Down continues immediately through subsequent pieces",()=>{
   const b=boot(),down=b.buttons[2];
   b.send(down,"touchstart",5,165);
-  b.advance(70);
+  b.advance(80);
   assert.equal(count(b.logs,"down"),3);
   b.session.games[0].active={id:"next-piece"};
-  b.advance(35);
+  b.advance(40);
   assert.equal(count(b.logs,"down"),4,
     "the same held finger must soft-drop the new piece");
   assert.equal(b.timers.size,1);
@@ -180,19 +183,34 @@ test("held Down carries across pieces independently for both players",()=>{
   const downOne=b.buttons[2],downTwo=p2.buttons[2];
   b.send(downOne,"touchstart",5,165);
   b.send(downTwo,"touchstart",6,615);
-  b.advance(70);
+  b.advance(80);
   assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,3);
-  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,3);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,5);
   b.session.games[0].active={id:"next-p1"};
-  b.advance(35);
+  b.advance(40);
   assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,4);
-  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,4);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,7);
   b.send(downOne,"touchend",5,165);
-  b.advance(35);
+  b.advance(40);
   assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,4);
-  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,5,
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,9,
     "releasing one player's Down must not stop the other's");
   b.send(downTwo,"touchend",6,615);
+  assert.equal(b.timers.size,0);
+});
+
+test("soft drop scales with gravity and stays bounded at high levels",()=>{
+  const b=boot(),down=b.buttons[2];
+  b.session.games[0].tickSeconds=0.4;
+  b.send(down,"touchstart",9,165);
+  b.advance(20);
+  assert.equal(count(b.logs,"down"),2,"Hard-level repeat should be 20ms");
+  b.session.games[0].tickSeconds=1/60;
+  b.advance(20);
+  assert.equal(count(b.logs,"down"),3,"high-level repeat bottoms out at 16ms");
+  b.advance(16);
+  assert.equal(count(b.logs,"down"),4);
+  b.send(down,"touchend",9,165);
   assert.equal(b.timers.size,0);
 });
 

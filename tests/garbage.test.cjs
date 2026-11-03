@@ -22,7 +22,7 @@ a.onEvent({type:"lines_cleared",count:4});
 assert.equal(b.active.y,startingY+3);
 assert.equal(s.attackProgress[0],0);
 const c=new GameSession({playerCount:2});
-c.games[1].grid[19][0]="I";
+c.games[1].hiddenGrid[1][0]="I";
 c.games[0].onEvent({type:"lines_cleared",count:2});
 assert.equal(c.games[1].phase,"game_over");
 const d=new GameSession({playerCount:2});

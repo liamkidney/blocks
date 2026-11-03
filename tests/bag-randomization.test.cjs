@@ -42,7 +42,7 @@ test('saving and reconnecting restores the unconsumed bag in precisely the same 
   const original=new Game();
   sequence(original,3);
   const snapshot=original.toSnapshot();
-  assert.equal(snapshot.version,4);
+  assert.equal(snapshot.version,5);
   assert.ok(Array.isArray(snapshot.bag));
   const restored=Game.fromSnapshot(snapshot);
   assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().bag)),JSON.parse(JSON.stringify(snapshot.bag)));
@@ -64,7 +64,7 @@ test('old versions keep their current and next pieces and migrate to a fresh bag
   snapshot.droughts=Object.fromEntries(names.map(name=>[name,1]));
   const restored=Game.fromSnapshot(snapshot);
   assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().queue)),JSON.parse(JSON.stringify(snapshot.queue)));
-  assert.equal(restored.toSnapshot().version,4);
+  assert.equal(restored.toSnapshot().version,5);
   assert.deepEqual(JSON.parse(JSON.stringify(restored.toSnapshot().bag)),[]);
   // After the previously saved lookahead, the next draw begins a fair bag.
   restored.queue.advance();

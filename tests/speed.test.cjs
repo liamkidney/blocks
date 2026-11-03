@@ -131,17 +131,17 @@ test("soft drop resets gravity movement without delaying the landing lock",()=>{
   assert.equal(game.active.y,before-2);
 });
 
-test("ground contact starts a fixed 400 ms lock at every difficulty",()=>{
+test("ground contact starts a fixed 500 ms lock at every difficulty",()=>{
   for(const difficulty of [0,1,2]){
     const game=new Game({difficulty});
     while(game.tryMove(0,-1)){}
     const piece=game.active;
     assert.equal(game.lockElapsed,0,"first contact arms lock timer");
-    game.update(.399);
+    game.update(.499);
     assert.strictEqual(game.active,piece,"lock delay is independent of gravity speed");
     assert.equal(game.phase,"falling");
     game.update(.001);
-    assert.notStrictEqual(game.active,piece,"piece locks exactly 400 ms after landing");
+    assert.notStrictEqual(game.active,piece,"piece locks exactly 500 ms after landing");
     assert.equal(game.elapsed,0,"next piece starts with clean gravity timing");
     assert.equal(game.phase,"falling");
   }
@@ -155,18 +155,23 @@ test("unsuccessful held Down cannot prolong the grounded lock",()=>{
   for(let i=0;i<12;i++)game.dropOne();
   assert.strictEqual(game.active,piece);
   assert.equal(game.lockElapsed,.25);
-  game.update(.15);
+  game.update(.249);
+  assert.strictEqual(game.active,piece);
+  game.update(.001);
   assert.notStrictEqual(game.active,piece);
 });
 
-test("grounded movement does not extend lock, but leaving support resets it",()=>{
+test("grounded movement resets lock, but the allowance is bounded",()=>{
   const game=new Game({difficulty:0,allowedPieces:["O"]});
   while(game.tryMove(0,-1)){}
   const grounded=game.active;
   game.update(.25);
   assert.equal(game.tryMove(1,0),true);
-  assert.equal(game.lockElapsed,.25,"lateral adjustment on the same floor keeps the deadline");
-  game.update(.15);
+  assert.equal(game.lockElapsed,0,"first grounded adjustment restarts 500ms");
+  assert.equal(game.lockResets,1);
+  game.update(.49);
+  assert.strictEqual(game.active,grounded);
+  game.update(.01);
   assert.notStrictEqual(game.active,grounded);
   const game2=new Game({difficulty:0,allowedPieces:["O"]});
   game2.grid[0][4]="I";
@@ -181,6 +186,36 @@ test("grounded movement does not extend lock, but leaving support resets it",()=
   assert.equal(game2.lockElapsed,null,"falling away from support cancels the lock");
 });
 
+test("only 15 grounded movement or rotation resets are permitted",()=>{
+  const game=new Game({difficulty:0,allowedPieces:["O"]});
+  while(game.tryMove(0,-1)){}
+  for(let i=0;i<15;i++){
+    game.update(.3);
+    assert.equal(game.tryRotate(1),true);
+    assert.equal(game.lockElapsed,0,"each of the first 15 rotations resets the clock");
+  }
+  assert.equal(game.lockResets,15);
+  game.update(.3);
+  assert.equal(game.tryRotate(1),true);
+  assert.equal(game.lockElapsed,.3,"16th adjustment must not reset the lock");
+  game.update(.2);
+  assert.equal(game.phase,"falling");
+  assert.notEqual(game.lockResets,15,"the old piece must lock and be replaced");
+});
+test("descending below the previous lowest row replenishes lock resets",()=>{
+  const game=new Game({difficulty:0,allowedPieces:["O"]});
+  game.grid[0][4]="I";
+  game.active.x=3;game.active.y=1;
+  game.syncLockTimer();
+  assert.equal(game.lockElapsed,0);
+  for(let i=0;i<5;i++)game.tryRotate(1);
+  assert.equal(game.lockResets,5);
+  assert.equal(game.tryMove(-1,0),true);
+  assert.equal(game.lockElapsed,null);
+  assert.equal(game.tryMove(0,-1),true);
+  assert.equal(game.lockResets,0);
+  assert.ok(game.lowestY<1);
+});
 test("paused and restored games preserve their remaining lock time",()=>{
   const game=new Game({difficulty:0});
   while(game.tryMove(0,-1)){}
@@ -194,7 +229,7 @@ test("paused and restored games preserve their remaining lock time",()=>{
   assert.equal(restored.phase,"paused");
   const piece=restored.active;
   restored.resume();
-  restored.update(.149);
+  restored.update(.249);
   assert.strictEqual(restored.active,piece);
   restored.update(.001);
   assert.notStrictEqual(restored.active,piece);
@@ -212,7 +247,7 @@ test("gravity landing starts its own lock clock before changing pieces",()=>{
   assert.strictEqual(game.active,original);
   assert.equal(game.lockElapsed!==null,true);
   assert.ok(game.lockElapsed>.04&&game.lockElapsed<.051);
-  game.update(.349);
+  game.update(.449);
   assert.strictEqual(game.active,original);
   game.update(.002);
   assert.notStrictEqual(game.active,original);

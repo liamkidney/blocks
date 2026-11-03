@@ -16,8 +16,11 @@ function boot({installed=false,savedSpeed='1',savedGhost='false',name='Pat',frie
   let notificationEnabled=false;
   const document={activeElement:null};
   function element(id=''){
+    let text='';
     return {
-      id,hidden:false,value:'',disabled:false,children:[],textContent:'',innerHTML:'',
+      id,hidden:false,value:'',disabled:false,children:[],innerHTML:'',
+      get textContent(){return text},
+      set textContent(value){text=String(value);this.children=[]},
       listeners:{},attrs:{},
       appendChild(child){this.children.push(child)},
       append(...children){this.children.push(...children)},

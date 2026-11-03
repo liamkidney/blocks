@@ -295,6 +295,17 @@ function openPlayTogether(){
 }
 function closeRestartDialog(){
   restartDialog.hidden=true;
+  // Discard unconfirmed rule edits; do not overwrite preferences chosen in
+  // Settings or the rules of the currently running game.
+  try{
+    selectDifficulty(parseGameMode(localStorage.getItem(DIFFICULTY_KEY))??game.difficulty);
+    const saved=localStorage.getItem(GHOST_KEY);
+    selectGhostPiece(saved==='true'?true:saved==='false'?false:
+      window.BLOCKS_CONFIG.ghostPiece===true);
+  }catch(_){
+    selectDifficulty(game.difficulty);
+    selectGhostPiece(window.BLOCKS_CONFIG.ghostPiece===true);
+  }
   selectPlayerCount(currentPlayerMode);
   if(!restartWasPaused&&game.phase==='paused'){
     if(TWO_PLAYER)session.resume();

@@ -198,24 +198,27 @@ restartDialog.setAttribute("aria-labelledby","restart-title");
 restartDialog.innerHTML=`
   <div class="restart-panel">
     <div id="restart-title">NEW GAME</div>
-    <p id="restart-description">CHOOSE YOUR SETTINGS BEFORE STARTING.</p>
-    <div class="restart-mode-label" id="difficulty-label">SPEED</div>
-    <div class="restart-options" role="group" aria-labelledby="difficulty-label">
-      ${GAME_MODE_IDS.map(id=>`<button type="button" id="difficulty-${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}
+    <p id="restart-description">CHOOSE HOW TO PLAY.</p>
+    <div id="restart-mode-screen" class="restart-mode-screen">
+      <button type="button" id="restart-one">PLAY SOLO</button>
+      <button type="button" id="restart-two">TWO PLAYERS · ONE PHONE</button>
+      <button type="button" id="restart-remote">PLAY TOGETHER · TWO PHONES</button>
+      <button type="button" id="restart-settings" class="restart-secondary">SETTINGS</button>
     </div>
-    <div id="difficulty-description" class="restart-hint"></div>
-    <div class="restart-mode-label" id="ghost-label">GHOST PIECE</div>
-    <div class="restart-options" role="group" aria-labelledby="ghost-label">
-      <button type="button" id="ghost-off" aria-pressed="false">OFF</button>
-      <button type="button" id="ghost-on" aria-pressed="false">ON</button>
+    <div id="restart-rules-screen" hidden>
+      <button type="button" id="restart-back" class="restart-back">← BACK</button>
+      <div class="restart-mode-label" id="difficulty-label">SPEED</div>
+      <div class="restart-options" role="group" aria-labelledby="difficulty-label">
+        ${GAME_MODE_IDS.map(id=>`<button type="button" id="difficulty-${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}
+      </div>
+      <div id="difficulty-description" class="restart-hint"></div>
+      <div class="restart-mode-label" id="ghost-label">GHOST PIECE</div>
+      <div class="restart-options" role="group" aria-labelledby="ghost-label">
+        <button type="button" id="ghost-off" aria-pressed="false">OFF</button>
+        <button type="button" id="ghost-on" aria-pressed="false">ON</button>
+      </div>
+      <button type="button" id="restart-start" class="restart-primary">START GAME</button>
     </div>
-    <div class="restart-mode-label" id="players-label">PLAYERS</div>
-    <div class="restart-options" id="player-mode-options" role="group" aria-labelledby="players-label">
-      <button type="button" id="restart-one" aria-pressed="false">1 PLAYER</button>
-      <button type="button" id="restart-two" aria-pressed="false">2 PLAYERS · ONE PHONE</button>
-      <button type="button" id="restart-remote" aria-pressed="false">2 PLAYERS · TWO PHONES</button>
-    </div>
-    <button type="button" id="restart-start" class="restart-primary">START GAME</button>
     <button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button>
   </div>`;
 document.body.appendChild(restartDialog);

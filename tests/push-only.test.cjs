@@ -225,3 +225,108 @@ test('friend deletion requires installation credentials and clears mutual relati
   assert.match(sql,/grant execute on function public\.blocks_push_remove_friend\(uuid,uuid\) to service_role/);
   assert.doesNotMatch(sql,/grant execute .* to anon/);
 });
+
+
+function handoffWorker(){
+  const scope='https://example.test/blocks/dev/';
+  const handlers={},messages=[],saved=new Map();
+  let now=10_000;
+  class FakeResponse{
+    constructor(body){this.body=body}
+    async json(){return JSON.parse(this.body)}
+  }
+  const cache={
+    async put(key,value){saved.set(String(key),value)},
+    async match(key){return saved.get(String(key))||null},
+    async delete(key){return saved.delete(String(key))}
+  };
+  const windows=[];
+  const opened=[];
+  const clients={
+    async matchAll(){return windows},
+    async openWindow(url){opened.push(url);return null}
+  };
+  const self={
+    registration:{scope},
+    clients,
+    addEventListener(type,listener){handlers[type]=listener}
+  };
+  const DateMock=class extends Date {static now(){return now}};
+  vm.runInNewContext(file('sw.js'),{
+    self,URL,console,caches:{open:async()=>cache},Response:FakeResponse,
+    Date:DateMock
+  },{filename:'sw.js'});
+  async function fire(type,data,source){
+    let work;
+    handlers[type]({
+      ...(type==='notificationclick'?{
+        notification:{data:{url:data},close(){}}
+      }:type==='message'?{data,source}:{}),
+      waitUntil:p=>{work=p}
+    });
+    await work;
+  }
+  return {scope,opened,windows,messages,fire,saved,setNow:value=>{now=value}};
+}
+
+test('a cold iPhone launch recovers the clicked invite even if iOS opens at start URL',async()=>{
+  const worker=handoffWorker();
+  const invite=worker.scope+'?remote=1&push_join=BRT';
+  await worker.fire('notificationclick',invite);
+  assert.deepEqual(worker.opened,[invite],
+    'service worker still requests the invitation destination');
+  assert.equal(worker.saved.size,1,'worker retains intent across page creation');
+  const received=[];
+  await worker.fire('message',{type:'BLOCKS_GET_PUSH_INVITATION'},
+    {postMessage:m=>received.push(m)});
+  assert.equal(received.length,1);
+  assert.equal(received[0].type,'BLOCKS_PUSH_INVITATION');
+  assert.equal(received[0].url,invite);
+  await worker.fire('message',{type:'BLOCKS_ACK_PUSH_INVITATION',url:invite});
+  const again=[];
+  await worker.fire('message',{type:'BLOCKS_GET_PUSH_INVITATION'},
+    {postMessage:m=>again.push(m)});
+  assert.equal(again.length,0,'ack clears the completed handoff');
+});
+
+test('a pending invitation survives a page reload but expires after three minutes',async()=>{
+  const worker=handoffWorker();
+  const invite=worker.scope+'?remote=1&push_join=BRT';
+  await worker.fire('notificationclick',invite);
+  worker.setNow(10_000+179_000);
+  let received=[];
+  await worker.fire('message',{type:'BLOCKS_GET_PUSH_INVITATION'},
+    {postMessage:m=>received.push(m)});
+  assert.equal(received.length,1);
+  worker.setNow(10_000+181_000);
+  received=[];
+  await worker.fire('message',{type:'BLOCKS_GET_PUSH_INVITATION'},
+    {postMessage:m=>received.push(m)});
+  assert.equal(received.length,0);
+  assert.equal(worker.saved.size,0,'expired handoff is discarded');
+});
+
+test('only the matching invitation can clear a saved push handoff',async()=>{
+  const worker=handoffWorker();
+  const invite=worker.scope+'?remote=1&push_join=BRT';
+  await worker.fire('notificationclick',invite);
+  await worker.fire('message',{
+    type:'BLOCKS_ACK_PUSH_INVITATION',
+    url:worker.scope+'?remote=1&push_join=XYZ'
+  });
+  assert.equal(worker.saved.size,1);
+  await worker.fire('message',{type:'BLOCKS_ACK_PUSH_INVITATION',url:invite});
+  assert.equal(worker.saved.size,0);
+});
+
+test('notification data cannot persist external, unscoped or arbitrary redirects',async()=>{
+  const worker=handoffWorker();
+  for(const url of [
+    'https://attacker.example/blocks/dev/?remote=1&push_join=BRT',
+    worker.scope+'?remote=1&join=BRT',
+    worker.scope+'?remote=1&push_join=NOTACODE',
+    'https://example.test/blocks/?remote=1&push_join=BRT'
+  ])await worker.fire('notificationclick',url);
+  assert.equal(worker.saved.size,0);
+  assert.equal(worker.opened.length,0);
+});

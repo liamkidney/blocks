@@ -47,18 +47,14 @@ test('push shows a scoped notification and clicking it launches the installed ap
   assert.equal(opened[0],scope+'?remote=1&push_join=BRT');
 });
 
-test('tapping push while PWA is open posts invitation to existing screen',async()=>{
-  const handlers={},messages=[],focuses=[];
+test('notification focuses an open PWA without navigating away from its message handler',async()=>{
+  const handlers={},messages=[],operations=[];
   const scope='https://example.test/blocks/dev/';
   const existing={
     url:scope+'?remote=1',
-    async navigate(url){
-      assert.equal(url,scope+'?remote=1&push_join=BRT');
-      // On iOS navigation may leave the same running window visible.
-      return this;
-    },
-    async focus(){focuses.push('focused')},
-    postMessage(message){messages.push(message)}
+    navigate(){throw Error('Never replace the active page before it handles the message')},
+    async focus(){operations.push('focus')},
+    postMessage(message){messages.push(message);operations.push('message')}
   };
   const self={
     registration:{scope},
@@ -74,18 +70,19 @@ test('tapping push while PWA is open posts invitation to existing screen',async(
     waitUntil:p=>{done=p}
   });
   await done;
-  assert.equal(focuses.length,1);
+  assert.equal(operations[0],'message');
+  assert.equal(operations[1],'focus');
   assert.equal(messages.length,1);
   assert.equal(messages[0].type,'BLOCKS_PUSH_INVITATION');
   assert.equal(messages[0].url,scope+'?remote=1&push_join=BRT');
 });
 
-test('notification still reaches running PWA if iOS focus rejects',async()=>{
+test('notification message survives a focus rejection in an already open PWA',async()=>{
   const handlers={},messages=[];
   const scope='https://example.test/blocks/dev/';
   const existing={
     url:scope+'?remote=1',
-    async navigate(){return this},
+    navigate(){throw Error('Unexpected navigation')},
     async focus(){throw Error('Focus denied by iOS')},
     postMessage(message){messages.push(message)}
   };
@@ -103,30 +100,6 @@ test('notification still reaches running PWA if iOS focus rejects',async()=>{
   await done;
   assert.equal(messages.length,1);
   assert.equal(messages[0].type,'BLOCKS_PUSH_INVITATION');
-});
-
-test('push messages still arrive if existing PWA navigation is rejected',async()=>{
-  const handlers={},messages=[];
-  const scope='https://example.test/blocks/dev/';
-  const existing={
-    url:scope+'?remote=1',
-    async navigate(){throw Error('iOS did not navigate')},
-    async focus(){},
-    postMessage(message){messages.push(message)}
-  };
-  const self={
-    registration:{scope},
-    clients:{matchAll:async()=>[existing]},
-    addEventListener:(type,fn)=>{handlers[type]=fn}
-  };
-  vm.runInNewContext(file('sw.js'),{self,URL,Set,Request,console});
-  let done;
-  handlers.notificationclick({
-    notification:{data:{url:scope+'?remote=1&push_join=BRT'},close(){}},
-    waitUntil:p=>{done=p}
-  });
-  await done;
-  assert.equal(messages.length,1);
 });
 
 test('notification in the installed PWA New Game dialog routes to multiplayer',()=>{

@@ -18,6 +18,10 @@ Run tests and validate the development PWA before releasing. To promote, run Git
 - Solo and one-phone games next choose **speed** and **ghost piece** before
   starting. **Play Together** goes straight to its own menu; neither setting
   is requested from a joining player.
+- **Back** always uses the left-facing arrow and returns one level; **X**
+  closes a dialog or cancels/leaves an allocated room. Unfinished code-entry
+  attempts are retained only for retrying a code the player types explicitly;
+  they never auto-open **Join Game** when entering **Play Together**.
 - **Create Game** and **Invite Friend** both show the host a short game-rules
   screen (speed, allowed pieces and ghost piece) *before* allocating a room.
   **Join Game** and push invitations inherit these host-authored rules.

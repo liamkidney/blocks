@@ -256,10 +256,11 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       }
       close(){this.readyState=3;}
     }
-    const sharedInvitations=[],serviceWorkerListeners=new Map();
+    const sharedInvitations=[],serviceWorkerListeners=new Map(),workerMessages=[];
     const navigator={
       onLine:true,standalone:options.pwa==='ios',
       serviceWorker:{
+        controller:{postMessage(message){workerMessages.push(message)}},
         addEventListener(name,callback){serviceWorkerListeners.set(name,callback)}
       },
       clipboard:{writeText:async()=>{}},
@@ -322,7 +323,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
       },
       ownBoard,opponentBoards,clearedBoards,reactions,pauses,
       get friendLookups(){return friendLookups},
-      removedFriends,sentInvites,
+      removedFriends,sentInvites,workerMessages,
       get resetCount(){return resetCount},
       async tick(){
         for(const fn of [...intervals.values()])await fn();
@@ -418,6 +419,39 @@ async function matched(f){
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
   return {host,guest};
 }
+
+test('cold-start push URL joins the room and acknowledges durable handoff',async()=>{
+  const f=fixture(),host=f.browser();
+  createHost(host);await settle();
+  const guest=f.browser(undefined,undefined,'?remote=1&push_join=BRT',{pwa:'ios'});
+  await settle();
+  await host.tick();await settle();
+  assert.equal(f.joins,1,'cold start should join exactly once');
+  assert.equal(guest.window.BLOCKS_REMOTE.player,2);
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(guest.workerMessages.some(m=>
+    m.type==='BLOCKS_ACK_PUSH_INVITATION'&&
+    m.url==='https://example.test/blocks/dev/?remote=1&push_join=BRT'),true,
+    'join acknowledges the durable notification, so it cannot re-open later');
+  assert.equal(guest.history.replaced.length,1,
+    'invitation code is removed from visible address bar after boot');
+});
+
+test('persisted worker invite joins from a reopened Play Together menu',async()=>{
+  const f=fixture(),host=f.browser();
+  createHost(host);await settle();
+  const guest=f.browser(undefined,undefined,'?remote=1',{pwa:'ios'});
+  assert.equal(guest.get('remote-actions').hidden,false);
+  assert.equal(guest.workerMessages.some(m=>
+    m.type==='BLOCKS_GET_PUSH_INVITATION'),true,
+    'installed lobby asks worker for pending invitation on startup');
+  guest.tapInvite('BRT');await settle();
+  await host.tick();await settle();
+  assert.equal(f.joins,1);
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(guest.workerMessages.some(m=>
+    m.type==='BLOCKS_ACK_PUSH_INVITATION'),true);
+});
 
 test('tapping notification while already on Create Game screen joins that room',async()=>{
   const f=fixture(),host=f.browser(),guest=f.browser(

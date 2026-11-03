@@ -1238,3 +1238,39 @@ body.remote-multiplayer #board-frame.game-paused::after{
   min-height:40px;touch-action:manipulation
 }
 #restart-dialog .restart-panel [hidden]{display:none!important}
+
+
+/* Match rules belong to the host. Joiners never see these controls. */
+#remote-lobby #remote-settings{
+  display:block;margin:17px auto 0;min-height:43px;
+  background:transparent;color:var(--ink);
+  border-width:1px;font-size:11px
+}
+#remote-lobby #remote-host-panel{
+  width:100%;box-sizing:border-box;text-align:left;
+  padding:6px 2px 0
+}
+#remote-lobby #remote-host-panel label{
+  display:block;margin:16px 0 7px;
+  font:900 11px Helvetica,Arial,sans-serif;letter-spacing:1px
+}
+#remote-lobby #remote-host-panel select{
+  width:100%;min-height:48px;box-sizing:border-box;padding:10px;
+  border:2px solid var(--ink);border-radius:8px;
+  background:var(--paper);color:var(--ink);
+  font:700 16px Helvetica,Arial,sans-serif
+}
+#remote-lobby #remote-host-panel #remote-host-context,
+#remote-lobby #remote-host-panel .remote-host-hint{
+  text-align:left;font-size:13px;line-height:1.45;margin:8px 0
+}
+#remote-lobby #remote-host-panel .remote-host-hint{font-size:11px;opacity:.7}
+#remote-lobby #remote-host-confirm{
+  width:100%;min-height:54px;margin-top:18px;
+  background:var(--ink);color:var(--paper)
+}
+#remote-lobby #remote-host-status{
+  text-align:center;margin-top:12px;font-size:13px;overflow-wrap:anywhere
+}
+#remote-lobby #remote-settings[hidden],
+#remote-lobby #remote-host-panel[hidden]{display:none!important}

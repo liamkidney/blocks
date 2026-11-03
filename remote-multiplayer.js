@@ -1076,6 +1076,7 @@
     showResults:openResults,
     get matchCredentials(){return match?{id:match.id,token:match.token}:null},
     get active(){return Boolean(match)},
+    get atMenu(){return !match&&!lobby.hidden&&!actions.hidden},
     get ready(){return ready},
     get player(){return match?.player||null},
     get round(){return match?.round||null},
@@ -1121,7 +1122,7 @@
     });
   }
   function acknowledgePush(code){
-    const url=new URL(location.href);
+    const url=new URL(location.pathname,location.href);
     url.searchParams.set('remote','1');
     url.searchParams.set('push_join',code);
     navigator.serviceWorker?.controller?.postMessage?.({

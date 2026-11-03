@@ -18,7 +18,7 @@ function boot({installed=false,savedSpeed='1',savedGhost='false',name='Pat',frie
   function element(id=''){
     let text='';
     return {
-      id,hidden:false,value:'',disabled:false,children:[],innerHTML:'',
+      id,hidden:false,value:'',disabled:false,children:[],innerHTML:'',dataset:{},
       get textContent(){return text},
       set textContent(value){text=String(value);this.children=[]},
       listeners:{},attrs:{},

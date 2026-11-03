@@ -32,7 +32,7 @@ function boot(saved=null){
       this.children=[];for(const child of children)this.appendChild(child)}
     remove(){if(!this.parentElement)return;const p=this.parentElement;
       p.children=p.children.filter(child=>child!==this);this.parentElement=null}
-    querySelector(selector){return byId.get(selector.slice(1))}
+    querySelector(selector){return get(selector.slice(1))}
     getBoundingClientRect(){
       if(this===byId.get('settings-control-row'))return {left:0,top:0,width:300,height:66};
       const slot=this.parentElement?.className?.includes('settings-control-slot')

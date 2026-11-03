@@ -138,11 +138,11 @@ const reactionButtons=[["heart","❤️"],["cry","😭"]].map(([name,emoji])=>{
 });
 const highScoresSlot=document.createElement("div");
 highScoresSlot.id="high-scores-slot";
-const playerButton=document.createElement("button");
-playerButton.id="hud-player-button";playerButton.type="button";
-playerButton.setAttribute("aria-label","Player");playerButton.title="Player";
-playerButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>';
-highScoresSlot.appendChild(playerButton);
+const settingsButton=document.createElement("button");
+settingsButton.id="hud-settings-button";settingsButton.type="button";
+settingsButton.setAttribute("aria-label","Settings");settingsButton.title="Settings";
+settingsButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.2 2.2M16.5 16.5l2.2 2.2M18.7 5.3l-2.2 2.2M7.5 16.5l-2.2 2.2"/></svg>';
+highScoresSlot.appendChild(settingsButton);
 document.getElementById("hud").append(actions,highScoresSlot);
 if(REMOTE_PLAYER){
   highScoresSlot.hidden=true;
@@ -224,6 +224,10 @@ restartDialog.innerHTML=`
 document.body.appendChild(restartDialog);
 const cancelRestartButton=document.getElementById("restart-cancel");
 const startGameButton=document.getElementById("restart-start");
+const restartModeScreen=document.getElementById("restart-mode-screen");
+const restartRulesScreen=document.getElementById("restart-rules-screen");
+const restartBackButton=document.getElementById("restart-back");
+const restartSettingsButton=document.getElementById("restart-settings");
 const onePlayerButton=document.getElementById("restart-one");
 const twoPlayerButton=document.getElementById("restart-two");
 const remotePlayerButton=document.getElementById("restart-remote");

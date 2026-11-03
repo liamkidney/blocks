@@ -1353,11 +1353,16 @@ body.remote-multiplayer #board-frame.game-paused::after{
     order:var(--portrait-control-order,0)
   }
   body.controls-editing:not(.two-player) #controls{position:relative}
+  /* Edit mode is explicitly entered by the player, so the four real controls
+     must visibly wiggle even if iOS Reduce Motion is normally enabled. */
   body.controls-editing:not(.two-player) #controls .control:not(.control-edit-placeholder){
-    animation:blocks-control-wiggle .24s ease-in-out infinite alternate
+    transform-origin:50% 50%;
+    transition:none;
+    animation:blocks-control-wiggle .18s ease-in-out infinite alternate
   }
-  body.controls-editing:not(.two-player) #controls .control:nth-of-type(even){
-    animation-delay:-.12s
+  body.controls-editing:not(.two-player) #controls .control[data-command="right"],
+  body.controls-editing:not(.two-player) #controls .control[data-command="rotate_cw"]{
+    animation-delay:-.18s
   }
   body.controls-editing:not(.two-player) #controls .control.control-edit-placeholder{
     visibility:hidden
@@ -1379,8 +1384,8 @@ body.remote-multiplayer #board-frame.game-paused::after{
   }
 }
 @keyframes blocks-control-wiggle{
-  from{transform:rotate(-2deg)}
-  to{transform:rotate(2deg)}
+  from{transform:rotate(-4deg)}
+  to{transform:rotate(4deg)}
 }
 /* The finger carries an exact copy of the game control, not a separate mock icon. */
 body > .control.control-edit-ghost{
@@ -1397,6 +1402,10 @@ body > .control.control-edit-ghost{
 #blocks-settings .settings-control-options button{flex:1;min-width:125px}
 #blocks-settings #settings-control-reset{background:transparent;color:var(--ink)}
 #blocks-settings #settings-control-status{margin-top:10px}
-@media(prefers-reduced-motion:reduce){
-  body.controls-editing #controls .control{animation:none!important}
+/* A chosen editing mode is the player's explicit request to animate the keys.
+   Do not suppress this animation under prefers-reduced-motion. */
+body:not(.two-player) #hud-settings-button .settings-cog{
+  stroke-width:2;
+  stroke-linejoin:round;
+  stroke-linecap:round
 }

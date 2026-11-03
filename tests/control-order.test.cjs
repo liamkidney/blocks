@@ -185,3 +185,16 @@ test('touch input is gated during edit mode and portrait CSS provides wiggle',()
   assert.match(app,/const ghost=button\.cloneNode\(true\)/);
   assert.match(css,/body > \.control\.control-edit-ghost/);
 });
+
+test('wiggle remains enabled in user-entered edit mode, including Reduce Motion',()=>{
+  assert.match(css,/body\.controls-editing:not\(\.two-player\) #controls \.control:not\(\.control-edit-placeholder\)/);
+  assert.match(css,/animation:blocks-control-wiggle \.18s/);
+  assert.match(css,/from\{transform:rotate\(-4deg\)\}/);
+  assert.match(css,/to\{transform:rotate\(4deg\)\}/);
+  assert.doesNotMatch(css,/body\.controls-editing #controls \.control\{animation:none!important\}/);
+});
+test('HUD Settings uses a gear, not radial sun rays',()=>{
+  assert.match(app,/settingsButton\.innerHTML='<svg class="settings-cog"/);
+  assert.match(app,/class="settings-cog"[\s\S]*?<circle cx="12" cy="12" r="3"\/>/);
+  assert.doesNotMatch(app,/M12 2\.5v3M12 18\.5v3/);
+});

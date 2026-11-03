@@ -28,7 +28,7 @@
  }
  const API='https://psoncybkfsdmjksyrcvv.supabase.co/rest/v1/';
  const headers={apikey:'sb_publishable_z-Aumyx5v_WMPTbY77u88A_H3oEEzFH'};
- let resumeOnClose=false,controller=null;
+ let resumeOnClose=false,controller=null,returnToMenu=null;
  function cell(row,value){const td=document.createElement('td');td.textContent=String(value);row.appendChild(td);return td;}
  async function load(){
   if(controller)controller.abort();
@@ -70,8 +70,9 @@
    retry.hidden=false;
   }finally{clearTimeout(timeout);}
  }
- function open(){
+ function open(onReturn=null){
   if(!overlay.hidden)return;
+  returnToMenu=typeof onReturn==='function'?onReturn:null;
   resumeOnClose=game.phase!=='paused'&&game.phase!=='game_over'&&!session.outcome;
   if(resumeOnClose)togglePause();
   saveGame(true);overlay.hidden=false;setDefaultMode();void load();
@@ -80,13 +81,16 @@
   if(overlay.hidden)return;
   overlay.hidden=true;if(controller)controller.abort();
   if(resumeOnClose&&game.phase==='paused')togglePause();
-  resumeOnClose=false;button.focus();
+  resumeOnClose=false;
+  const restore=returnToMenu;returnToMenu=null;
+  if(restore)restore();else button.focus();
  }
  function tap(el,fn){
   let last=-Infinity;
   el.addEventListener('touchstart',e=>{e.preventDefault();last=performance.now();fn();},{passive:false});
   el.addEventListener('click',e=>{if(performance.now()-last<750){e.preventDefault();return;}fn();});
  }
+ window.BLOCKS_OPEN_HIGH_SCORES=open;
  tap(button,open);tap(overlay.querySelector('#scores-back'),close);tap(retry,()=>void load());
  for(const tab of modeButtons)tap(tab,()=>selectMode(tab.dataset.mode));
  button.hidden=false;

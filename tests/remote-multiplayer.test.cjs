@@ -500,7 +500,7 @@ test('Invite Friend is the third Play Together option and lists friends before r
   assert.equal(host.sentInvites.length,0);
 });
 
-test('selecting a friend creates one room and sends one push notification',async()=>{
+test('selecting a friend shows the shared match rules before creating a room',async()=>{
   const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
     pwa:'ios',friends:[{id:'friend-1',name:'Alex',canNotify:true}]
   });
@@ -509,44 +509,88 @@ test('selecting a friend creates one room and sends one push notification',async
   assert.equal(f.rooms.size,0);
   const choice=host.get('remote-friends-list').children[0].children[0];
   choice.onclick();choice.onclick();await settle();
-  assert.equal(f.rooms.size,1,'create only on selection, never twice');
-  assert.equal(host.sentInvites.length,1,'send push only once');
+  assert.equal(f.rooms.size,0,'selecting a friend alone creates no room');
+  assert.equal(host.sentInvites.length,0,'selecting a friend sends no notification');
+  assert.equal(host.get('remote-host-panel').hidden,false);
+  assert.equal(host.get('remote-host-confirm').textContent,'SEND INVITATION');
+  assert.match(host.get('remote-host-context').textContent,/Both players/);
+  assert.equal(host.get('remote-menu-exit').attrs['aria-label'],'Back to friends');
+  host.get('remote-host-speed').value='2';
+  host.get('remote-host-pieces').value='IO';
+  host.get('remote-host-ghost').value='true';
+  host.get('remote-host-confirm').onclick();host.get('remote-host-confirm').onclick();
+  await settle();
+  assert.equal(f.rooms.size,1,'confirm creates exactly one room');
+  assert.equal(host.sentInvites.length,1,'notification sent exactly once');
+  const room=[...f.rooms.values()][0];
+  assert.equal(room.difficulty,2);
+  assert.equal(room.piece_set,'IO');
+  assert.equal(room.ghost_piece,true);
   assert.equal(host.sentInvites[0].friendId,'friend-1');
-  assert.equal(host.sentInvites[0].matchId,[...f.rooms.values()][0].id);
+  assert.equal(host.sentInvites[0].matchId,room.id);
   assert.equal(host.window.BLOCKS_REMOTE.player,1);
   assert.equal(host.get('remote-code-panel').hidden,false);
   assert.equal(host.get('remote-friends-panel').hidden,true);
   assert.equal(host.get('remote-title').textContent,'Friend invited');
   assert.match(host.get('remote-status').textContent,/Invitation sent to Alex/);
-  assert.equal(host.get('remote-code').hidden,true,
-    'push invitation does not show a manual code');
+  assert.equal(host.get('remote-code').hidden,true,'push invitation has no manual code');
   assert.equal(host.get('remote-code-phonetic').hidden,true);
   assert.equal(host.get('remote-copy').hidden,true);
   assert.match(host.get('remote-code-expires').textContent,/Invitation expires in/);
   for(let i=0;i<3;i++){await host.tick();await settle();}
   assert.match(host.get('remote-status').textContent,/Invitation sent to Alex/,
-    'room poll should preserve invited-friend status');
+    'room polling must preserve invited-friend status');
 });
 
-test('Create Game remains a separate manual room-code flow',async()=>{
+test('Create Game confirms host rules and keeps the manual room-code experience',async()=>{
   const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
     pwa:'ios',friends:[{id:'friend-1',name:'Alex',canNotify:true}]
   });
   await settle();
-  createHost(host);await settle();
+  host.get('remote-create').onclick();await settle();
+  assert.equal(f.rooms.size,0,'opening Game Settings must not allocate a room');
+  assert.equal(host.get('remote-host-panel').hidden,false);
+  assert.equal(host.get('remote-host-confirm').textContent,'CREATE GAME');
+  host.get('remote-host-speed').value='0';
+  host.get('remote-host-pieces').value='ALL';
+  host.get('remote-host-ghost').value='false';
+  host.get('remote-host-confirm').onclick();await settle();
   assert.equal(f.rooms.size,1);
+  assert.equal([...f.rooms.values()][0].difficulty,0);
+  assert.equal([...f.rooms.values()][0].ghost_piece,false);
   assert.equal(host.sentInvites.length,0,'creating a code does not send push');
   assert.equal(host.get('remote-code-panel').hidden,false);
   assert.equal(host.get('remote-friends-panel').hidden,true);
   assert.equal(host.get('remote-code').hidden,false,'manual Create Game shows code');
   assert.equal(host.get('remote-copy').hidden,false);
-  assert.equal(host.get('remote-invite-friend').hidden,false,
-    'button stays defined on menu, but menu itself is hidden');
   assert.equal(host.get('remote-actions').hidden,true);
   assert.equal(host.get('remote-status').textContent,'Share this code with Player 2.');
 });
 
-test('failed push cancels newly created room and retains friend selection',async()=>{
+test('host can back out of Game Settings without allocating a room',async()=>{
+  const f=fixture(),host=f.browser();
+  host.get('remote-create').onclick();
+  assert.equal(host.get('remote-host-panel').hidden,false);
+  host.get('remote-menu-exit').onclick();
+  assert.equal(f.rooms.size,0);
+  assert.equal(host.get('remote-actions').hidden,false);
+});
+
+test('friend invitation rule screen goes Back to friends without allocating a room',async()=>{
+  const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
+    pwa:'ios',friends:[{id:'friend-1',name:'Alex',canNotify:true}]
+  });
+  await settle();
+  host.get('remote-invite-friend').onclick();await settle();
+  host.get('remote-friends-list').children[0].children[0].onclick();await settle();
+  assert.equal(host.get('remote-host-panel').hidden,false);
+  host.get('remote-menu-exit').onclick();await settle();
+  assert.equal(host.get('remote-friends-panel').hidden,false);
+  assert.equal(host.get('remote-friends-list').children.length,1);
+  assert.equal(f.rooms.size,0);
+});
+
+test('failed push cancels the newly created room and preserves rule choices for retry',async()=>{
   const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
     pwa:'ios',friends:[{id:'friend-1',name:'Alex',canNotify:true}],
     inviteError:true
@@ -554,18 +598,20 @@ test('failed push cancels newly created room and retains friend selection',async
   await settle();
   host.get('remote-invite-friend').onclick();await settle();
   host.get('remote-friends-list').children[0].children[0].onclick();await settle();
-  assert.equal(f.rooms.size,1,'the attempt did create a room');
+  assert.equal(f.rooms.size,0);
+  host.get('remote-host-confirm').onclick();await settle();
+  assert.equal(f.rooms.size,1,'room was allocated for push attempt');
   assert.equal([...f.rooms.values()][0].status,'cancelled',
-    'failed push must cancel the room on the server');
+    'failed push cancels the room server-side');
   assert.equal(host.window.BLOCKS_REMOTE.active,false);
-  assert.equal(host.get('remote-friends-panel').hidden,false);
+  assert.equal(host.get('remote-host-panel').hidden,false);
   assert.equal(host.get('remote-code-panel').hidden,true);
-  assert.equal(host.get('remote-friends-status').textContent,'Push delivery failed');
+  assert.equal(host.get('remote-host-status').textContent,'Push delivery failed');
   host.get('remote-menu-exit').onclick();await settle();
-  assert.equal(host.get('remote-actions').hidden,false);
+  assert.equal(host.get('remote-friends-panel').hidden,false);
 });
 
-test('removing a friend requires no room and preserves remaining friends',async()=>{
+test('friend picker is invitation-only; deletion is managed in Settings',async()=>{
   const f=fixture(),friends=[
     {id:'friend-1',name:'Alex',canNotify:true},
     {id:'friend-2',name:'Sam',canNotify:false}
@@ -574,63 +620,11 @@ test('removing a friend requires no room and preserves remaining friends',async(
   await settle();
   host.get('remote-invite-friend').onclick();await settle();
   const entries=host.get('remote-friends-list');
-  const first=entries.children[0];
-  assert.equal(first.children[0].textContent,'Alex');
-  const remove=first.children[1];
-  assert.equal(remove.attrs['aria-label'],'Remove Alex from friends');
-  remove.onclick();await settle();
-  assert.deepEqual(host.removedFriends,['friend-1']);
-  assert.deepEqual(friends.map(p=>p.name),['Sam']);
-  assert.equal(entries.children.length,1);
-  assert.equal(entries.children[0].children[0].textContent,'Sam');
-  assert.equal(host.get('remote-invite-friend').hidden,false);
-  assert.equal(host.get('remote-friends-panel').hidden,false);
-  assert.equal(host.get('remote-friends-status').textContent,'Alex removed.');
-  assert.equal(f.rooms.size,0,'removing a friend never creates a room');
-});
-
-test('removing the last friend hides Invite Friend and returns to Play Together',async()=>{
-  const f=fixture(),friends=[{id:'friend-only',name:'Alex',canNotify:true}];
-  const host=f.browser(undefined,undefined,'?remote=1',{pwa:'standalone',friends});
-  await settle();
-  host.get('remote-invite-friend').onclick();await settle();
-  host.get('remote-friends-list').children[0].children[1].onclick();
-  await settle();
-  assert.deepEqual(host.removedFriends,['friend-only']);
-  assert.equal(host.get('remote-invite-friend').hidden,true);
-  assert.equal(host.get('remote-friends-panel').hidden,true);
-  assert.equal(host.get('remote-actions').hidden,false);
-  assert.equal(host.get('remote-friends-list').children.length,0);
-  assert.equal(f.rooms.size,0);
-});
-
-test('declining friend removal confirmation preserves friend and no room is created',async()=>{
-  const f=fixture(),friends=[{id:'friend-1',name:'Alex',canNotify:true}];
-  const host=f.browser(undefined,undefined,'?remote=1',{pwa:'ios',friends,confirm:false});
-  await settle();
-  host.get('remote-invite-friend').onclick();await settle();
-  host.get('remote-friends-list').children[0].children[1].onclick();
-  await settle();
-  assert.deepEqual(host.removedFriends,[]);
-  assert.equal(host.get('remote-invite-friend').hidden,false);
-  assert.equal(host.get('remote-friends-panel').hidden,false);
-  assert.equal(friends.length,1);
-  assert.equal(f.rooms.size,0);
-});
-
-test('failed friend removal preserves retry button and does not create a room',async()=>{
-  const f=fixture(),friends=[{id:'friend-1',name:'Alex',canNotify:true}];
-  const host=f.browser(undefined,undefined,'?remote=1',{
-    pwa:'ios',friends,removeError:true
-  });
-  await settle();
-  host.get('remote-invite-friend').onclick();await settle();
-  const remove=host.get('remote-friends-list').children[0].children[1];
-  remove.onclick();await settle();
-  assert.equal(remove.disabled,false);
-  assert.deepEqual(host.removedFriends,[]);
-  assert.equal(host.get('remote-friends-list').children.length,1);
-  assert.equal(host.get('remote-friends-status').textContent,'Could not remove friend');
+  assert.equal(entries.children.length,2);
+  for(const row of entries.children){
+    assert.equal(row.children[0].className,'remote-friend-choice');
+    assert.equal(row.children.some(child=>child.className==='remote-friend-remove'),false);
+  }
   assert.equal(f.rooms.size,0);
 });
 

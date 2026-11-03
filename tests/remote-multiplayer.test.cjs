@@ -420,6 +420,22 @@ async function matched(f){
   return {host,guest};
 }
 
+test('a failed network acknowledgement does not discard a tapped invitation',async()=>{
+  const f=fixture(),host=f.browser();
+  createHost(host);await settle();
+  f.setDropJoinAck();
+  const guest=f.browser(undefined,undefined,'?remote=1',{pwa:'ios'});
+  guest.tapInvite('BRT');await settle();
+  assert.equal(f.joins,1);
+  assert.equal(guest.workerMessages.some(m=>m.type==='BLOCKS_ACK_PUSH_INVITATION'),false,
+    'failed join must retain the worker handoff for retry');
+  assert.equal(guest.window.BLOCKS_REMOTE.player,null);
+  guest.tapInvite('BRT');await settle();
+  assert.equal(f.joins,2,'a subsequent delivery retries the same guest token');
+  assert.equal(guest.window.BLOCKS_REMOTE.player,2);
+  assert.equal(guest.workerMessages.some(m=>m.type==='BLOCKS_ACK_PUSH_INVITATION'),true);
+});
+
 test('cold-start push URL joins the room and acknowledges durable handoff',async()=>{
   const f=fixture(),host=f.browser();
   createHost(host);await settle();

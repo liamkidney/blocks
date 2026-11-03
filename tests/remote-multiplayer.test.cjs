@@ -566,7 +566,6 @@ test('selecting a friend shows the shared match rules before creating a room',as
   assert.match(host.get('remote-host-context').textContent,/Both players/);
   assert.equal(host.get('remote-menu-exit').attrs['aria-label'],'Back to friends');
   host.get('remote-host-speed').value='2';
-  host.get('remote-host-pieces').value='IO';
   host.get('remote-host-ghost').value='true';
   host.get('remote-host-confirm').onclick();host.get('remote-host-confirm').onclick();
   await settle();
@@ -574,7 +573,7 @@ test('selecting a friend shows the shared match rules before creating a room',as
   assert.equal(host.sentInvites.length,1,'notification sent exactly once');
   const room=[...f.rooms.values()][0];
   assert.equal(room.difficulty,2);
-  assert.equal(room.piece_set,'IO');
+  assert.equal(room.piece_set,'ALL');
   assert.equal(room.ghost_piece,true);
   assert.equal(host.sentInvites[0].friendId,'friend-1');
   assert.equal(host.sentInvites[0].matchId,room.id);
@@ -592,6 +591,15 @@ test('selecting a friend shows the shared match rules before creating a room',as
     'room polling must preserve invited-friend status');
 });
 
+test('Pieces is not configurable in ordinary two-phone game creation',()=>{
+  const f=fixture(),host=f.browser(new Map(),{difficulty:2,piece_set:'IO',ghost_piece:true});
+  host.get('remote-create').onclick();
+  assert.equal(host.get('remote-host-panel').hidden,false);
+  assert.doesNotMatch(source,/id="remote-host-pieces"/);
+  assert.doesNotMatch(source,/<label for="remote-host-pieces">/);
+  assert.equal(host.get('remote-host-speed').value,'2');
+});
+
 test('Create Game confirms host rules and keeps the manual room-code experience',async()=>{
   const f=fixture(),host=f.browser(undefined,undefined,'?remote=1',{
     pwa:'ios',friends:[{id:'friend-1',name:'Alex',canNotify:true}]
@@ -602,7 +610,6 @@ test('Create Game confirms host rules and keeps the manual room-code experience'
   assert.equal(host.get('remote-host-panel').hidden,false);
   assert.equal(host.get('remote-host-confirm').textContent,'CREATE GAME');
   host.get('remote-host-speed').value='0';
-  host.get('remote-host-pieces').value='ALL';
   host.get('remote-host-ghost').value='false';
   host.get('remote-host-confirm').onclick();await settle();
   assert.equal(f.rooms.size,1);
@@ -984,7 +991,7 @@ test('new room starts a fresh 0–0 score after leaving a won session',async()=>
 });
 
 
-test('room difficulty, pieces, and Ghost Piece are enforced on the joining phone',async()=>{
+test('host speed and Ghost Piece are enforced while the standard piece set is used',async()=>{
   const f=fixture();
   const host=f.browser(new Map(),{difficulty:2,piece_set:'IO',ghost_piece:true});
   const guest=f.browser(new Map(),{difficulty:0,piece_set:'ALL',ghost_piece:false});
@@ -995,10 +1002,10 @@ test('room difficulty, pieces, and Ghost Piece are enforced on the joining phone
   await host.tick();await guest.tick();await settle();
   const room=[...f.rooms.values()][0];
   assert.equal(room.difficulty,2);
-  assert.equal(room.piece_set,'IO');
+  assert.equal(room.piece_set,'ALL');
   assert.equal(room.ghost_piece,true);
   assert.deepEqual(JSON.parse(JSON.stringify(guest.configs)),
-    [{difficulty:2,piece_set:'IO',ghost_piece:true}]);
+    [{difficulty:2,piece_set:'ALL',ghost_piece:true}]);
   const stored=JSON.parse(guest.storage.get('blocks:remote-match:/blocks/dev/'));
   assert.equal(stored.ghost_piece,true,'reconnects must keep host settings');
   assert.equal(host.get('remote-result-title').textContent,'READY TO START');

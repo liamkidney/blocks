@@ -222,10 +222,14 @@
     room.setAttribute('aria-label','Room code '+code.split('').join(' ')+
       '. '+code.split('').map(letter=>NATO[letter]||letter).join(', '));
     lobbyStep('code');
-    title.textContent=inviteRecipient?'Friend invited':'Game created';
-    status.textContent=inviteRecipient?
+    const invited=Boolean(inviteRecipient);
+    title.textContent=invited?'Friend invited':'Game created';
+    status.textContent=invited?
       'Invitation sent to '+inviteRecipient+'. Waiting for them to join…':
       'Share this code with Player 2.';
+    // Codes belong to Create Game, not the push-only invitation flow.
+    room.hidden=invited;createdPhonetic.hidden=invited;copy.hidden=invited;
+    codePanel.classList.toggle('is-friend-invite',invited);
     codeExpiry.hidden=!match?.inviteExpiresAt;
     showLobby(true);
     updateInviteCountdown();
@@ -283,9 +287,10 @@
        match.code?.length!==3||codePanel.hidden)return;
     const remaining=Math.max(0,Math.ceil(
       (Date.parse(match.inviteExpiresAt)-Date.now())/1000));
+    const noun=inviteRecipient?'Invitation':'Code';
     codeExpiry.textContent=remaining?
-      'Code expires in '+Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):
-      'Code expired · checking the room…';
+      noun+' expires in '+Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):
+      noun+' expired · checking the room…';
     if(remaining===0)void expireInvite();
   }
   async function expireInvite(){

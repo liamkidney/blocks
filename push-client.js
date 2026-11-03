@@ -1,6 +1,5 @@
 // Push-only friend invitations for installed BLOCKS Dev. No shareable invite links.
 (()=>{
-  if(new URLSearchParams(location.search).get('remote')!=='1')return;
   // Do not register identities or subscriptions for Safari/browser tabs.
   // On iOS only Home Screen PWAs may receive Web Push notifications.
   const installedPwa=navigator.standalone===true||
@@ -82,6 +81,7 @@
     offer:async match=>authenticated('offer_friend',credentials(match)),
     friends:()=>authenticated('friends'),
     removeFriend:friendId=>authenticated('remove_friend',{friendId}),
+    refreshProfile:()=>register(),
     invite:(match,friendId)=>authenticated('invite',{...credentials(match),friendId}),
     refresh:restore
   };

@@ -71,6 +71,15 @@ function boot(savedMode=null,savedGhost=null,options={}){
   return {get,tap,evaluate,storage,dispatch};
 }
 
+test("New Game uses a Back arrow for rules and an X to close active-game setup",()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+  const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.match(source,/id="restart-back"[^>]*>←<\/button>/);
+  assert.match(source,/id="restart-cancel"[^>]*>×<\/button>/);
+  assert.match(css,/#restart-dialog \.restart-panel \.restart-back\{left:8px\}/);
+  assert.match(css,/#restart-dialog \.restart-panel \.restart-cancel\{right:8px\}/);
+});
+
 test("fresh start shows choices without beginning the game",()=>{
   const b=boot();
   assert.equal(b.evaluate("game.phase"),"paused");

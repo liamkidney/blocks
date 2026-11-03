@@ -169,15 +169,15 @@ test("grounded movement does not extend lock, but leaving support resets it",()=
   game.update(.15);
   assert.notStrictEqual(game.active,grounded);
   const game2=new Game({difficulty:0,allowedPieces:["O"]});
-  game2.grid[2][4]="I";
-  // Align an O piece over the single-cell support so moving away is possible.
+  game2.grid[0][4]="I";
+  // Align an O piece one row above a single support, then slide off it.
   game2.active.x=3;
-  game2.active.y=2;
-  assert.equal(game2.canPlace(game2.offsets,3,2),true);
+  game2.active.y=1;
+  assert.equal(game2.canPlace(game2.offsets,3,1),true);
   game2.syncLockTimer();
   assert.equal(game2.lockElapsed,0);
   game2.update(.25);
-  assert.equal(game2.tryMove(1,0),true);
+  assert.equal(game2.tryMove(-1,0),true);
   assert.equal(game2.lockElapsed,null,"falling away from support cancels the lock");
 });
 

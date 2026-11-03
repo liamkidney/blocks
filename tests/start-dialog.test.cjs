@@ -201,6 +201,16 @@ test("New Game Settings entry is callable without starting gameplay",()=>{
   assert.equal(b.evaluate('game.phase'),'paused');
 });
 
+test("High Scores is accessible from New Game and returns to the mode menu",()=>{
+  const b=boot();
+  b.evaluate('window.BLOCKS_OPEN_HIGH_SCORES=back=>{window.__backFromScores=back}');
+  b.tap('restart-high-scores');
+  assert.equal(b.evaluate('restartDialog.hidden'),true);
+  b.evaluate('window.__backFromScores()');
+  assert.equal(b.evaluate('restartDialog.hidden'),false);
+  assert.equal(b.get('restart-mode-screen').hidden,false);
+});
+
 test("two-phone reconnect starts with the creator's saved Ghost Piece rule",()=>{
   const b=boot(0,false,{
     remote:true,

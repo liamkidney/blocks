@@ -904,8 +904,17 @@ if("serviceWorker" in navigator){
   });
 }
 
-document.addEventListener("contextmenu",e=>e.preventDefault());
-document.addEventListener("selectstart",e=>e.preventDefault());
+// Gameplay blocks long-press menus, but profile/settings text inputs must
+// retain ordinary iOS editing, selection, paste and correction behaviour.
+function isEditableUi(target){
+  return Boolean(target?.closest?.('input,textarea,select,[contenteditable="true"],#blocks-settings'));
+}
+document.addEventListener("contextmenu",e=>{
+  if(!isEditableUi(e.target))e.preventDefault();
+});
+document.addEventListener("selectstart",e=>{
+  if(!isEditableUi(e.target))e.preventDefault();
+});
 
 const versionElement=document.getElementById("version");
 const baseVersion=window.BLOCKS_VERSION||versionElement?.textContent||"";

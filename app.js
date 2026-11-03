@@ -918,10 +918,15 @@ if("serviceWorker" in navigator){
       const registration=await navigator.serviceWorker.register("sw.js",{updateViaCache:"none"});
       // A worker that was already waiting when the new page launched can
       // safely replace this build. New downloads wait until a later launch.
-      // Two-phone matchmaking is already interactive on launch. Updating here
-      // can reload the page between the user's first tap and room creation.
-      // Defer activation until the app next opens outside two-phone mode.
-      if(!REMOTE_PLAYER&&hadController&&registration.waiting&&
+      // The idle Play Together menu is a safe update point. Previously
+      // refusing every remote-mode activation could leave an installed PWA
+      // running an old notification handler indefinitely. Never interrupt
+      // room creation, code entry, live games or an incoming push deep link.
+      const safeRemoteMenu=REMOTE_PLAYER&&
+        window.BLOCKS_REMOTE?.atMenu===true&&
+        !/(?:[?&])push_join=/.test(location.search||'');
+      if(hadController&&registration.waiting&&
+         (!REMOTE_PLAYER||safeRemoteMenu)&&
          (awaitingInitialStart||game.phase==="paused"||game.phase==="game_over")){
         activatingAtLaunch=true;
         saveGame(true);

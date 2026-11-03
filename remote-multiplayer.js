@@ -1114,25 +1114,58 @@
 
   // A notification clicked while the PWA is already open does not always
   // cause a full navigation on iOS. Join within the running multiplayer app.
-  async function acceptPushInvitation(code){
-    if(!installedPwa||!(/^[A-Z]{3}$/.test(code))||joining)return;
-    if(match){
-      if(match.code===code&&match.player===2){
-        void poll(); // Already joined this invitation.
-        return;
-      }
-      if(ready&&!finished){
-        // Never silently forfeit an active match because a push was tapped.
-        return;
-      }
-      await exitToNewGame();
-      if(match)return; // Exit failed; preserve the existing session.
-    }
-    if(creating)return; // Do not race an in-progress create request.
-    menu();showLobby(true);enterCode();
-    input.value=code;displaySlots();
-    await joinRoom(code);
+  let acceptingPush=false;
+  function requestPendingPush(){
+    if(installedPwa)navigator.serviceWorker?.controller?.postMessage?.({
+      type:'BLOCKS_GET_PUSH_INVITATION'
+    });
   }
+  function acknowledgePush(code){
+    const url=new URL(location.href);
+    url.searchParams.set('remote','1');
+    url.searchParams.set('push_join',code);
+    navigator.serviceWorker?.controller?.postMessage?.({
+      type:'BLOCKS_ACK_PUSH_INVITATION',url:url.href
+    });
+  }
+  async function acceptPushInvitation(code){
+    if(!installedPwa||!(/^[A-Z]{3}$/.test(code))||joining||
+       acceptingPush)return;
+    acceptingPush=true;
+    let handled=false;
+    try{
+      if(match){
+        if(match.code===code&&match.player===2){
+          void poll(); // Already joined this invitation.
+          handled=true;return;
+        }
+        if(ready&&!finished){
+          // Never silently forfeit an active match. Explain why it cannot
+          // switch rooms instead of just discarding the notification.
+          error.textContent='Finish the current game before joining a different room.';
+          handled=true;return;
+        }
+        await exitToNewGame();
+        if(match)return; // Exit failed; preserve the session for later retry.
+      }
+      if(creating)return; // Never race an unfinished host room creation.
+      menu();showLobby(true);enterCode();
+      input.value=code;displaySlots();
+      await joinRoom(code);
+      handled=true; // A join error is visible on the code-entry screen.
+    }finally{
+      acceptingPush=false;
+      if(handled)acknowledgePush(code);
+    }
+  }
+  // A notification may launch an installed iPhone PWA at its start URL.
+  // Ask the worker for the last tapped invite even when no query survived.
+  requestPendingPush();
+  navigator.serviceWorker?.ready?.then?.(registration=>{
+    if(installedPwa)registration.active?.postMessage({
+      type:'BLOCKS_GET_PUSH_INVITATION'
+    });
+  }).catch?.(()=>{});
   navigator.serviceWorker?.addEventListener('message',event=>{
     if(event.data?.type!=='BLOCKS_PUSH_INVITATION'||!installedPwa)return;
     try{
@@ -1153,7 +1186,9 @@
   window.addEventListener('online',()=>{void heartbeat(true);void poll();void flush()});
   window.addEventListener('offline',()=>holdGame('CONNECTION LOST'));
   document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible'){void heartbeat(true);void poll();void flush();}
+    if(document.visibilityState==='visible'){
+      requestPendingPush();void heartbeat(true);void poll();void flush();
+    }
     else{holdGame('APP IN BACKGROUND');persist();}
   });
   window.addEventListener('pagehide',()=>{persist();closeSocket()});

@@ -513,7 +513,11 @@
     showLobby(false);showResult(true);
     resultKicker.textContent='ROOM '+match.code+' · PLAYER '+match.player;
     resultTitle.textContent='READY TO START';
-    resultDetail.textContent='Both players must press Start to begin.';
+    const speedName=['Beginner','Easy','Hard'][match.difficulty]||'Easy';
+    const pieces=match.piece_set==='IO'?'I and O':'All';
+    const ghost=match.ghost_piece===true?'On':'Off';
+    resultDetail.textContent='Speed: '+speedName+' · Pieces: '+pieces+
+      ' · Ghost piece: '+ghost+'. Both players must press Start.';
     updateSessionScore(state);
     addFriend.hidden=true;friendStatus.hidden=true;enablePush.hidden=true;
     const mine=match.player===1?state.host_ready:state.guest_ready;
@@ -842,16 +846,25 @@
     void flush();
   }
   async function createRoom(friend=null){
-    if(creating||joining||match)return;
+    if(creating||joining||match||hostPanel.hidden)return;
     if(friend&&(!installedPwa||!window.BLOCKS_PUSH||
       !savedFriends?.some(person=>person.id===friend.id&&person.canNotify)))return;
     try{localStorage.removeItem(PENDING_JOIN_KEY)}catch(_){}
     setCreating(true);error.textContent='';
-    if(friend)friendsStatus.textContent='Creating game for '+friend.name+'…';
+    hostStatus.textContent=friend?
+      'Creating game for '+friend.name+'…':'Creating game…';
     let created=null;
     try{
-      const config=window.BLOCKS_REMOTE_LOCAL_CONFIG||
-        {difficulty:1,piece_set:'ALL',ghost_piece:false};
+      // Settings provide defaults, but the host explicitly approves the
+      // match rules. They are stored server-side and synced to the guest.
+      const config={
+        difficulty:Number(hostSpeed.value),
+        piece_set:hostPieces.value,
+        ghost_piece:hostGhost.value==='true'
+      };
+      if(![0,1,2].includes(config.difficulty)||
+         !['ALL','IO'].includes(config.piece_set))
+        throw Error('Select valid game settings.');
       const response=await rpc('blocks_create_match_short_v2',{
         p_difficulty:config.difficulty,p_piece_set:config.piece_set,
         p_ghost_piece:config.ghost_piece===true
@@ -866,7 +879,7 @@
       if(friend){
         // No game is created merely by opening the friends list. We create
         // the room only after selection, then send the push with its credentials.
-        friendsStatus.textContent='Sending invitation to '+friend.name+'…';
+        hostStatus.textContent='Sending invitation to '+friend.name+'…';
         await window.BLOCKS_PUSH.invite(created,friend.id);
         inviteRecipient=friend.name;
       }else inviteRecipient=null;
@@ -884,10 +897,14 @@
             console.warn('Could not cancel failed invite room:',cancelError);
           }
         }
-        if(!match&&friendsPanel.hidden===false)
-          friendsStatus.textContent=e?.message||'Could not send invitation.';
-        else if(match)setError(e);
-      }else{setError(e);menu();setError(e)}
+        if(!match&&!hostPanel.hidden)
+          hostStatus.textContent=e?.message||'Could not send invitation.';
+        else setError(e);
+      }else{
+        if(!match&&!hostPanel.hidden)
+          hostStatus.textContent=e?.message||'Could not create game.';
+        else setError(e);
+      }
     }finally{setCreating(false)}
   }
   async function joinRoom(code){
@@ -1125,6 +1142,12 @@
       const code=url.searchParams.get('push_join')?.toUpperCase()||'';
       void acceptPushInvitation(code);
     }catch(_){}
+  });
+  window.addEventListener('blocks:friends-changed',()=>{
+    if(match||creating||joining)return;
+    // Settings is the only place friends are removed; refresh the menu behind
+    // it so removed names cannot be selected for a later invitation.
+    menu();
   });
   window.addEventListener('online',()=>{void heartbeat(true);void poll();void flush()});
   window.addEventListener('offline',()=>holdGame('CONNECTION LOST'));

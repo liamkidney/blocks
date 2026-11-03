@@ -10,7 +10,7 @@ if(!source||!output||!["prod","dev"].includes(channel)||!revision)
 const assets=[
   "index.html","styles.css","tetrominoes.js","game.js","session.js","app.js",
   "multiplayer.js","remote-multiplayer.js","manifest.json","sw.js","version.js","config.js",
-  "player-name.js","score-sync.js","high-scores.js",
+  "player-name.js","score-sync.js","high-scores.js","settings.js",
   "icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"
 ];
 mkdirSync(output,{recursive:true});

@@ -1345,3 +1345,81 @@ body.remote-multiplayer #board-frame.game-paused::after{
   background:var(--ink);color:var(--paper)
 }
 #blocks-invite-dialog button:disabled{opacity:.5}
+
+
+/* The solo portrait row has four fixed physical slots. Other game layouts are untouched. */
+@media (orientation:portrait){
+  body:not(.two-player):not(.remote-multiplayer) #controls .control{
+    order:var(--portrait-control-order,0);
+  }
+}
+
+/* Button order editor lives only in Settings; gameplay buttons are never dragged. */
+#blocks-settings .settings-button-layout{margin-top:24px}
+#blocks-settings .settings-button-layout h4{
+  font:800 14px/1.3 Helvetica,Arial,sans-serif;margin:0 0 6px
+}
+#blocks-settings .settings-button-layout .blocks-settings-hint{margin:0 0 15px}
+#blocks-settings .settings-control-row{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;
+  width:100%;touch-action:pan-y
+}
+#blocks-settings .settings-control-slot{min-width:0}
+#blocks-settings .settings-control-key{
+  display:block;position:relative;width:100%;height:66px;
+  padding:0;border:0;border-radius:13px;overflow:hidden;
+  cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+  background:#1376df;color:var(--ink)
+}
+#blocks-settings .settings-control-key[data-command="left"]{background:#ff3b30}
+#blocks-settings .settings-control-key[data-command="right"]{background:#21afe0}
+#blocks-settings .settings-control-key[data-command="down"]{background:#ffd018}
+#blocks-settings .settings-control-key[data-command="rotate_cw"]{background:#1478df}
+#blocks-settings .settings-control-key .icon{font-size:36px}
+#blocks-settings .settings-control-key[data-command="rotate_cw"] .icon{color:var(--paper)}
+#blocks-settings .settings-control-key .rotate-svg{width:37px;height:37px}
+#blocks-settings .settings-control-slot:not(.is-placeholder) .settings-control-key{
+  animation:settings-button-wiggle .26s ease-in-out infinite alternate
+}
+#blocks-settings .settings-control-slot:nth-child(even) .settings-control-key{
+  animation-delay:-.13s
+}
+@keyframes settings-button-wiggle{
+  from{transform:rotate(-1.7deg)}
+  to{transform:rotate(1.7deg)}
+}
+#blocks-settings .settings-control-slot.is-placeholder .settings-control-key{
+  visibility:hidden
+}
+#blocks-settings .settings-control-key.is-drag-ghost{
+  position:fixed;z-index:12010;pointer-events:none;visibility:visible;
+  margin:0;min-height:0;animation:none;cursor:grabbing;
+  box-shadow:0 10px 20px rgba(0,0,0,.25)
+}
+#blocks-settings .settings-control-options{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px
+}
+#blocks-settings #settings-control-reset{
+  background:transparent;color:var(--ink);padding:8px 12px
+}
+#blocks-settings #settings-control-status{
+  font:600 12px/1.4 Helvetica,Arial,sans-serif;min-width:32px
+}
+@media(prefers-reduced-motion:reduce){
+  #blocks-settings .settings-control-slot .settings-control-key{animation:none}
+}
+
+
+/* The drag preview is moved to <body> so it can follow the finger above the dialog. */
+body > .settings-control-key.is-drag-ghost{
+  position:fixed;z-index:12010;display:block;overflow:hidden;
+  border:0;border-radius:13px;padding:0;pointer-events:none;
+  background:#1376df;color:var(--ink);box-shadow:0 10px 20px rgba(0,0,0,.25);
+  touch-action:none
+}
+body > .settings-control-key.is-drag-ghost[data-command="left"]{background:#ff3b30}
+body > .settings-control-key.is-drag-ghost[data-command="right"]{background:#21afe0}
+body > .settings-control-key.is-drag-ghost[data-command="down"]{background:#ffd018}
+body > .settings-control-key.is-drag-ghost[data-command="rotate_cw"]{background:#1478df}
+body > .settings-control-key.is-drag-ghost .icon{color:var(--ink)}
+body > .settings-control-key.is-drag-ghost[data-command="rotate_cw"] .icon{color:var(--paper)}

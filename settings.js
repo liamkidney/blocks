@@ -158,7 +158,11 @@
     nameStatus.textContent='';
     const storedSpeed=Number(read(DIFFICULTY_KEY,DEFAULT_GAME_MODE));
     speed.value=String(Object.hasOwn(GAME_MODES,storedSpeed)?storedSpeed:DEFAULT_GAME_MODE);
-    ghost.value=read(GHOST_KEY,String(window.BLOCKS_CONFIG?.ghostPiece===true));
+    // Keep personal defaults separate from the host's inherited ghost rule
+    // when this installation previously joined a two-phone room.
+    const ownGhost=window.BLOCKS_REMOTE_LOCAL_CONFIG?.ghost_piece;
+    ghost.value=read(GHOST_KEY,String(
+      typeof ownGhost==='boolean'?ownGhost:window.BLOCKS_CONFIG?.ghostPiece===true));
     social.hidden=!window.BLOCKS_PUSH;
     modal.hidden=false;
     revision++;

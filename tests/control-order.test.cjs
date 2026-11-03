@@ -29,6 +29,13 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   function makeButton(command,index){
     return {
       dataset:{command},classList:makeClasses(),style:makeStyle(),parent:null,
+      animations:[],cssWiggleCancelled:false,
+      getAnimations(){return [{cancel:()=>{this.cssWiggleCancelled=true}}]},
+      animate(keyframes,options){
+        const animation={keyframes,options,cancelled:false,cancel(){this.cancelled=true}};
+        this.animations.push(animation);
+        return animation;
+      },
       getBoundingClientRect(){
         const order=Number(this.style.props['--portrait-control-order']??index);
         return {left:order*71,top:0,width:63,height:66};
@@ -193,8 +200,34 @@ test('wiggle remains enabled in user-entered edit mode, including Reduce Motion'
   assert.match(css,/to\{transform:rotate\(4deg\)\}/);
   assert.doesNotMatch(css,/body\.controls-editing #controls \.control\{animation:none!important\}/);
 });
-test('HUD Settings uses a gear, not radial sun rays',()=>{
+test('neighbours keep their CSS wiggle while horizontal shifts are animated',()=>{
+  const b=boot();
+  b.window.BLOCKS_BEGIN_CONTROL_EDIT();
+  const dragged=b.buttons[0];
+  b.pointer('pointerdown',dragged,10,12);
+  b.pointer('pointermove',dragged,10,252);
+  for(const neighbour of b.buttons.slice(1)){
+    assert.ok(neighbour.animations.length>0,'neighbour should glide into a new slot');
+    assert.equal(neighbour.cssWiggleCancelled,false,'CSS wiggle must not be cancelled');
+    const last=neighbour.animations.at(-1);
+    assert.equal(typeof last.keyframes[0].translate,'string');
+    assert.equal(last.keyframes[0].transform,undefined,
+      'movement must not override the CSS rotation transform');
+  }
+  b.pointer('pointermove',dragged,10,110);
+  for(const neighbour of b.buttons.slice(1)){
+    assert.equal(neighbour.cssWiggleCancelled,false,'CSS wiggle persists on repeated rearranging');
+    assert.equal(neighbour.animations.at(-1).keyframes.at(-1).translate,'0px 0');
+  }
+  b.pointer('pointerup',dragged,10,110);
+  b.done.click();
+});
+
+test('HUD Settings uses the official Lucide gear with internal padding',()=>{
+
   assert.match(app,/settingsButton\.innerHTML='<svg class="settings-cog"/);
   assert.match(app,/class="settings-cog"[\s\S]*?<circle cx="12" cy="12" r="3"\/>/);
+  assert.match(app,/M9\.671 4\.136a2\.34/,'official Lucide Settings path');
   assert.doesNotMatch(app,/M12 2\.5v3M12 18\.5v3/);
+  assert.doesNotMatch(app,/scale\(\.975\)/,'no icon scaling that could clip its edge');
 });

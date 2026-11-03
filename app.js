@@ -175,7 +175,8 @@ highScoresSlot.id="high-scores-slot";
 const settingsButton=document.createElement("button");
 settingsButton.id="hud-settings-button";settingsButton.type="button";
 settingsButton.setAttribute("aria-label","Settings");settingsButton.title="Settings";
-settingsButton.innerHTML='<svg class="settings-cog" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.7 2.2h4.6l.5 2.4c.5.2 1 .4 1.45.65l2-1.3 3.1 3.1-1.3 2c.25.45.45.95.65 1.45l2.4.5v4.6l-2.4.5c-.2.5-.4 1-.65 1.45l1.3 2-3.1 3.1-2-1.3c-.45.25-.95.45-1.45.65l-.5 2.4H9.7l-.5-2.4c-.5-.2-1-.4-1.45-.65l-2 1.3-3.1-3.1 1.3-2c-.25-.45-.45-.95-.65-1.45l-2.4-.5v-4.6l2.4-.5c.2-.5.4-1 .65-1.45l-1.3-2 3.1-3.1 2 1.3c.45-.25.95-.45 1.45-.65z" transform="translate(0 -0.1) scale(.975) translate(.3 .3)"/><circle cx="12" cy="12" r="3"/></svg>';
+// Lucide Settings icon (ISC); exact source and attribution in THIRD_PARTY_NOTICES.md.
+settingsButton.innerHTML='<svg class="settings-cog" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>';
 highScoresSlot.appendChild(settingsButton);
 document.getElementById("hud").append(actions,highScoresSlot);
 if(REMOTE_PLAYER){
@@ -1126,6 +1127,9 @@ function applySoloControlOrder(order){
 }
 applySoloControlOrder(soloControlOrder);
 let soloControlEditor=null;
+// Track only movement effects: cancelling every animation also cancels the
+// CSS wiggle, leaving neighbouring controls motionless during a drag.
+const soloControlShiftAnimations=new WeakMap();
 function moveSoloControlTo(index){
   const state=soloControlEditor;
   if(!state?.drag)return;
@@ -1145,11 +1149,14 @@ function moveSoloControlTo(index){
     const from=before.get(button),to=button.getBoundingClientRect();
     const delta=from.left-to.left;
     if(Math.abs(delta)<1)continue;
-    button.getAnimations?.().forEach(animation=>animation.cancel());
-    button.animate([
-      {transform:"translateX("+delta+"px)"},
-      {transform:"translateX(0)"}
+    soloControlShiftAnimations.get(button)?.cancel();
+    // Animate the independent CSS 'translate' property so the continuous
+    // 'transform:rotate(...)' wiggle can run at the same time.
+    const shift=button.animate([
+      {translate:delta+"px 0"},
+      {translate:"0px 0"}
     ],{duration:175,easing:"ease-out"});
+    soloControlShiftAnimations.set(button,shift);
   }
 }
 function stopSoloControlDrag(commit){

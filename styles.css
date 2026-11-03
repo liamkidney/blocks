@@ -102,7 +102,7 @@ body:not(.two-player) #board-frame #board {
   inset:0;
   z-index:3;
   background:var(--ink);
-  animation:clearFlash 600ms steps(1,end) 1}
+  animation:clearFlash 250ms steps(1,end) 1}
 @keyframes clearFlash {
   0%,33.333%,66.666% {
   background:var(--ink)}
@@ -278,7 +278,11 @@ body:not(.two-player) #landscape-title{display:none}
 #game-over[hidden]{display:none}#game-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:5;pointer-events:none}
 
 body:not(.two-player) #game-actions button:disabled{opacity:.3}
-body:not(.two-player) #board-frame.game-paused .cell.clearing::after{animation-play-state:paused}body:not(.two-player) #board-frame.game-paused::after{content:"PAUSED";position:absolute;inset:auto 0 0;height:var(--single-board-height);display:flex;align-items:center;justify-content:center;background:rgba(243,239,227,.86);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:6;pointer-events:none}
+/* No active board or next-piece preview remains visible on pause. */
+#board-frame.game-paused #board{visibility:hidden}
+body.match-paused .second-board{visibility:hidden}
+body.blocks-game-paused :is(#preview,#preview-card,.second-preview){visibility:hidden}
+body:not(.two-player) #board-frame.game-paused .cell.clearing::after{animation-play-state:paused}body:not(.two-player) #board-frame.game-paused::after{content:"PAUSED";position:absolute;inset:auto 0 0;height:var(--single-board-height);display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink);font-size:clamp(20px,5vw,32px);font-weight:900;letter-spacing:1px;z-index:6;pointer-events:none}
 
 /* Start / restart: grouped options are selectors; the solid button commits. */
 #restart-dialog[hidden]{display:none}

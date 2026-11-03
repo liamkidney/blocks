@@ -203,7 +203,12 @@ gameOver.id="game-over";
 gameOver.textContent="GAME OVER";
 board.parentElement.appendChild(gameOver);
 let lastTime=performance.now(),boardTouch=null;
-const REPEAT_DELAY=130,REPEAT_INTERVAL=50,DOWN_REPEAT_INTERVAL=35;
+const REPEAT_DELAY=130,REPEAT_INTERVAL=50;
+// Soft drop scales with gravity (20x), with a 16ms floor for touch performance.
+function downRepeatInterval(player){
+  const seconds=session.games[player]?.tickSeconds??0.8;
+  return Math.max(16,Math.min(50,Math.round(seconds*1000/20)));
+}
 
 for(let y=19;y>=0;y--) for(let x=0;x<10;x++){
   const cell=document.createElement("div");cell.className="cell";board.appendChild(cell);boardCells.push(cell);
@@ -685,6 +690,7 @@ function renderActions(){
     }
   }
   board.parentElement.classList.toggle("game-paused",paused);
+  document.body.classList.toggle("blocks-game-paused",paused);
   if(TWO_PLAYER)document.body.classList.toggle("match-paused",paused);
 }
 let lastPreviewTetromino=null;
@@ -849,7 +855,7 @@ function repeat(button){
   const player=Number(button.dataset.player||0);
   applyCommand(command,player);
   repeatTimers.set(button,setTimeout(()=>repeat(button),
-    command==="down"?DOWN_REPEAT_INTERVAL:REPEAT_INTERVAL));
+    command==="down"?downRepeatInterval(player):REPEAT_INTERVAL));
 }
 function press(button){
   if(controlEditing)return;
@@ -860,7 +866,7 @@ function press(button){
   applyCommand(command,player);
   if(repeatable.has(command))
     repeatTimers.set(button,setTimeout(()=>repeat(button),
-      command==="down"?DOWN_REPEAT_INTERVAL:REPEAT_DELAY));
+      command==="down"?downRepeatInterval(player):REPEAT_DELAY));
 }
 function release(button){
   button.classList.remove("pressed");

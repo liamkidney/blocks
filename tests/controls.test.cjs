@@ -136,57 +136,62 @@ test("left/right repeat immediately, after 130ms, then every 50ms",()=>{
   assert.equal(b.timers.size,0);
 });
 
-test("down repeats faster, and another finger can steer simultaneously",()=>{
+test("down repeats immediately every 35ms, and another finger can steer",()=>{
   const b=boot(),[left,right,down]=b.buttons;
   b.send(down,"touchstart",5,165);
   b.send(right,"touchstart",6,95);
-  b.advance(130);
-  assert.equal(count(b.logs,"down"),2);
+  b.advance(34);
+  assert.equal(count(b.logs,"down"),1,"no artificial 130 ms pause");
+  b.advance(1);
+  assert.equal(count(b.logs,"down"),2,"soft drop accelerates after 35 ms");
+  b.advance(95);
+  assert.equal(count(b.logs,"down"),4);
   assert.equal(count(b.logs,"right"),2);
   b.advance(140);
-  assert.equal(count(b.logs,"down"),6);
+  assert.equal(count(b.logs,"down"),8);
   assert.equal(count(b.logs,"right"),4);
   b.send(right,"touchend",6,95);
   b.advance(70);
   assert.equal(count(b.logs,"right"),4);
-  assert.equal(count(b.logs,"down"),8);
+  assert.equal(count(b.logs,"down"),10);
   b.send(down,"touchend",5,165);
   assert.equal(b.timers.size,0);
 });
 
 
-test("held Down does not soft-drop the next spawned piece until released",()=>{
+test("a held Down continues immediately through subsequent pieces",()=>{
   const b=boot(),down=b.buttons[2];
   b.send(down,"touchstart",5,165);
-  b.advance(130);
-  assert.equal(count(b.logs,"down"),2);
-  // Gravity locks the piece between two soft-drop repetitions.
+  b.advance(70);
+  assert.equal(count(b.logs,"down"),3);
   b.session.games[0].active={id:"next-piece"};
-  b.advance(105);
-  assert.equal(count(b.logs,"down"),2,
-    "old hold must not send a Down command to the next piece");
-  assert.equal(b.timers.size,0,"repeat timer is removed on piece change");
+  b.advance(35);
+  assert.equal(count(b.logs,"down"),4,
+    "the same held finger must soft-drop the new piece");
+  assert.equal(b.timers.size,1);
   b.send(down,"touchend",5,165);
-  b.send(down,"touchstart",6,165);
-  assert.equal(count(b.logs,"down"),3,
-    "releasing and pressing again allows deliberate soft drop");
-  b.send(down,"touchend",6,165);
+  b.advance(140);
+  assert.equal(count(b.logs,"down"),4,"releasing stops the repeat");
+  assert.equal(b.timers.size,0);
 });
 
-test("held Down is also isolated by piece and player in two-player games",()=>{
+test("held Down carries across pieces independently for both players",()=>{
   const b=boot(),p2=b.addPlayerTwo();
   const downOne=b.buttons[2],downTwo=p2.buttons[2];
   b.send(downOne,"touchstart",5,165);
   b.send(downTwo,"touchstart",6,615);
-  b.advance(130);
-  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,2);
-  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,2);
+  b.advance(70);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,3);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,3);
   b.session.games[0].active={id:"next-p1"};
   b.advance(35);
-  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,2);
-  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,3,
-    "player two is unaffected by player one's new piece");
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,4);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,4);
   b.send(downOne,"touchend",5,165);
+  b.advance(35);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===0).length,4);
+  assert.equal(b.logs.filter(x=>x.command==="down"&&x.player===1).length,5,
+    "releasing one player's Down must not stop the other's");
   b.send(downTwo,"touchend",6,615);
   assert.equal(b.timers.size,0);
 });

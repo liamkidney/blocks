@@ -1,6 +1,7 @@
 // NES gravity curve in 60 Hz frames per row. Easy begins at level 0;
 // Hard begins at level 5. Both advance one level per ten cleared lines.
 const GRAVITY_FRAMES=[48,43,38,33,28,23,18,13,8,6,5,5,5,4,4,4,3,3,3,2,2,2,2,2,2,2,2,2,2,1];
+const LOCK_DELAY_SECONDS=0.4; // Grounded time, independent of level/gravity.
 
 // Guideline Super Rotation System (SRS), using x right and y up.
 // Transition state numbers: 0=spawn, 1=R, 2=reverse, 3=L.
@@ -60,6 +61,7 @@ class Game {
     this.phase="falling"; this.completedRows=[]; this.score=0; this.lines=0;
     this.difficulty=parseGameMode(config.difficulty)??DEFAULT_GAME_MODE;
     this.elapsed=0;
+    this.lockElapsed=null;
     const allowedNames=config.allowedPieces||TETROMINOES.map(t=>t.name);
     const tetrominoes=TETROMINOES.filter(t=>allowedNames.includes(t.name));
     this.queue=new PieceQueue(tetrominoes); this.nextTetromino=this.queue.next(); this.active=null; this.spawn();
@@ -71,6 +73,7 @@ class Game {
       version:4,difficulty:this.difficulty,grid:this.grid.map(row=>[...row]),phase:this.phase,
       pausedPhase:this.pausedPhase||null,completedRows:[...this.completedRows],
       score:this.score,lines:this.lines,elapsed:this.elapsed,
+      lockElapsed:this.lockElapsed,
       active:this.active?{name:this.active.tetromino.name,x:this.active.x,y:this.active.y,orientation:this.active.orientation}:null,
       queue:this.queue.pieces.map(t=>t.name),
       bag:this.queue.bag.map(t=>t.name)
@@ -87,6 +90,9 @@ class Game {
        !["falling","clearing_lines","paused","game_over"].includes(snapshot.phase)||
        !integer(snapshot.score)||!integer(snapshot.lines)||
        !Number.isFinite(snapshot.elapsed)||snapshot.elapsed<0||snapshot.elapsed>2||
+       (snapshot.lockElapsed!==undefined&&snapshot.lockElapsed!==null&&
+         (!Number.isFinite(snapshot.lockElapsed)||snapshot.lockElapsed<0||
+          snapshot.lockElapsed>LOCK_DELAY_SECONDS))||
        !Array.isArray(snapshot.queue)||snapshot.queue.length!==2||!snapshot.queue.every(validName)||
        (snapshot.version===4&&(!Array.isArray(snapshot.bag)||
          snapshot.bag.length>allowed.length||!snapshot.bag.every(validName)||
@@ -125,6 +131,8 @@ class Game {
       else if(snapshot.version===2&&active.orientation===3)game.active.x++;
     }
     if(game.active&&!game.canPlace(game.offsets,game.active.x,game.active.y))throw new Error("Invalid active position");
+    game.lockElapsed=game.active?(snapshot.lockElapsed??null):null;
+    game.syncLockTimer();
     return game;
   }
   pause(){
@@ -144,10 +152,38 @@ class Game {
     while(this.canPlace(this.offsets,this.active.x,y-1))y--;
     return y;
   }
+  // Arming a lock on first contact, rather than after a failed gravity tick,
+  // makes landing latency identical at all speeds. Moving/rotating on the
+  // same support does not prolong the deadline; leaving support clears it.
+  syncLockTimer(){
+    if(!this.active||this.canPlace(this.offsets,this.active.x,this.active.y-1))
+      this.lockElapsed=null;
+    else if(this.lockElapsed===null)this.lockElapsed=0;
+  }
   update(dt){
-    if(this.phase!=="falling") return;
-    this.elapsed+=dt;
-    while(this.elapsed>=this.tickSeconds){ this.elapsed-=this.tickSeconds; this.tick(); }
+    if(this.phase!=="falling"||!Number.isFinite(dt)||dt<=0)return;
+    // Process the frame chronologically so landing partway through a frame
+    // counts only the time actually spent grounded. The newly spawned piece
+    // never inherits the remainder of the previous piece's frame.
+    let remaining=dt;
+    const piece=this.active;
+    this.syncLockTimer();
+    while(remaining>0&&this.phase==="falling"&&this.active===piece){
+      const gravityIn=Math.max(0,this.tickSeconds-this.elapsed);
+      const lockIn=this.lockElapsed===null?Infinity:
+        Math.max(0,LOCK_DELAY_SECONDS-this.lockElapsed);
+      const step=Math.min(remaining,gravityIn,lockIn);
+      this.elapsed+=step;
+      if(this.lockElapsed!==null)this.lockElapsed+=step;
+      remaining-=step;
+      if(this.lockElapsed!==null&&this.lockElapsed>=LOCK_DELAY_SECONDS-1e-9){
+        this.lockPiece();return;
+      }
+      if(this.elapsed>=this.tickSeconds-1e-9){
+        this.elapsed=Math.max(0,this.elapsed-this.tickSeconds);
+        this.tick();
+      }else if(step===0)break;
+    }
   }
   press(name){
     if(this.phase!=="falling") return;
@@ -159,21 +195,29 @@ class Game {
   dropOne(){
     if(this.phase!=="falling"||!this.tryMove(0,-1))return;
     this.score++;
-    // Soft drop is a player-controlled gravity step. Start a full gravity
-    // interval from this movement so landing never depends on an old tick.
+    // A successful soft-drop step restarts gravity, but the grounded lock
+    // clock starts immediately on contact and is never reset by repeat taps.
     this.elapsed=0;
   }
   tick(){
-    if(!this.active) return;
-    if(this.tryMove(0,-1)) return;
+    if(!this.active)return;
+    this.tryMove(0,-1);
+    // A blocked gravity step no longer locks the piece immediately;
+    // the independent lock clock expires after 400 ms on the support.
+    this.syncLockTimer();
+  }
+  lockPiece(){
+    if(!this.active||this.phase!=="falling")return;
     // A piece may rotate above the visible board, but must never lock there.
     if(this.offsets.some(([,oy])=>this.active.y+oy>=this.height)){
       this.endGame();return;
     }
-    for(const [ox,oy] of this.offsets) this.grid[this.active.y+oy][this.active.x+ox]=this.active.tetromino.name;
+    for(const [ox,oy] of this.offsets)
+      this.grid[this.active.y+oy][this.active.x+ox]=this.active.tetromino.name;
     this.active=null;
+    this.lockElapsed=null;
     this.completedRows=this.grid.map((row,y)=>row.every(Boolean)?y:-1).filter(y=>y>=0);
-    if(this.completedRows.length){ this.phase="clearing_lines"; this.elapsed=0; }
+    if(this.completedRows.length){this.phase="clearing_lines";this.elapsed=0;}
     else this.advance();
   }
   presentationComplete(){
@@ -214,17 +258,20 @@ class Game {
         return;
       }
     }
+    this.syncLockTimer();
   }
   endGame(){
     this.phase="game_over";
     this.completedRows=[];
     this.active=null;
+    this.lockElapsed=null;
   }
   advance(){ this.queue.advance(); this.nextTetromino=this.queue.next(); this.spawn(); }
   spawn(){
     // Never let the previous piece's partially consumed gravity interval
     // advance the newly spawned one (including on a lock during update()).
     this.elapsed=0;
+    this.lockElapsed=null;
     const t=this.queue.current(), offsets=t.orientations[0];
     const xs=offsets.map(p=>p[0]),ys=offsets.map(p=>p[1]);
     const minX=Math.min(...xs),maxX=Math.max(...xs),maxY=Math.max(...ys);
@@ -237,7 +284,9 @@ class Game {
     if(!this.active) return false;
     const x=this.active.x+dx,y=this.active.y+dy;
     if(!this.canPlace(this.offsets,x,y)) return false;
-    this.active.x=x;this.active.y=y;return true;
+    this.active.x=x;this.active.y=y;
+    this.syncLockTimer();
+    return true;
   }
   tryRotate(direction){
     if(!this.active||(direction!==1&&direction!==-1))return false;
@@ -253,6 +302,7 @@ class Game {
       const x=piece.x+dx,y=piece.y+dy;
       if(!this.canPlace(offsets,x,y))continue;
       piece.x=x;piece.y=y;piece.orientation=orientation;
+      this.syncLockTimer();
       return true;
     }
     return false;

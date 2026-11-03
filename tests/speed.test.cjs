@@ -116,47 +116,105 @@ test("pre-integer string snapshots remain recoverable",()=>{
   }
 });
 
-test("soft drop resets gravity timing instead of inheriting a nearly due tick",()=>{
+test("soft drop resets gravity movement without delaying the landing lock",()=>{
   const game=new Game({difficulty:0});
   game.elapsed=game.tickSeconds-.01;
   const before=game.active.y;
   game.dropOne();
   assert.equal(game.active.y,before-1);
-  assert.equal(game.elapsed,0,"manual downward movement starts a fresh gravity period");
+  assert.equal(game.elapsed,0,"successful soft drop begins a new gravity interval");
   game.update(.02);
-  assert.equal(game.active.y,before-1,"stale gravity tick must not instantly drop again");
+  assert.equal(game.active.y,before-1,"the old gravity tick is not inherited");
   game.update(game.tickSeconds-.021);
   assert.equal(game.active.y,before-1);
   game.update(.002);
-  assert.equal(game.active.y,before-2,"the next automatic drop occurs after a full interval");
+  assert.equal(game.active.y,before-2);
 });
 
-test("blocked Down leaves gravity running and locks at a predictable time",()=>{
+test("ground contact starts a fixed 400 ms lock at every difficulty",()=>{
+  for(const difficulty of [0,1,2]){
+    const game=new Game({difficulty});
+    while(game.tryMove(0,-1)){}
+    const piece=game.active;
+    assert.equal(game.lockElapsed,0,"first contact arms lock timer");
+    game.update(.399);
+    assert.strictEqual(game.active,piece,"lock delay is independent of gravity speed");
+    assert.equal(game.phase,"falling");
+    game.update(.001);
+    assert.notStrictEqual(game.active,piece,"piece locks exactly 400 ms after landing");
+    assert.equal(game.elapsed,0,"next piece starts with clean gravity timing");
+    assert.equal(game.phase,"falling");
+  }
+});
+
+test("unsuccessful held Down cannot prolong the grounded lock",()=>{
   const game=new Game({difficulty:0});
-  while(game.tryMove(0,-1))game.elapsed=.3;
-  const locked=game.active;
-  game.elapsed=.3;
-  game.dropOne();
-  assert.equal(game.elapsed,.3,"unsuccessful soft-drop repeats must not postpone locking");
-  game.update(.49);
-  assert.strictEqual(game.active,locked,"piece remains until its full gravity tick");
-  game.update(.011);
-  assert.notStrictEqual(game.active,locked,"piece locks and next piece spawns");
-  assert.equal(game.elapsed,0,"next piece inherits no elapsed gravity time");
-  assert.equal(game.phase,"falling");
+  while(game.tryMove(0,-1)){}
+  const piece=game.active;
+  game.update(.25);
+  for(let i=0;i<12;i++)game.dropOne();
+  assert.strictEqual(game.active,piece);
+  assert.equal(game.lockElapsed,.25);
+  game.update(.15);
+  assert.notStrictEqual(game.active,piece);
 });
 
-test("new piece receives a fresh tick even after gravity's own lock event",()=>{
+test("grounded movement does not extend lock, but leaving support resets it",()=>{
+  const game=new Game({difficulty:0,allowedPieces:["O"]});
+  while(game.tryMove(0,-1)){}
+  const grounded=game.active;
+  game.update(.25);
+  assert.equal(game.tryMove(1,0),true);
+  assert.equal(game.lockElapsed,.25,"lateral adjustment on the same floor keeps the deadline");
+  game.update(.15);
+  assert.notStrictEqual(game.active,grounded);
+  const game2=new Game({difficulty:0,allowedPieces:["O"]});
+  game2.grid[2][4]="I";
+  // Align an O piece over the single-cell support so moving away is possible.
+  game2.active.x=3;
+  game2.active.y=2;
+  assert.equal(game2.canPlace(game2.offsets,3,2),true);
+  game2.syncLockTimer();
+  assert.equal(game2.lockElapsed,0);
+  game2.update(.25);
+  assert.equal(game2.tryMove(1,0),true);
+  assert.equal(game2.lockElapsed,null,"falling away from support cancels the lock");
+});
+
+test("paused and restored games preserve their remaining lock time",()=>{
+  const game=new Game({difficulty:0});
+  while(game.tryMove(0,-1)){}
+  game.update(.25);
+  game.pause();
+  game.update(.5);
+  assert.equal(game.lockElapsed,.25,"pause does not count against lock time");
+  const snapshot=game.toSnapshot();
+  const restored=Game.fromSnapshot(snapshot);
+  assert.equal(restored.lockElapsed,.25);
+  assert.equal(restored.phase,"paused");
+  const piece=restored.active;
+  restored.resume();
+  restored.update(.149);
+  assert.strictEqual(restored.active,piece);
+  restored.update(.001);
+  assert.notStrictEqual(restored.active,piece);
+});
+
+test("gravity landing starts its own lock clock before changing pieces",()=>{
   const game=new Game({difficulty:2});
   while(game.tryMove(0,-1)){}
+  game.active.y++;
+  game.syncLockTimer();
+  assert.equal(game.lockElapsed,null);
   const original=game.active;
   game.elapsed=game.tickSeconds-.01;
-  game.update(.05);
+  game.update(.06);
+  assert.strictEqual(game.active,original);
+  assert.equal(game.lockElapsed!==null,true);
+  assert.ok(game.lockElapsed>.04&&game.lockElapsed<.051);
+  game.update(.349);
+  assert.strictEqual(game.active,original);
+  game.update(.002);
   assert.notStrictEqual(game.active,original);
   assert.equal(game.elapsed,0);
-  const spawnY=game.active.y;
-  game.update(game.tickSeconds-.001);
-  assert.equal(game.active.y,spawnY,"next piece cannot drop early");
-  game.update(.002);
-  assert.equal(game.active.y,spawnY-1);
 });

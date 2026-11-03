@@ -1018,21 +1018,26 @@ test('presence interruption pauses and resumes both-player local board as announ
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
 });
 
-test('first Create Game touch starts a single room without waiting for click',async()=>{
+test('Create Game touch opens rules, then a single confirm touch creates one room',async()=>{
   const f=fixture(),phone=f.browser();
   const button=phone.get('remote-create');
   assert.equal(typeof button.listeners.touchstart,'function');
   let prevented=0;
   button.listeners.touchstart({preventDefault(){prevented++}});
-  assert.equal(prevented,1,"touch should suppress delayed synthetic click");
-  assert.equal(button.disabled,true,"request starts synchronously on touchstart");
-  assert.equal(button.classList.contains('is-loading'),true);
+  assert.equal(prevented,1);
+  assert.equal(phone.get('remote-host-panel').hidden,false,
+    'one touch should open the host rules screen');
+  assert.equal(f.rooms.size,0,'rules screen does not create a room');
   button.onclick({detail:1,preventDefault(){prevented++}});
-  assert.equal(prevented,2,"compatibility click should be consumed");
+  assert.equal(prevented,2,'synthetic click must be consumed');
+  const confirm=phone.get('remote-host-confirm');
+  confirm.listeners.touchstart({preventDefault(){prevented++}});
+  assert.equal(confirm.disabled,true,'request starts on the confirm touch');
+  confirm.onclick({detail:1,preventDefault(){prevented++}});
   await settle();
-  assert.equal(f.rooms.size,1,"one touch must not create duplicate rooms");
+  assert.equal(f.rooms.size,1,'confirm must create exactly one room');
   assert.equal(phone.get('remote-code-panel').hidden,false);
-  assert.equal(button.disabled,false);
+  assert.equal(confirm.disabled,false);
 });
 
 test('Join Game touch runs once, preserving typed code after compatibility click',()=>{

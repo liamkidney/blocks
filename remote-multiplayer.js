@@ -211,7 +211,7 @@
     friendsPanel.hidden=step!=='friends';
     codePanel.hidden=step!=='code';
     entry.hidden=step!=='entry';
-    status.hidden=step==='entry';
+    status.hidden=step==='entry'||step==='friends';
     error.textContent='';
     syncCodeEntryViewport();
   }

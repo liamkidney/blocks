@@ -294,11 +294,12 @@ body:not(.two-player) #board-frame.game-paused .cell.clearing::after{animation-p
   touch-action:pan-y;
 }
 .restart-panel{
+  position:relative;
   width:min(100%,360px);
   max-height:calc(100dvh - 24px);
   overflow-y:auto;
   overscroll-behavior:contain;
-  padding:24px 22px 20px;
+  padding:55px 22px 20px;
   background:var(--paper);
   border:3px solid var(--ink);
   color:var(--ink);
@@ -899,19 +900,24 @@ body:not(.two-player) #game-actions button[hidden]{display:none}
   #remote-result #remote-rematch-status{margin:7px 0 0}
 }
 
-/* Keep the X in the same viewport top-right corner on Create, Join and
-   Room Created, instead of attaching it to vertically centred content. */
+/* Back consistently sits top-left. Closing/cancelling an allocated room
+   remains a separate X in the top-right. Both have 44px touch targets. */
 #remote-lobby #remote-menu-exit,
 #remote-lobby #remote-code-exit{
   position:fixed;
   top:calc(env(safe-area-inset-top, 0px) + 16px);
-  right:calc(env(safe-area-inset-right, 0px) + 16px);
   z-index:2;
   display:grid;place-items:center;width:44px;height:44px;
   min-height:44px;padding:0;border:0;border-radius:8px;
   background:transparent;color:var(--ink);
   font:400 29px/1 Helvetica,Arial,sans-serif;
   cursor:pointer;touch-action:manipulation;
+}
+#remote-lobby #remote-menu-exit{
+  left:calc(env(safe-area-inset-left, 0px) + 16px);
+}
+#remote-lobby #remote-code-exit{
+  right:calc(env(safe-area-inset-right, 0px) + 16px);
 }
 #remote-lobby #remote-menu-exit:focus-visible,
 #remote-lobby #remote-code-exit:focus-visible{
@@ -1216,6 +1222,22 @@ body.remote-multiplayer #board-frame.game-paused::after{
 #blocks-settings [hidden]{display:none!important}
 
 
+/* Back is navigation; the X closes the current dialog. */
+#restart-dialog .restart-panel .restart-back,
+#restart-dialog .restart-panel .restart-cancel{
+  position:absolute;top:8px;
+  width:44px;height:44px;min-height:44px;margin:0;
+  padding:0;border:0;border-radius:8px;display:grid;place-items:center;
+  background:transparent;color:var(--ink);
+  font:400 29px/1 Helvetica,Arial,sans-serif;
+  touch-action:manipulation;cursor:pointer
+}
+#restart-dialog .restart-panel .restart-back{left:8px}
+#restart-dialog .restart-panel .restart-cancel{right:8px}
+#restart-dialog .restart-panel .restart-cancel[hidden]{display:none!important}
+@media (orientation:landscape) and (max-height:480px){
+  #restart-dialog .restart-panel{padding-top:50px}
+}
 /* New Game is mode-first; only the chosen local mode shows speed/ghost rules. */
 #restart-dialog .restart-mode-screen{display:grid;gap:11px;margin-top:22px}
 #restart-dialog .restart-mode-screen button{
@@ -1235,11 +1257,7 @@ body.remote-multiplayer #board-frame.game-paused::after{
   min-height:44px;border-width:1px;font-weight:700;font-size:11px
 }
 #restart-dialog #restart-rules-screen{margin-top:14px}
-#restart-dialog .restart-back{
-  display:block;padding:8px 0;border:0;background:transparent;
-  color:var(--ink);font:800 12px Helvetica,Arial,sans-serif;
-  min-height:40px;touch-action:manipulation
-}
+#restart-dialog .restart-back{outline-offset:2px}
 #restart-dialog .restart-panel [hidden]{display:none!important}
 
 

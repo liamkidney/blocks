@@ -1214,3 +1214,27 @@ body.remote-multiplayer #board-frame.game-paused::after{
 }
 #blocks-settings .blocks-settings-notifications button{margin-top:12px}
 #blocks-settings [hidden]{display:none!important}
+
+
+/* New Game is mode-first; only the chosen local mode shows speed/ghost rules. */
+#restart-dialog .restart-mode-screen{display:grid;gap:11px;margin-top:22px}
+#restart-dialog .restart-mode-screen button{
+  width:100%;min-height:53px;box-sizing:border-box;
+  border:2px solid var(--ink);border-radius:8px;
+  background:var(--paper);color:var(--ink);
+  font:900 12px Helvetica,Arial,sans-serif;
+  letter-spacing:.5px;touch-action:manipulation;cursor:pointer
+}
+#restart-dialog .restart-mode-screen #restart-one{
+  background:var(--ink);color:var(--paper)
+}
+#restart-dialog .restart-mode-screen #restart-settings{
+  min-height:44px;border-width:1px;font-weight:700;margin-top:6px
+}
+#restart-dialog #restart-rules-screen{margin-top:14px}
+#restart-dialog .restart-back{
+  display:block;padding:8px 0;border:0;background:transparent;
+  color:var(--ink);font:800 12px Helvetica,Arial,sans-serif;
+  min-height:40px;touch-action:manipulation
+}
+#restart-dialog .restart-panel [hidden]{display:none!important}

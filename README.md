@@ -23,7 +23,9 @@ Run tests and validate the development PWA before releasing. To promote, run Git
   attempts are retained only for retrying a code the player types explicitly;
   they never auto-open **Join Game** when entering **Play Together**.
 - **Create Game** and **Invite Friend** both show the host a short game-rules
-  screen (speed, allowed pieces and ghost piece) *before* allocating a room.
+  screen (speed and ghost piece) *before* allocating a room.
+  New rooms always use the full seven-piece set; the earlier Pieces selector
+  was a debugging tool and is no longer presented to players.
   **Join Game** and push invitations inherit these host-authored rules.
   **Ready to Start** displays them to both players.
 - **Ghost piece is an intentionally shared competitive rule**, not a personal
@@ -74,6 +76,13 @@ disappears.
    independently of that short expiry. The friend cannot be invited while
    notifications are off.
 
+**Invitations during an ongoing game:** a visible installed PWA displays an
+**in-game Join / Dismiss prompt**, in addition to the system push notification.
+A solo game is paused while deciding; Dismiss resumes it. During a live
+multiplayer match, joining requires an explicit choice and records a forfeit
+for the opponent's win before entering the new room. Dismiss keeps the current
+match. No invitation automatically cancels a game in progress.
+
 The backend stores per-installation secret digests, mutual friend relationships,
 subscriptions and VAPID keys in private RLS-protected tables. The private VAPID
 key is never included in the public application. Push transport and installation
@@ -84,8 +93,8 @@ behaviour must be validated on real devices; automated tests do not simulate APN
 Play at https://liamkidney.github.io/blocks/dev/?remote=1 on both phones,
 or choose **Play Together · Two Phones** from the development New Game menu.
 
-1. **Create Game** first lets the host confirm **speed**, **pieces** and
-   **ghost piece** for both players. Confirming allocates a room and shows
+1. **Create Game** first lets the host confirm **speed** and
+   **ghost piece** for both players. All new rooms use the standard seven pieces. Confirming allocates a room and shows
    a **three-consonant code** with a three-minute countdown. A single centred NATO
    line appears beneath the full code, e.g. `bravo - delta - lima`. A small server-side denylist excludes offensive abbreviations; codes use the 21 letters B–Z excluding A, E, I, O and U (including Z).
 

@@ -10,6 +10,30 @@ All changes are made on `dev`; `main` is the last released, validated dev commit
 
 Run tests and validate the development PWA before releasing. To promote, run GitHub Actions → **Promote validated Dev to Main** on `main`. The workflow verifies Git ancestry, tests and builds the exact dev SHA, then fast-forwards main without generating new application commits. The Pages pipeline deploys both channels after the successful release workflow. Never commit directly to main, use cherry-picks, or squash/rebase a release. Production and development differ only in generated URLs, PWA titles, optional development inspectors, revision stamps and cache isolation.
 
+## New Game navigation and Settings (development)
+
+- **New Game** first asks how to play: **Play Solo**, **Two Players · One Phone**
+  or **Play Together · Two Phones**. **High Scores** and **Settings** are
+  accessible without starting a game.
+- Solo and one-phone games next choose **speed** and **ghost piece** before
+  starting. **Play Together** goes straight to its own menu; neither setting
+  is requested from a joining player.
+- **Create Game** and **Invite Friend** both show the host a short game-rules
+  screen (speed, allowed pieces and ghost piece) *before* allocating a room.
+  **Join Game** and push invitations inherit these host-authored rules.
+  **Ready to Start** displays them to both players.
+- **Ghost piece is an intentionally shared competitive rule**, not a personal
+  visual setting. The host's choice is synchronised to both phones, including
+  rematches and reconnects. Settings only supplies the host's default.
+- **Settings** allows editing the existing leaderboard/friends nickname,
+  default speed and ghost preference. In installed PWAs it also manages
+  friends and notification permission. A renamed player keeps the same
+  leaderboard ID and their push installation's display name is refreshed.
+  Future control order, handedness and appearance options can live here.
+- The Settings entry is available from the New Game menu, the solo game's
+  HUD and the Play Together menu. No personal friends or notification
+  controls appear in Safari or ordinary browser tabs.
+
 ## Push-only invitations (development)
 
 Friend invitations use **Web Push**, not shared URLs. The manual three-letter room
@@ -23,8 +47,9 @@ the existing multiplayer and room-code UI. **Play Together** offers **Create Gam
 out leaves no room. Choosing a friend creates the room, sends a push, and
 shows a waiting screen without irrelevant manual code controls.
 
-In the saved-friends list, tap the **×** beside a name and confirm to remove
-that friend. This revokes invitations in both directions and clears mutual
+To remove a friend, open **Settings → Friends**, tap **Remove** beside
+their name, and confirm. The invitation picker is only for inviting people.
+Removing a friend revokes invitations in both directions and clears mutual
 friend requests from previous matches. If no friends remain, **Invite Friend**
 disappears.
 
@@ -53,9 +78,12 @@ behaviour must be validated on real devices; automated tests do not simulate APN
 ## Two-phone multiplayer (development)
 
 Play at https://liamkidney.github.io/blocks/dev/?remote=1 on both phones,
-or choose **2 players · two phones** in the development new-game selector.
+or choose **Play Together · Two Phones** from the development New Game menu.
 
-1. **Create game** displays a **three-consonant code** with a three-minute countdown. A single centred NATO line appears immediately beneath the full code, e.g. `bravo - delta - lima`. A small server-side denylist excludes offensive abbreviations; codes use the 21 letters B–Z excluding A, E, I, O and U (including Z).
+1. **Create Game** first lets the host confirm **speed**, **pieces** and
+   **ghost piece** for both players. Confirming allocates a room and shows
+   a **three-consonant code** with a three-minute countdown. A single centred NATO
+   line appears beneath the full code, e.g. `bravo - delta - lima`. A small server-side denylist excludes offensive abbreviations; codes use the 21 letters B–Z excluding A, E, I, O and U (including Z).
 
 2. **Join game** shows only three letter positions, without NATO text. Any typed characters, including vowels and Z, are kept rather than blocked or silently filtered. After three characters the client asks the server to find the room; codes that were never generated are simply unavailable. No submit button is needed. A generated code can be used only once and must be joined within three minutes.
 3. After joining, **both devices display Ready to Start** with the session's current wins tally. The first Start press marks that player as ready and waits for the second; the game begins only after **both players press Start**.

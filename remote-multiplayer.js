@@ -221,9 +221,11 @@
     // The menu and code-entry steps share the same top-right close control.
     // The room screen has its own control because cancelling it also ends the room.
     menuExit.hidden=step==='code';
-    const previous=step==='entry'||step==='friends'||step==='host';
-    menuExit.setAttribute('aria-label',previous?'Back':'Back to New Game');
-    menuExit.title=previous?'Back':'Back to New Game';
+    const backLabel=step==='host'&&hostRecipient?'Back to friends':
+      step==='entry'||step==='friends'||step==='host'?
+        'Back to Play Together':'Back to New Game';
+    menuExit.setAttribute('aria-label',backLabel);
+    menuExit.title=backLabel;
     actions.hidden=step!=='menu';
     menuSettings.hidden=step!=='menu';
     friendsPanel.hidden=step!=='friends';

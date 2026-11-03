@@ -89,7 +89,7 @@ test("both release channels receive separate versioned caches and PWA scopes",()
   }finally{fs.rmSync(tmp,{recursive:true,force:true})}
 });
 
-async function runRegistration(waitingAtLaunch,hadController=true,isPlaying=false,isRemote=false){
+async function runRegistration(waitingAtLaunch,hadController=true,isPlaying=false,isRemote=false,options={}){
   const code=fs.readFileSync(path.join(root,"app.js"),"utf8");
   const start=code.indexOf('if("serviceWorker" in navigator){');
   const end=code.indexOf('document.addEventListener("contextmenu"',start);
@@ -106,9 +106,13 @@ async function runRegistration(waitingAtLaunch,hadController=true,isPlaying=fals
       register:async()=>registration,
       addEventListener:(type,cb)=>{workerEvents[type]=cb}
     }},
-    window:{addEventListener:(type,cb)=>{windowEvents[type]=cb}},
+    window:{
+      BLOCKS_REMOTE:options.atMenu?{atMenu:true}:undefined,
+      addEventListener:(type,cb)=>{windowEvents[type]=cb}
+    },
     document:{addEventListener:(type,cb)=>{documentEvents[type]=cb}},
-    location:{reload:()=>{reloads++}},
+    location:{search:options.pushLink?'?remote=1&push_join=BRT':'?remote=1',
+      reload:()=>{reloads++}},
     saveGame:()=>{saves++},
     game:{phase:isPlaying?"falling":"paused"},awaitingInitialStart:!isPlaying,
     REMOTE_PLAYER:isRemote,
@@ -150,4 +154,21 @@ test("a waiting update never reloads the interactive two-phone lobby",async()=>{
   assert.equal(r.get().reloads,0);
   assert.equal(r.get().saves,0);
   assert.equal(r.get().checks,1,"updates may still download for the next safe launch");
+});
+
+test("a waiting update safely activates when Play Together is idle",async()=>{
+  const r=await runRegistration(true,true,false,true,{atMenu:true});
+  assert.equal(r.get().messages,1,
+    "idle menu must not remain stuck on an old push handler forever");
+  r.workerEvents.controllerchange();
+  assert.equal(r.get().reloads,1);
+});
+
+test("an incoming notification deep link does not trigger a competing update reload",async()=>{
+  const r=await runRegistration(true,true,false,true,{
+    atMenu:true,pushLink:true
+  });
+  assert.equal(r.get().messages,0);
+  r.workerEvents.controllerchange();
+  assert.equal(r.get().reloads,0);
 });

@@ -30,7 +30,6 @@
   ).join('');
   const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}};
   const saved=read();
-  const pendingJoin=(()=>{try{return JSON.parse(localStorage.getItem(PENDING_JOIN_KEY)||'null')}catch(_){return null}})();
   let match=saved?.id&&saved?.token&&[1,2].includes(saved.player)?saved:null;
   if(match){match.round=match.round||1;match.cursor ||= 0;match.outbox ||= [];}
   let busy=false,sending=false,ready=false,staging=false,finished=false,forfeiting=false,interval=null;

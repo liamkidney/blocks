@@ -399,3 +399,140 @@ test('installed New Game requests a pending push intent when worker becomes read
   listeners.visibilitychange();
   assert.equal(requests.filter(x=>x.type==='BLOCKS_GET_PUSH_INVITATION').length,3);
 });
+
+
+test('push receipt shows an invitation in an already visible installed game',async()=>{
+  const scope='https://example.test/blocks/dev/';
+  const handlers={},received=[],shown=[];
+  const client={url:scope+'?remote=1',visibilityState:'visible',
+    postMessage:message=>received.push(message)};
+  const background={url:scope,visibilityState:'hidden',
+    postMessage:()=>{throw Error('Background tabs must not display prompt')}};
+  const self={
+    registration:{scope,async showNotification(_title,detail){shown.push(detail)}},
+    clients:{matchAll:async()=>[client,background]},
+    addEventListener:(type,listener)=>{handlers[type]=listener}
+  };
+  vm.runInNewContext(file('sw.js'),{self,URL,console});
+  let done;
+  handlers.push({
+    data:{json:()=>({body:'Alex invited you to play BLOCKS',
+      path:'/blocks/dev/?remote=1&push_join=NCK'})},
+    waitUntil:p=>{done=p}
+  });
+  await done;
+  assert.equal(shown.length,1,'system push notification is still shown');
+  assert.equal(received.length,1,'visible game receives its own Join/Dismiss intent');
+  assert.equal(received[0].type,'BLOCKS_PUSH_RECEIVED');
+  assert.equal(received[0].url,scope+'?remote=1&push_join=NCK');
+  assert.match(received[0].body,/Alex invited you/);
+});
+
+function bootInGameInvitePrompt({remote=false,phase='falling',awaitingStart=false}={}){
+  const app=file('app.js');
+  const begin=app.indexOf('// One invitation dialog works for solo');
+  const end=app.indexOf('const cancelRestartButton=',begin);
+  assert.ok(begin>0&&end>begin,'shared invitation choice must exist');
+  const nodes=new Map(),storage=new Map([['game-save','in-progress']]);
+  let paused=0,resumed=0,saved=0;
+  const document={activeElement:null};
+  function element(id=''){
+    return {
+      id,hidden:false,textContent:'',disabled:false,innerHTML:'',onclick:null,
+      focus(){document.activeElement=this}
+    };
+  }
+  const get=id=>{
+    if(!nodes.has(id))nodes.set(id,element(id));
+    return nodes.get(id);
+  };
+  document.createElement=()=>element();
+  document.getElementById=get;
+  document.body={appendChild(){}};
+  const game={
+    phase,
+    pause(){paused++;this.phase='paused'},
+    resume(){resumed++;this.phase='falling'}
+  };
+  const session={
+    pause(){paused++;game.phase='paused'},
+    resume(){resumed++;game.phase='falling'}
+  };
+  const window={
+    matchMedia:()=>({matches:false}),
+    BLOCKS_REMOTE:{active:remote}
+  };
+  const location={href:'https://example.test/blocks/dev/'+(remote?'?remote=1':'')};
+  const navigator={standalone:true,serviceWorker:{
+    controller:{postMessage(message){this.messages.push(message)},messages:[]}
+  }};
+  const sandbox={
+    document,window,location,navigator,URL,console,game,session,
+    TWO_PLAYER:false,REMOTE_PLAYER:remote,awaitingInitialStart:awaitingStart,
+    SAVE_KEY:'game-save',skipSaveOnNavigation:false,
+    localStorage:{removeItem:key=>storage.delete(key)},
+    renderActions(){},saveGame(){saved++}
+  };
+  vm.runInNewContext(app.slice(begin,end),sandbox,{filename:'app-invite-dialog.js'});
+  return {
+    get,game,window,location,navigator,sandbox,storage,
+    get paused(){return paused},get resumed(){return resumed},
+    get saved(){return saved}
+  };
+}
+
+test('foreground invitation pauses solo game; Dismiss restores exactly that game',()=>{
+  const b=bootInGameInvitePrompt();
+  const invite='https://example.test/blocks/dev/?remote=1&push_join=NCK';
+  assert.equal(b.window.BLOCKS_PRESENT_INVITATION(invite,{
+    foreground:true,body:'Alex invited you to play BLOCKS'
+  }),true);
+  assert.equal(b.paused,1);
+  assert.equal(b.get('blocks-invite-dialog').hidden,true,
+    'fake document does not parse innerHTML, but appended dialog is controlled');
+  // The created overlay is the first appended div in a real browser.
+  // Its state is exposed via the Join and Dismiss button handlers.
+  assert.match(b.get('blocks-invite-warning').textContent,/abandons your current game/i);
+  assert.equal(b.get('blocks-invite-message').textContent,'Alex invited you to play BLOCKS');
+  b.get('blocks-invite-dismiss').onclick();
+  assert.equal(b.resumed,1);
+  assert.equal(b.game.phase,'falling');
+  assert.equal(b.navigator.serviceWorker.controller.messages[0].type,
+    'BLOCKS_ACK_PUSH_INVITATION');
+  assert.equal(b.location.href,'https://example.test/blocks/dev/');
+});
+
+test('joining an invitation from a solo game abandons it only after explicit Join',async()=>{
+  const b=bootInGameInvitePrompt();
+  const invite='https://example.test/blocks/dev/?remote=1&push_join=NCK';
+  b.window.BLOCKS_PRESENT_INVITATION(invite,{foreground:true});
+  assert.equal(b.location.href,'https://example.test/blocks/dev/');
+  assert.equal(b.storage.has('game-save'),true);
+  await b.get('blocks-invite-join').onclick();
+  assert.equal(b.location.href,invite);
+  assert.equal(b.storage.has('game-save'),false);
+  assert.equal(b.sandbox.skipSaveOnNavigation,true);
+  assert.equal(b.resumed,0,'old game is not resumed during navigation');
+});
+
+test('live multiplayer invitation shows a forfeit warning and does not auto-switch',async()=>{
+  const b=bootInGameInvitePrompt({remote:true});
+  let joins=0;
+  const invite='https://example.test/blocks/dev/?remote=1&push_join=NCK';
+  b.window.BLOCKS_PRESENT_INVITATION(invite,{onJoin:async()=>{joins++;return true}});
+  assert.equal(joins,0);
+  assert.match(b.get('blocks-invite-warning').textContent,/forfeits your current match/i);
+  assert.equal(b.get('blocks-invite-join').disabled,false);
+  await b.get('blocks-invite-join').onclick();
+  assert.equal(joins,1);
+});
+
+test('invalid or cross-app invitations cannot display an in-game Join prompt',()=>{
+  const b=bootInGameInvitePrompt();
+  for(const invalid of [
+    'https://attacker.test/blocks/dev/?remote=1&push_join=NCK',
+    'https://example.test/blocks/?remote=1&push_join=NCK',
+    'https://example.test/blocks/dev/?remote=1&push_join=INVALID'
+  ])assert.equal(b.window.BLOCKS_PRESENT_INVITATION(invalid),false);
+  assert.equal(b.paused,0);
+});

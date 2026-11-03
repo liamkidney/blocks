@@ -115,27 +115,44 @@ self.addEventListener("push",event=>{
 });
 self.addEventListener("notificationclick",event=>{
   event.notification.close();
+  const target=validInviteURL(event.notification.data?.url);
+  if(!target)return;
   event.waitUntil((async()=>{
-    const target=validInviteURL(event.notification.data?.url);
-    if(!target)return;
-    const url=new URL(target);
-    await savePushHandoff(url.href);
+    // Focus/openWindow must be initiated while the notification tap's user
+    // activation is still available. Do NOT await CacheStorage or navigate()
+    // before invoking them; either operation can lose the activation on iOS.
     const windows=await self.clients.matchAll({type:"window",includeUncontrolled:true});
+    const scope=new URL(self.registration.scope);
     const existing=windows.find(client=>{
-      try{return new URL(client.url).pathname===url.pathname}catch(_){return false}
+      try{
+        const url=new URL(client.url);
+        return url.origin===scope.origin&&
+          [scope.pathname,scope.pathname+'index.html'].includes(url.pathname);
+      }catch(_){return false}
     });
+    const intent={type:'BLOCKS_PUSH_INVITATION',url:target};
+    let opening;
     if(existing){
-      // On iOS, navigating an already-open standalone PWA can simply refocus
-      // its existing screen. Send the invitation to the running app as well.
-      // Cold starts still read push_join from the destination URL.
-      let targetClient=existing;
-      try{targetClient=await existing.navigate(url.href)||existing}
-      catch(error){console.warn('BLOCKS notification navigation:',error)}
-      // Deliver independently of focus(): on some iOS versions focusing a
-      // background Home Screen app may fail or complete after navigation.
-      targetClient.postMessage({type:'BLOCKS_PUSH_INVITATION',url:url.href});
-      try{await targetClient.focus()}
+      // Navigation destroys the page that would receive this message. Tell the
+      // running app to join instead, and bring the PWA to the foreground.
+      try{existing.postMessage(intent)}
+      catch(error){console.warn('BLOCKS notification message:',error)}
+      try{opening=existing.focus()}
       catch(error){console.warn('BLOCKS notification focus:',error)}
-    }else await self.clients.openWindow(url.href);
+    }else{
+      try{opening=self.clients.openWindow(target)}
+      catch(error){console.warn('BLOCKS notification open:',error)}
+    }
+
+    // Persistence is a recovery path if iOS launches at the Home Screen or
+    // discards the first message. It must not delay focusing/opening the app.
+    const stored=savePushHandoff(target);
+    try{
+      const opened=await opening;
+      if(!existing&&opened?.postMessage){
+        try{opened.postMessage(intent)}catch(_){}
+      }
+    }catch(error){console.warn('BLOCKS notification launch:',error)}
+    await stored;
   })());
 });

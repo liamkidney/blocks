@@ -6,21 +6,44 @@ const REMOTE_MATCH_KEY="blocks:remote-match:"+location.pathname;
 // A tapped invitation can arrive while the installed PWA is on its normal
 // New Game screen. Route into multiplayer even if iOS only refocuses the app.
 if(!REMOTE_PLAYER&&navigator.serviceWorker?.addEventListener){
+  const installed=navigator.standalone===true||
+    window.matchMedia?.('(display-mode: standalone)')?.matches===true||
+    window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches===true;
+  let routingPushUrl=null;
   navigator.serviceWorker.addEventListener('message',event=>{
-    if(event.data?.type!=='BLOCKS_PUSH_INVITATION')return;
-    const installed=navigator.standalone===true||
-      window.matchMedia?.('(display-mode: standalone)')?.matches===true||
-      window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches===true;
-    if(!installed)return;
+    if(event.data?.type!=='BLOCKS_PUSH_INVITATION'||!installed)return;
     try{
       const target=new URL(event.data.url);
       if(target.origin!==new URL(location.href).origin||
          target.pathname!==location.pathname||
          target.searchParams.get('remote')!=='1'||
          !/^[A-Z]{3}$/.test(target.searchParams.get('push_join')||''))return;
+      if(routingPushUrl===target.href)return;
+      routingPushUrl=target.href;
+      // An installed app may be focused at its start URL even when the
+      // service worker requested a different deep link. Navigate explicitly.
       location.href=target.href;
     }catch(_){}
   });
+  if(installed){
+    const requestPushHandoff=()=>{
+      navigator.serviceWorker.controller?.postMessage?.({
+        type:'BLOCKS_GET_PUSH_INVITATION'
+      });
+    };
+    requestPushHandoff();
+    navigator.serviceWorker.ready?.then?.(registration=>{
+      registration.active?.postMessage({
+        type:'BLOCKS_GET_PUSH_INVITATION'
+      });
+    }).catch?.(()=>{});
+    window.addEventListener?.('pageshow',requestPushHandoff);
+    if(typeof document!=='undefined')document.addEventListener?.(
+      'visibilitychange',()=>{
+        if(document.visibilityState==='visible')requestPushHandoff();
+      }
+    );
+  }
 }
 let remoteStored=null;
 if(REMOTE_PLAYER){try{remoteStored=JSON.parse(localStorage.getItem(REMOTE_MATCH_KEY)||"null")}catch(_){}}

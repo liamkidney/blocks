@@ -1301,3 +1301,47 @@ body.remote-multiplayer #board-frame.game-paused::after{
 }
 #remote-lobby #remote-settings[hidden],
 #remote-lobby #remote-host-panel[hidden]{display:none!important}
+
+
+/* Non-disruptive invitation choice while a solo or multiplayer game is active. */
+#blocks-invite-dialog[hidden]{display:none!important}
+#blocks-invite-dialog{
+  position:fixed;inset:0;z-index:20000;
+  display:grid;place-items:center;
+  padding:max(20px,env(safe-area-inset-top)) 18px max(20px,env(safe-area-inset-bottom));
+  box-sizing:border-box;background:rgba(0,0,0,.6);
+}
+#blocks-invite-dialog .blocks-invite-panel{
+  width:min(360px,100%);box-sizing:border-box;
+  padding:25px 22px 22px;
+  border:2px solid var(--ink);border-radius:12px;
+  background:var(--paper);color:var(--ink);
+  text-align:center;box-shadow:0 12px 32px rgba(0,0,0,.16)
+}
+#blocks-invite-dialog h2{
+  margin:0 0 12px;font:900 27px/1.1 Helvetica,Arial,sans-serif;
+  letter-spacing:-.6px
+}
+#blocks-invite-dialog p{
+  margin:0 0 12px;font:600 14px/1.45 Helvetica,Arial,sans-serif
+}
+#blocks-invite-dialog #blocks-invite-warning{
+  font-size:12px;opacity:.75
+}
+#blocks-invite-dialog #blocks-invite-status{
+  font-size:12px;min-height:0;color:#ae2525
+}
+#blocks-invite-dialog #blocks-invite-status:empty{display:none}
+#blocks-invite-dialog .blocks-invite-buttons{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px
+}
+#blocks-invite-dialog button{
+  min-height:52px;border:2px solid var(--ink);border-radius:8px;
+  background:var(--paper);color:var(--ink);
+  font:900 12px Helvetica,Arial,sans-serif;cursor:pointer;
+  touch-action:manipulation
+}
+#blocks-invite-dialog #blocks-invite-join{
+  background:var(--ink);color:var(--paper)
+}
+#blocks-invite-dialog button:disabled{opacity:.5}

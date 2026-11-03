@@ -76,7 +76,10 @@ test("fresh start shows choices without beginning the game",()=>{
   assert.equal(b.evaluate("game.phase"),"paused");
   assert.equal(b.evaluate("restartDialog.hidden"),false);
   assert.equal(b.get("restart-cancel").hidden,true);
-  assert.equal(b.get("restart-one").attrs["aria-pressed"],"true");
+  assert.equal(b.get("restart-mode-screen").hidden,false);
+  assert.equal(b.get("restart-rules-screen").hidden,true);
+  b.tap("restart-one");
+  assert.equal(b.get("restart-rules-screen").hidden,false);
   b.tap("difficulty-2");
   assert.equal(b.get("difficulty-2").attrs["aria-pressed"],"true");
   assert.equal(b.evaluate("game.phase"),"paused"); // Selection alone never starts the game.
@@ -87,6 +90,7 @@ test("fresh start shows choices without beginning the game",()=>{
 });
 test("beginner mode and preference persist into a fresh start",()=>{
   const b=boot("hard");
+  b.tap("restart-one");
   assert.equal(b.get("difficulty-2").attrs["aria-pressed"],"true");
   b.tap("difficulty-0");
   assert.equal(b.get("difficulty-0").attrs["aria-pressed"],"true");
@@ -96,9 +100,12 @@ test("beginner mode and preference persist into a fresh start",()=>{
 });
 test("restarting is a separate confirmation, and cancel preserves game",()=>{
   const b=boot();
+  b.tap("restart-one");
   b.tap("restart-start");
   const before=b.evaluate("game");
   b.evaluate("restartGame()");
+  assert.equal(b.get("restart-mode-screen").hidden,false);
+  b.tap("restart-one");
   assert.equal(b.evaluate("restartDialog.hidden"),false);
   b.tap("difficulty-2");
   assert.equal(b.evaluate("game.difficulty"),1);
@@ -110,6 +117,7 @@ test("restarting is a separate confirmation, and cancel preserves game",()=>{
 
 test("ghost selector applies only when starting a game and remembers On",()=>{
   const b=boot();
+  b.tap("restart-one");
   assert.equal(b.get("ghost-off").attrs["aria-pressed"],"true");
   assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),false);
   b.tap("ghost-on");
@@ -121,10 +129,12 @@ test("ghost selector applies only when starting a game and remembers On",()=>{
 });
 test("ghost selection persists and cancelling a restart restores active preference",()=>{
   const b=boot(null,true);
+  b.tap("restart-one");
   assert.equal(b.get("ghost-on").attrs["aria-pressed"],"true");
   b.tap("restart-start");
   assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),true);
   b.evaluate("restartGame()");
+  b.tap("restart-one");
   b.tap("ghost-off");
   assert.equal(b.get("ghost-off").attrs["aria-pressed"],"true");
   b.tap("restart-cancel");
@@ -132,6 +142,7 @@ test("ghost selection persists and cancelling a restart restores active preferen
   assert.equal(b.get("ghost-on").attrs["aria-pressed"],"true");
   assert.equal(b.storage.get("blocks:ghost:v1:/blocks/dev/"),"true");
   b.evaluate("restartGame()");
+  b.tap("restart-one");
   b.tap("ghost-off");
   b.tap("restart-start");
   assert.equal(b.evaluate("window.BLOCKS_CONFIG.ghostPiece"),false);
@@ -140,6 +151,7 @@ test("ghost selection persists and cancelling a restart restores active preferen
 
 test("an old saved fixed difficulty preference opens as Beginner",()=>{
   const b=boot("fixed");
+  b.tap("restart-one");
   assert.equal(b.get("difficulty-0").attrs["aria-pressed"],"true");
   b.tap("restart-start");
   assert.equal(b.evaluate("game.difficulty"),0);
@@ -148,10 +160,45 @@ test("an old saved fixed difficulty preference opens as Beginner",()=>{
 
 test("numeric difficulty preferences are restored as numeric IDs",()=>{
   const b=boot("2");
+  b.tap("restart-one");
   assert.equal(b.get("difficulty-2").attrs["aria-pressed"],"true");
   b.tap("restart-start");
   assert.equal(b.evaluate("game.difficulty"),2);
   assert.equal(b.storage.get("blocks:difficulty:v1:/blocks/dev/"),"2");
+});
+
+test("Play Together opens multiplayer directly without asking a guest for rules",()=>{
+  const b=boot("hard",true);
+  assert.equal(b.get('restart-mode-screen').hidden,false);
+  b.tap('restart-remote');
+  assert.equal(b.evaluate('location.href'),
+    'https://example.test/blocks/dev/?remote=1');
+  assert.equal(b.get('restart-rules-screen').hidden,true);
+  assert.equal(b.storage.get('blocks:difficulty:v1:/blocks/dev/'),'hard',
+    'joining route must not persist a new difficulty');
+  assert.equal(b.storage.get('blocks:ghost:v1:/blocks/dev/'),'true');
+});
+
+test("solo and one-phone game modes both show shared rules before starting",()=>{
+  const solo=boot();
+  solo.tap('restart-one');
+  assert.equal(solo.get('restart-rules-screen').hidden,false);
+  assert.equal(solo.get('restart-mode-screen').hidden,true);
+  solo.tap('restart-back');
+  assert.equal(solo.get('restart-mode-screen').hidden,false);
+  const local=boot();
+  local.tap('restart-two');
+  assert.equal(local.get('restart-rules-screen').hidden,false);
+  assert.equal(local.get('restart-mode-screen').hidden,true);
+});
+
+test("New Game Settings entry is callable without starting gameplay",()=>{
+  const b=boot();
+  let calls=0;
+  b.evaluate('window.BLOCKS_OPEN_SETTINGS=()=>{window.__settingsCalls=(window.__settingsCalls||0)+1}');
+  b.tap('restart-settings');
+  assert.equal(b.evaluate('window.__settingsCalls'),1);
+  assert.equal(b.evaluate('game.phase'),'paused');
 });
 
 test("two-phone reconnect starts with the creator's saved Ghost Piece rule",()=>{

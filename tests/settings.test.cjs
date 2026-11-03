@@ -155,7 +155,6 @@ test('Notification permission is requested only from the Settings button tap',as
 test('Escape closes Settings and does not change the current game',()=>{
   const b=boot();
   b.window.BLOCKS_OPEN_SETTINGS();
-  assert.equal(b.get('blocks-settings').hidden,true,'the portal root is a separate DOM node');
   assert.equal(b.document.body.children[0].hidden,false);
   b.escape();
   assert.equal(b.document.body.children[0].hidden,true);

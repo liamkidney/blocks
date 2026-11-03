@@ -86,10 +86,14 @@
     nameSave.disabled=true;nameStatus.textContent='Saving…';
     try{
       await window.BLOCKS_SAVE_PLAYER_NAME(name);
-      // Refresh this installation's push display name, so saved friends
-      // see the updated name without a separate account.
-      await window.BLOCKS_PUSH?.refreshProfile?.();
       nameStatus.textContent='Name saved.';
+      // Leaderboard identity is already committed. If push profile sync is
+      // temporarily offline, do not misleadingly report that rename failed.
+      try{await window.BLOCKS_PUSH?.refreshProfile?.()}
+      catch(error){
+        console.warn('BLOCKS friends profile sync:',error);
+        nameStatus.textContent='Name saved. Friends will see it when reconnected.';
+      }
     }catch(error){
       nameStatus.textContent='Could not save name. Check your connection.';
     }finally{nameSave.disabled=false}

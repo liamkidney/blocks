@@ -88,8 +88,21 @@
       '<button type="button" id="remote-join">JOIN GAME</button>'+
       '<button type="button" id="remote-invite-friend" hidden>INVITE FRIEND</button>'+
     '</div>'+
+    '<button type="button" id="remote-settings" hidden>SETTINGS</button>'+
     '<div id="remote-friends-panel" hidden><p id="remote-friends-status" role="status"></p>'+
       '<div id="remote-friends-list"></div></div>'+
+    '<div id="remote-host-panel" hidden>'+
+      '<p id="remote-host-context">Both players use these rules.</p>'+
+      '<label for="remote-host-speed">SPEED</label>'+
+      '<select id="remote-host-speed"><option value="0">Beginner</option><option value="1">Easy</option><option value="2">Hard</option></select>'+
+      '<label for="remote-host-pieces">PIECES</label>'+
+      '<select id="remote-host-pieces"><option value="ALL">All pieces</option><option value="IO">I and O only</option></select>'+
+      '<label for="remote-host-ghost">GHOST PIECE</label>'+
+      '<select id="remote-host-ghost"><option value="true">On</option><option value="false">Off</option></select>'+
+      '<p class="remote-host-hint">Ghost piece is a shared match rule, not a display preference.</p>'+
+      '<button type="button" id="remote-host-confirm">CREATE GAME</button>'+
+      '<p id="remote-host-status" role="status"></p>'+
+    '</div>'+
     '<div id="remote-code-panel" hidden>'+
       '<button id="remote-code-exit" type="button" aria-label="Cancel room" title="Cancel room">×</button>'+
       '<div id="remote-code" class="remote-code-tiles" aria-live="polite">'+
@@ -117,6 +130,10 @@
   const codeExpiry=$('remote-code-expires');
   const inviteFriend=$('remote-invite-friend'),friendsPanel=$('remote-friends-panel');
   const friendsStatus=$('remote-friends-status'),friendsList=$('remote-friends-list');
+  const hostPanel=$('remote-host-panel'),hostConfirm=$('remote-host-confirm');
+  const hostSpeed=$('remote-host-speed'),hostPieces=$('remote-host-pieces');
+  const hostGhost=$('remote-host-ghost'),hostContext=$('remote-host-context');
+  const hostStatus=$('remote-host-status'),menuSettings=$('remote-settings');
   const entry=$('remote-entry'),input=$('remote-input'),slots=$('remote-slots');
   const createdLetters=Array.from({length:3},(_,i)=>$('remote-create-letter-'+i));
   const enteredLetters=Array.from({length:3},(_,i)=>$('remote-join-letter-'+i));
@@ -166,7 +183,7 @@
   const enablePush=resultPanel.querySelector('#remote-enable-push');
   let friendCheckAt=0,friendCheckInFlight=false;
   // Friend selection is a menu step. No room exists until a friend is selected.
-  let savedFriends=null,friendsRequest=null,inviteRecipient=null;
+  let savedFriends=null,friendsRequest=null,inviteRecipient=null,hostRecipient=null;
   let menuRevision=0;
 
   const showLobby=show=>{
@@ -204,14 +221,16 @@
     // The menu and code-entry steps share the same top-right close control.
     // The room screen has its own control because cancelling it also ends the room.
     menuExit.hidden=step==='code';
-    menuExit.setAttribute('aria-label',
-      step==='entry'||step==='friends'?'Back to Play Together':'Back to New Game');
-    menuExit.title=step==='entry'||step==='friends'?'Back to Play Together':'Back to New Game';
+    const previous=step==='entry'||step==='friends'||step==='host';
+    menuExit.setAttribute('aria-label',previous?'Back':'Back to New Game');
+    menuExit.title=previous?'Back':'Back to New Game';
     actions.hidden=step!=='menu';
+    menuSettings.hidden=step!=='menu';
     friendsPanel.hidden=step!=='friends';
+    hostPanel.hidden=step!=='host';
     codePanel.hidden=step!=='code';
     entry.hidden=step!=='entry';
-    status.hidden=step==='entry'||step==='friends';
+    status.hidden=step==='entry'||step==='friends'||step==='host';
     error.textContent='';
     syncCodeEntryViewport();
   }
@@ -319,7 +338,7 @@
   }
   function menu(){
     menuRevision++;
-    inviteRecipient=null;
+    inviteRecipient=null;hostRecipient=null;
     savedFriends=null;friendsRequest=null;
     lobbyStep('menu');
     title.textContent='Play together';
@@ -333,6 +352,7 @@
   function setCreating(on){
     creating=on;
     create.disabled=on;join.disabled=on;inviteFriend.disabled=on;
+    hostConfirm.disabled=on;
     create.classList.toggle('is-loading',on);
     inviteFriend.setAttribute('aria-busy',String(on));
     create.setAttribute('aria-busy',String(on));

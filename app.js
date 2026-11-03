@@ -209,7 +209,7 @@ restartDialog.innerHTML=`
       </div>
     </div>
     <div id="restart-rules-screen" hidden>
-      <button type="button" id="restart-back" class="restart-back">← BACK</button>
+      <button type="button" id="restart-back" class="restart-back" aria-label="Back to New Game" title="Back to New Game">←</button>
       <div class="restart-mode-label" id="difficulty-label">SPEED</div>
       <div class="restart-options" role="group" aria-labelledby="difficulty-label">
         ${GAME_MODE_IDS.map(id=>`<button type="button" id="difficulty-${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}
@@ -222,7 +222,7 @@ restartDialog.innerHTML=`
       </div>
       <button type="button" id="restart-start" class="restart-primary">START GAME</button>
     </div>
-    <button type="button" id="restart-cancel" class="restart-cancel">CANCEL</button>
+    <button type="button" id="restart-cancel" class="restart-cancel" aria-label="Close New Game" title="Close New Game">×</button>
   </div>`;
 document.body.appendChild(restartDialog);
 const cancelRestartButton=document.getElementById("restart-cancel");

@@ -40,7 +40,7 @@ function setup(difficulty=2,pieces="ALL"){
       body:{appendChild(){}},
       addEventListener(){},
     },
-    game,session:{outcome:null},saveGame(){},
+    game,window:{},session:{outcome:null},saveGame(){},
     togglePause(){game.phase=game.phase==="paused"?"falling":"paused";},
     performance:{now:()=>100},
     fetch:async url=>{
@@ -61,7 +61,7 @@ function setup(difficulty=2,pieces="ALL"){
   vm.runInContext(code,context,{filename:"high-scores.js"});
   const tap=button=>button.listeners.touchstart({preventDefault(){}});
   const flush=async()=>{await new Promise(resolve=>setImmediate(resolve));};
-  return {urls,overlay,modes,element,game,tap,flush};
+  return {urls,overlay,modes,element,game,tap,flush,window:sandbox.window};
 }
 
 test("leaderboard opens on the current game's difficulty",async()=>{
@@ -130,4 +130,16 @@ test("I/O game requests only I/O leaderboard scores",async()=>{
   const request=b.urls.find(url=>url.includes("/sessions?"));
   assert.match(request,/difficulty=eq.1/);
   assert.match(request,/pieces_mode=eq.IO/);
+});
+
+test("High Scores opened from home returns to the New Game menu",async()=>{
+  const b=setup(1);
+  let returned=0;
+  assert.equal(typeof b.window.BLOCKS_OPEN_HIGH_SCORES,'function');
+  b.window.BLOCKS_OPEN_HIGH_SCORES(()=>returned++);
+  await b.flush();
+  assert.equal(b.overlay.hidden,false);
+  b.tap(b.element('#scores-back'));
+  assert.equal(returned,1);
+  assert.equal(b.overlay.hidden,true);
 });

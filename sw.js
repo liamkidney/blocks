@@ -11,9 +11,64 @@ self.addEventListener("install",event=>{
     .then(cache=>cache.addAll(ASSETS.map(url=>new Request(url,{cache:"reload"})))));
 });
 
+// A notification tap is a real navigation intent, unlike a stale room-code
+// retry. Keep it for a maximum of three minutes so iOS can relaunch the PWA
+// at its start URL or replace the page without losing the invite.
+const INVITE_CACHE='blocks-push-handoff-'+encodeURIComponent(self.registration.scope);
+const INVITE_REQUEST=new Request(new URL('__push_handoff__',self.registration.scope).href);
+const INVITE_TTL_MS=180000;
+function validInviteURL(value){
+  if(typeof value!=='string')return null;
+  try{
+    const url=new URL(value);
+    const scope=new URL(self.registration.scope);
+    if(url.origin!==scope.origin||
+       ![scope.pathname,scope.pathname+'index.html'].includes(url.pathname)||
+       url.searchParams.get('remote')!=='1'||
+       !/^[A-Z]{3}$/.test(url.searchParams.get('push_join')||''))return null;
+    return url.href;
+  }catch(_){return null}
+}
+async function savePushHandoff(url){
+  try{
+    const cache=await caches.open(INVITE_CACHE);
+    await cache.put(INVITE_REQUEST,new Response(JSON.stringify({
+      url,clickedAt:Date.now()
+    }),{headers:{'Content-Type':'application/json'}}));
+  }catch(error){console.warn('BLOCKS push handoff save:',error)}
+}
+async function readPushHandoff(){
+  try{
+    const cache=await caches.open(INVITE_CACHE);
+    const item=await cache.match(INVITE_REQUEST);
+    if(!item)return null;
+    const stored=await item.json();
+    if(!validInviteURL(stored?.url)||!Number.isFinite(stored?.clickedAt)||
+       Date.now()-stored.clickedAt>INVITE_TTL_MS||stored.clickedAt>Date.now()+10000){
+      await cache.delete(INVITE_REQUEST);return null;
+    }
+    return stored;
+  }catch(error){console.warn('BLOCKS push handoff read:',error);return null}
+}
 self.addEventListener("message",event=>{
-  if(event.data?.type==="BLOCKS_ACTIVATE_UPDATE")
+  if(event.data?.type==="BLOCKS_ACTIVATE_UPDATE"){
     event.waitUntil(self.skipWaiting());
+  }else if(event.data?.type==="BLOCKS_GET_PUSH_INVITATION"){
+    event.waitUntil((async()=>{
+      const pending=await readPushHandoff();
+      if(pending)event.source?.postMessage({
+        type:'BLOCKS_PUSH_INVITATION',url:pending.url
+      });
+    })());
+  }else if(event.data?.type==="BLOCKS_ACK_PUSH_INVITATION"){
+    event.waitUntil((async()=>{
+      const pending=await readPushHandoff();
+      if(pending?.url===event.data.url){
+        const cache=await caches.open(INVITE_CACHE);
+        await cache.delete(INVITE_REQUEST);
+      }
+    })());
+  }
 });
 
 self.addEventListener("activate",event=>event.waitUntil((async()=>{
@@ -61,11 +116,10 @@ self.addEventListener("push",event=>{
 self.addEventListener("notificationclick",event=>{
   event.notification.close();
   event.waitUntil((async()=>{
-    const target=event.notification.data?.url;
-    if(typeof target!=="string")return;
+    const target=validInviteURL(event.notification.data?.url);
+    if(!target)return;
     const url=new URL(target);
-    const scope=new URL(self.registration.scope);
-    if(url.origin!==scope.origin||!url.pathname.startsWith(scope.pathname))return;
+    await savePushHandoff(url.href);
     const windows=await self.clients.matchAll({type:"window",includeUncontrolled:true});
     const existing=windows.find(client=>{
       try{return new URL(client.url).pathname===url.pathname}catch(_){return false}

@@ -29,7 +29,7 @@
     return body;
   }
   async function register(subscription){
-    if(registering){await registering;if(!subscription)return;}
+    if(registering)await registering; // Do not drop a newer nickname during a concurrent registration.
     registering=(async()=>{
       await window.BLOCKS_ENSURE_PLAYER?.();
       const p=player();

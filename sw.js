@@ -105,12 +105,26 @@ self.addEventListener("push",event=>{
     const url=new URL(payload.path,self.registration.scope);
     const scope=new URL(self.registration.scope);
     if(url.origin!==scope.origin||!url.pathname.startsWith(scope.pathname))return;
+    const body=typeof payload.body==="string"?payload.body:"You've been invited to play.";
     await self.registration.showNotification("BLOCKS",{
-      body:typeof payload.body==="string"?payload.body:"You've been invited to play.",
+      body,
       icon:new URL("icon-192.png",scope).href,
       tag:"blocks-invite-"+String(payload.matchId||""),
       data:{url:url.href}
     });
+    // iOS can leave the installed PWA on its current game board. Notify a
+    // *visible* PWA immediately so it can offer Join/Dismiss in-game, without
+    // requiring a second system-notification tap.
+    const pages=await self.clients.matchAll({type:"window",includeUncontrolled:true});
+    for(const client of pages){
+      try{
+        const opened=new URL(client.url);
+        if(opened.origin===scope.origin&&
+           [scope.pathname,scope.pathname+'index.html'].includes(opened.pathname)&&
+           client.visibilityState==="visible")
+          client.postMessage({type:'BLOCKS_PUSH_RECEIVED',url:url.href,body});
+      }catch(_){}
+    }
   })());
 });
 self.addEventListener("notificationclick",event=>{

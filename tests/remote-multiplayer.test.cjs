@@ -1273,7 +1273,47 @@ test('room exit clears the retained opponent miniature on both phones',async()=>
     'opponent leaving clears the remote miniature');
 });
 
-test('Play Together X returns to the main New Game selector without creating a room',()=>{
+test('opening Play Together ignores stale pending room-code joins and shows menu',async()=>{
+  const f=fixture(),storage=new Map();
+  storage.set('blocks:remote-pending-join:/blocks/dev/',
+    JSON.stringify({code:'BRT',token:randomUUID()}));
+  const phone=f.browser(storage);
+  await settle();
+  assert.equal(phone.get('remote-actions').hidden,false,
+    'Create / Join menu must remain visible');
+  assert.equal(phone.get('remote-entry').hidden,true,
+    'do not automatically open the old code-entry screen');
+  assert.equal(phone.get('remote-input').value,'',
+    'old code must not be silently entered');
+  assert.equal(phone.get('remote-menu-exit').attrs['aria-label'],'Back to New Game');
+  assert.equal(f.joins,0,'do not auto-join a room');
+  assert.equal(f.rooms.size,0,'no room should be created');
+  phone.get('remote-menu-exit').onclick();
+  assert.equal(phone.location.href,'https://example.test/blocks/dev/');
+});
+
+test('interrupted join credential is reused only after player explicitly enters code',async()=>{
+  const f=fixture(),host=f.browser();
+  createHost(host);await settle();
+  const token=randomUUID();
+  const storage=new Map([['blocks:remote-pending-join:/blocks/dev/',
+    JSON.stringify({code:'BRT',token})]]);
+  const guest=f.browser(storage);
+  await settle();
+  assert.equal(f.joins,0);
+  assert.equal(guest.get('remote-actions').hidden,false);
+  guest.get('remote-join').onclick();
+  assert.equal(guest.get('remote-entry').hidden,false);
+  guest.get('remote-input').value='BRT';
+  guest.get('remote-input').listeners.input();
+  await settle();
+  assert.equal(f.joins,1);
+  assert.equal([...f.rooms.values()][0].guestToken,token,
+    'same in-progress token is retained for idempotent retry');
+  assert.equal(storage.has('blocks:remote-pending-join:/blocks/dev/'),false);
+});
+
+test('Play Together Back arrow returns to the main New Game selector without creating a room',()=>{
   const f=fixture(),phone=f.browser();
   const button=phone.get('remote-menu-exit');
   assert.equal(button.hidden,false);
@@ -1285,7 +1325,7 @@ test('Play Together X returns to the main New Game selector without creating a r
   assert.equal(f.rooms.size,0);
 });
 
-test('Join Game X returns to Play Together without attempting to join',async()=>{
+test('Join Game Back arrow returns to Play Together without attempting to join',async()=>{
   const f=fixture(),phone=f.browser();
   const exit=phone.get('remote-menu-exit');
   assert.equal(exit.hidden,false);
@@ -1328,11 +1368,14 @@ test('Game Created has comfortably spaced code, NATO and countdown',()=>{
   assert.doesNotMatch(source,/Once they join, each player taps Start Game/);
 });
 
-test('Create, Join and Room Created X buttons share viewport corner placement',()=>{
+test('Back uses top-left and cancelling a room uses a separate top-right X',()=>{
   const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+  assert.match(source,/id="remote-menu-exit"[^>]*>←<\/button>/);
+  assert.match(source,/id="remote-code-exit"[^>]*>×<\/button>/);
   assert.match(css,/#remote-lobby #remote-menu-exit,\s*#remote-lobby #remote-code-exit\s*\{/);
   assert.match(css,/position:fixed;\s*top:calc\(env\(safe-area-inset-top, 0px\) \+ 16px\);/);
-  assert.match(css,/right:calc\(env\(safe-area-inset-right, 0px\) \+ 16px\);/);
+  assert.match(css,/#remote-lobby #remote-menu-exit\s*\{\s*left:calc\(env\(safe-area-inset-left, 0px\) \+ 16px\);/);
+  assert.match(css,/#remote-lobby #remote-code-exit\s*\{\s*right:calc\(env\(safe-area-inset-right, 0px\) \+ 16px\);/);
 });
 
 test('New Game screen launch flag is consumed by the main app',()=>{
@@ -1490,11 +1533,12 @@ test('code entry resizes to visible iPhone viewport and restores layout on exit'
   assert.equal(phone.get('remote-input').focused,false);
 });
 
-test('Join Game has no duplicate Back link and uses the top-right X',()=>{
+test('Join Game has one Back arrow at top-left, while room cancellation uses X at top-right',()=>{
   const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
   assert.doesNotMatch(source,/remote-entry-back/);
   assert.doesNotMatch(css,/#remote-lobby #remote-entry-back/);
   assert.match(source,/bindLobbyAction\(menuExit,\(\)=>\{/);
+  assert.match(source,/id="remote-menu-exit"[^>]*>←<\/button>/);
   // Legacy UI selectors from earlier two-phone screens are no longer present.
   for(const selector of ['#remote-resume','#remote-new','#remote-back']){
     assert.equal(css.includes(selector),false,selector+' must not remain in CSS');

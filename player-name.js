@@ -37,14 +37,14 @@
   window.BLOCKS_SAVE_PLAYER_NAME=name=>{
     const clean=String(name||'').trim();
     if(!clean||clean.length>40)return Promise.reject(Error('Choose a name (up to 40 characters).'));
-    // Save locally immediately so the same name is available in solo and
-    // multiplayer, even if the network update is still in progress.
-    player={player_id:player.player_id,display_name:clean};
-    try{localStorage.setItem(KEY,JSON.stringify(player));}catch(_){}
+    // Commit the local profile only after the shared leaderboard record is
+    // updated. An offline failure must not claim to have saved a new name.
     return ensurePlayer().then(id=>fetch(API+'?player_id=eq.'+encodeURIComponent(id),{
       method:'PATCH',headers,body:JSON.stringify({display_name:clean})
     })).then(response=>{
       if(!response.ok)throw Error('Supabase error '+response.status);
+      player={player_id:player.player_id,display_name:clean};
+      try{localStorage.setItem(KEY,JSON.stringify(player));}catch(_){}
       return clean;
     });
   };

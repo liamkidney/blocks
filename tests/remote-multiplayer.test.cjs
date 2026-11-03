@@ -10,6 +10,7 @@ const source=fs.readFileSync(path.join(__dirname,'..','remote-multiplayer.js'),'
 function fixture({realtime=false,shortCode='BRT'}={}){
   const rooms=new Map(),allEvents=[],sockets=[],boardBroadcasts=[];
   let nextId=0,failAcknowledgement=false,dropJoinAck=false,joins=0,starts=0,rematches=0;
+  let nextCode=shortCode;
   async function fetch(url,opts){
     const name=url.split('/').pop(),a=JSON.parse(opts.body);
     const success=data=>({ok:true,json:async()=>data});
@@ -17,7 +18,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     if(name==='blocks_create_match'||name==='blocks_create_match_config'||
        name==='blocks_create_match_short'||name==='blocks_create_match_short_v2'){
       const id=randomUUID(),hostToken=randomUUID();
-      const code=name.startsWith('blocks_create_match_short')?shortCode:'ABCDEF';
+      const code=name.startsWith('blocks_create_match_short')?nextCode:'ABCDEF';
       const code_expires_at=new Date(Date.now()+180000).toISOString();
       rooms.set(id,{id,code,hostToken,guestToken:null,status:'waiting',winner:null,
         round:1,host_ready:false,guest_ready:false,host_wins:0,guest_wins:0,
@@ -315,10 +316,11 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     vm.runInNewContext(source,context,{filename:'remote-multiplayer.js'});
     return {
       window,get,attacks,results,rounds,holds,unholds,configs,storage,session,location,history,sharedInvitations,bodyElements,
-      tapInvite(code){
+      tapInvite(code,type='BLOCKS_PUSH_INVITATION'){
         serviceWorkerListeners.get('message')?.({
-          data:{type:'BLOCKS_PUSH_INVITATION',
-            url:'https://example.test/blocks/dev/?remote=1&push_join='+code}
+          data:{type,
+            url:'https://example.test/blocks/dev/?remote=1&push_join='+code,
+            body:'Alex invited you to play BLOCKS'}
         });
       },
       ownBoard,opponentBoards,clearedBoards,reactions,pauses,
@@ -350,6 +352,7 @@ function fixture({realtime=false,shortCode='BRT'}={}){
     browser,rooms,allEvents,sockets,boardBroadcasts,setDropAck:()=>{failAcknowledgement=true},
     setDropJoinAck:()=>{dropJoinAck=true},
     get joins(){return joins},get starts(){return starts},get rematches(){return rematches},
+    setNextCode(code){nextCode=code},
     expireCode(){for(const m of rooms.values())m.code_expires_at=new Date(Date.now()-30000).toISOString()}
   };
 }
@@ -370,8 +373,8 @@ function shownSlots(phone){
 function shownNato(phone){
   return phone.get('remote-code-phonetic').textContent;
 }
-async function matched(f){
-  const host=f.browser(),guest=f.browser();
+async function matched(f,guestOptions={}){
+  const host=f.browser(),guest=f.browser(undefined,undefined,'?remote=1',guestOptions);
   assert.equal(host.get('remote-entry').hidden,true);
   assert.equal(host.get('remote-code-panel').hidden,true);
   assert.equal(host.get('remote-actions').hidden,false);
@@ -419,6 +422,70 @@ async function matched(f){
   assert.equal(guest.window.BLOCKS_REMOTE.ready,true);
   return {host,guest};
 }
+
+test('an invitation during a live match presents a choice without stealing the game',async()=>{
+  const f=fixture(),{host,guest}=await matched(f,{pwa:'ios'});
+  f.setNextCode('NCK');
+  const nextHost=f.browser();
+  createHost(nextHost);await settle();
+  const seen=[];
+  guest.window.BLOCKS_PRESENT_INVITATION=(url,options)=>{
+    seen.push({url,options});return true;
+  };
+  guest.tapInvite('NCK');
+  await settle();
+  assert.equal(seen.length,1);
+  assert.equal(seen[0].url,'https://example.test/blocks/dev/?remote=1&push_join=NCK');
+  assert.equal(guest.window.BLOCKS_REMOTE.ready,true,
+    'receiving a notification must not forfeit or replace an active match');
+  assert.equal(f.joins,1,'no unconfirmed switch to the new room');
+  assert.equal([...f.rooms.values()][0].status,'playing');
+  seen[0].options.onDismiss();
+  assert.equal(f.joins,1);
+  assert.equal(guest.workerMessages.some(m=>
+    m.type==='BLOCKS_ACK_PUSH_INVITATION'&&m.url.includes('push_join=NCK')),true);
+  assert.equal(host.window.BLOCKS_REMOTE.ready,true);
+});
+
+test('accepting a notification during a live match forfeits, then joins new room',async()=>{
+  const f=fixture(),{host,guest}=await matched(f,{pwa:'ios'});
+  const oldRoom=[...f.rooms.values()][0];
+  f.setNextCode('NCK');
+  const nextHost=f.browser();
+  createHost(nextHost);await settle();
+  const presented=[];
+  guest.window.BLOCKS_PRESENT_INVITATION=(url,options)=>{
+    presented.push(options);return true;
+  };
+  guest.tapInvite('NCK');await settle();
+  assert.equal(presented.length,1);
+  assert.equal(f.joins,1);
+  const joined=await presented[0].onJoin();
+  await settle();await host.tick();await nextHost.tick();await settle();
+  assert.equal(joined,true);
+  assert.equal(oldRoom.status,'finished','old game ends in a loss, not cancellation');
+  assert.equal(oldRoom.winner,1,'old opponent wins the forfeited game');
+  assert.equal(oldRoom.host_wins,1);
+  assert.equal(f.joins,2,'new game is joined only after explicit Join');
+  assert.equal(guest.window.BLOCKS_REMOTE.player,2);
+  assert.equal(guest.window.BLOCKS_REMOTE.ready,false);
+  assert.equal(guest.get('remote-result-title').textContent,'READY TO START');
+  assert.equal(guest.workerMessages.some(m=>
+    m.type==='BLOCKS_ACK_PUSH_INVITATION'&&m.url.includes('push_join=NCK')),true);
+});
+
+test('a foreground push during multiplayer shows a prompt without automatically joining',async()=>{
+  const f=fixture(),{guest}=await matched(f,{pwa:'ios'});
+  const seen=[];
+  guest.window.BLOCKS_PRESENT_INVITATION=(url,options)=>{
+    seen.push({url,options});return true;
+  };
+  guest.tapInvite('NCK','BLOCKS_PUSH_RECEIVED');await settle();
+  assert.equal(seen.length,1);
+  assert.equal(seen[0].options.foreground,true);
+  assert.match(seen[0].options.body,/Alex invited/);
+  assert.equal(f.joins,1,'foreground notification alone never changes rooms');
+});
 
 test('a failed network acknowledgement does not discard a tapped invitation',async()=>{
   const f=fixture(),host=f.browser();

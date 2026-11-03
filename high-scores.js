@@ -8,8 +8,9 @@
  document.getElementById('high-scores-slot').appendChild(button);
  const overlay=document.createElement('div');
  overlay.id='high-scores-overlay';overlay.hidden=true;
- overlay.innerHTML=`<main class="scores-panel"><button id="scores-back" type="button">← BACK TO GAME</button><h1>HIGH SCORES</h1><div id="scores-mode-tabs" class="restart-options scores-mode-tabs" role="group" aria-label="Difficulty">${GAME_MODE_IDS.map(id=>`<button type="button" data-mode="${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}</div><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>`;
+ overlay.innerHTML=`<main class="scores-panel"><button id="scores-back" type="button" aria-label="Back to game" title="Back to game">←</button><h1>HIGH SCORES</h1><div id="scores-mode-tabs" class="restart-options scores-mode-tabs" role="group" aria-label="Difficulty">${GAME_MODE_IDS.map(id=>`<button type="button" data-mode="${id}" aria-pressed="false">${GAME_MODES[id].label.toUpperCase()}</button>`).join("")}</div><table aria-label="High scores"><thead><tr><th>#</th><th>PLAYER</th><th>SCORE</th><th>LINES</th><th>DATE</th></tr></thead><tbody id="scores-rows"></tbody></table><p id="scores-status" role="status"></p><button id="scores-retry" type="button" hidden>RETRY</button></main>`;
  document.body.appendChild(overlay);
+ const backButton=overlay.querySelector('#scores-back');
  const rows=overlay.querySelector('#scores-rows');
  const status=overlay.querySelector('#scores-status');
  const retry=overlay.querySelector('#scores-retry');
@@ -73,6 +74,9 @@
  function open(onReturn=null){
   if(!overlay.hidden)return;
   returnToMenu=typeof onReturn==='function'?onReturn:null;
+  const backLabel=returnToMenu?'Back to New Game':'Back to game';
+  backButton.setAttribute('aria-label',backLabel);
+  backButton.title=backLabel;
   resumeOnClose=game.phase!=='paused'&&game.phase!=='game_over'&&!session.outcome;
   if(resumeOnClose)togglePause();
   saveGame(true);overlay.hidden=false;setDefaultMode();void load();
@@ -91,7 +95,7 @@
   el.addEventListener('click',e=>{if(performance.now()-last<750){e.preventDefault();return;}fn();});
  }
  if(typeof window!=='undefined')window.BLOCKS_OPEN_HIGH_SCORES=open;
- tap(button,open);tap(overlay.querySelector('#scores-back'),close);tap(retry,()=>void load());
+ tap(button,open);tap(backButton,close);tap(retry,()=>void load());
  for(const tab of modeButtons)tap(tab,()=>selectMode(tab.dataset.mode));
  button.hidden=false;
  document.addEventListener('keydown',e=>{

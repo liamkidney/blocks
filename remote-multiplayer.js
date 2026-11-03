@@ -1228,6 +1228,8 @@
   window.addEventListener('pageshow',event=>{
     if(event.persisted&&match){openSocket();void heartbeat(true);void poll();}
   });
+  // Preserve the actual invitation before hiding its private room code.
+  const arrivingInvitation=incomingPushCode?new URL(location.href).href:null;
   if(pushCode&&typeof history!=='undefined'&&typeof history.replaceState==='function'){
     const clean=new URL(location.href);
     clean.searchParams.delete('push_join');
@@ -1237,7 +1239,7 @@
     // Keep the existing saved match alive until the recipient explicitly
     // accepts or dismisses an invitation to switch games.
     if(match)void connect(match);
-    presentPushInvitation(new URL(location.href).href);
+    presentPushInvitation(arrivingInvitation);
   }else if(match)void connect(match);
   else{
     // A pending join token is only a retry credential for a deliberately

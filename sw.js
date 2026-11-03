@@ -17,6 +17,8 @@ self.addEventListener("install",event=>{
 const INVITE_CACHE='blocks-push-handoff-'+encodeURIComponent(self.registration.scope);
 const INVITE_REQUEST=new URL('__push_handoff__',self.registration.scope).href;
 const INVITE_TTL_MS=180000;
+// An acknowledgement may arrive before the asynchronous handoff is persisted.
+let pendingPushSave=Promise.resolve();
 function validInviteURL(value){
   if(typeof value!=='string')return null;
   try{
@@ -62,6 +64,7 @@ self.addEventListener("message",event=>{
     })());
   }else if(event.data?.type==="BLOCKS_ACK_PUSH_INVITATION"){
     event.waitUntil((async()=>{
+      await pendingPushSave;
       const pending=await readPushHandoff();
       if(pending?.url===event.data.url){
         const cache=await caches.open(INVITE_CACHE);
@@ -74,7 +77,7 @@ self.addEventListener("message",event=>{
 self.addEventListener("activate",event=>event.waitUntil((async()=>{
   // Separate prod/dev caches; never delete the other installed app's release.
   const keys=await caches.keys();
-  await Promise.all(keys.filter(key=>key.startsWith("blocks-")&&key!==CACHE)
+  await Promise.all(keys.filter(key=>key.startsWith("blocks-")&&key!==CACHE&&key!==INVITE_CACHE)
     .map(key=>caches.delete(key)));
   await self.clients.claim();
 })()));
@@ -161,6 +164,7 @@ self.addEventListener("notificationclick",event=>{
     // Persistence is a recovery path if iOS launches at the Home Screen or
     // discards the first message. It must not delay focusing/opening the app.
     const stored=savePushHandoff(target);
+    pendingPushSave=stored;
     try{
       const opened=await opening;
       if(!existing&&opened?.postMessage){

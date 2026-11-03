@@ -17,7 +17,8 @@ if(!REMOTE_PLAYER&&navigator.serviceWorker?.addEventListener){
     try{
       const target=new URL(event.data.url);
       if(target.origin!==new URL(location.href).origin||
-         target.pathname!==location.pathname||
+         target.pathname.replace(/index[.]html$/,'')!==
+           location.pathname.replace(/index[.]html$/,'')||
          target.searchParams.get('remote')!=='1'||
          !/^[A-Z]{3}$/.test(target.searchParams.get('push_join')||''))return;
       if(window.BLOCKS_PRESENT_INVITATION){

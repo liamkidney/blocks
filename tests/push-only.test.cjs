@@ -534,3 +534,107 @@ test('invalid or cross-app invitations cannot display an in-game Join prompt',()
   ])assert.equal(b.window.BLOCKS_PRESENT_INVITATION(invalid),false);
   assert.equal(b.paused,0);
 });
+
+
+test('deep-link startup retains invite code after cleaning the address bar',()=>{
+  const source=file('remote-multiplayer.js');
+  const start=source.indexOf('  // Preserve the actual invitation');
+  const end=source.lastIndexOf('\n})();');
+  assert.ok(start>0&&end>start);
+  const launch='https://example.test/blocks/dev/?remote=1&push_join=NCK';
+  const location={href:launch,pathname:'/blocks/dev/',search:'?remote=1&push_join=NCK'};
+  const invitations=[],connections=[],oldMatch={id:'already-playing'};
+  const history={replaceState(_state,_title,url){
+    const next=new URL(url);
+    location.href=next.href;location.search=next.search;
+  }};
+  vm.runInNewContext(source.slice(start,end),{
+    URL,location,history,pushCode:'NCK',incomingPushCode:'NCK',
+    match:oldMatch,connect:match=>connections.push(match),
+    presentPushInvitation:url=>invitations.push(url)
+  });
+  assert.equal(location.href,'https://example.test/blocks/dev/?remote=1');
+  assert.deepEqual(invitations,[launch],'the room code must reach the invite handler');
+  assert.deepEqual(connections,[oldMatch],'existing match must not be silently lost');
+});
+
+test('a push to the scope root reaches an installed app opened at index.html',()=>{
+  const app=file('app.js');
+  const begin=app.indexOf('// A tapped invitation can arrive while');
+  const end=app.indexOf('let remoteStored=null;',begin);
+  const listeners={},shown=[];
+  const location={href:'https://example.test/blocks/dev/index.html',
+    pathname:'/blocks/dev/index.html'};
+  const navigator={standalone:true,serviceWorker:{
+    addEventListener:(type,fn)=>{listeners[type]=fn}
+  }};
+  const window={matchMedia:()=>({matches:false}),
+    BLOCKS_PRESENT_INVITATION:url=>shown.push(url)};
+  vm.runInNewContext(app.slice(begin,end),{
+    window,navigator,document:{visibilityState:'visible'},
+    location,URL,REMOTE_PLAYER:false
+  });
+  const invite='https://example.test/blocks/dev/?remote=1&push_join=NCK';
+  listeners.message({data:{type:'BLOCKS_PUSH_INVITATION',url:invite}});
+  assert.deepEqual(shown,[invite]);
+});
+
+test('worker activation keeps pending push handoffs when clearing old caches',async()=>{
+  const scope='https://example.test/blocks/dev/';
+  const handlers={},deleted=[];
+  const handoff='blocks-push-handoff-'+encodeURIComponent(scope);
+  const self={
+    registration:{scope},clients:{async claim(){}},
+    addEventListener:(type,handler)=>{handlers[type]=handler}
+  };
+  vm.runInNewContext(file('sw.js'),{
+    self,URL,Set,console,
+    caches:{async keys(){return ['blocks-old-shell',handoff,'unrelated-cache']},
+      async delete(key){deleted.push(key)}}
+  });
+  let work;
+  handlers.activate({waitUntil:p=>{work=p}});
+  await work;
+  assert.deepEqual(deleted,['blocks-old-shell']);
+});
+
+test('rapid acknowledgement waits for notification handoff write',async()=>{
+  const scope='https://example.test/blocks/dev/';
+  const handlers={},saved=new Map();
+  let releasePut;
+  class FakeResponse{
+    constructor(body){this.body=body}
+    async json(){return JSON.parse(this.body)}
+  }
+  const cache={
+    put(key,value){return new Promise(resolve=>{
+      releasePut=()=>{saved.set(String(key),value);resolve()};
+    })},
+    async match(key){return saved.get(String(key))||null},
+    async delete(key){return saved.delete(String(key))}
+  };
+  const self={
+    registration:{scope},
+    clients:{async matchAll(){return []},async openWindow(){return null}},
+    addEventListener:(type,handler)=>{handlers[type]=handler}
+  };
+  vm.runInNewContext(file('sw.js'),{
+    self,URL,console,Date,Response:FakeResponse,
+    caches:{async open(){return cache}}
+  });
+  const invite=scope+'?remote=1&push_join=NCK';
+  let clickWork,ackWork;
+  handlers.notificationclick({
+    notification:{data:{url:invite},close(){}},
+    waitUntil:p=>{clickWork=p}
+  });
+  for(let i=0;i<12&&!releasePut;i++)await Promise.resolve();
+  assert.equal(typeof releasePut,'function');
+  handlers.message({
+    data:{type:'BLOCKS_ACK_PUSH_INVITATION',url:invite},
+    waitUntil:p=>{ackWork=p}
+  });
+  releasePut();
+  await Promise.all([clickWork,ackWork]);
+  assert.equal(saved.size,0,'completed invitations must not replay later');
+});

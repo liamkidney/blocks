@@ -11,18 +11,28 @@ if(!REMOTE_PLAYER&&navigator.serviceWorker?.addEventListener){
     window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches===true;
   let routingPushUrl=null;
   navigator.serviceWorker.addEventListener('message',event=>{
-    if(event.data?.type!=='BLOCKS_PUSH_INVITATION'||!installed)return;
+    const pushType=event.data?.type;
+    if(!installed||!['BLOCKS_PUSH_INVITATION','BLOCKS_PUSH_RECEIVED'].includes(pushType)||
+       (pushType==='BLOCKS_PUSH_RECEIVED'&&document.visibilityState!=='visible'))return;
     try{
       const target=new URL(event.data.url);
       if(target.origin!==new URL(location.href).origin||
          target.pathname!==location.pathname||
          target.searchParams.get('remote')!=='1'||
          !/^[A-Z]{3}$/.test(target.searchParams.get('push_join')||''))return;
-      if(routingPushUrl===target.href)return;
-      routingPushUrl=target.href;
-      // An installed app may be focused at its start URL even when the
-      // service worker requested a different deep link. Navigate explicitly.
-      location.href=target.href;
+      if(window.BLOCKS_PRESENT_INVITATION){
+        window.BLOCKS_PRESENT_INVITATION(target.href,{
+          foreground:pushType==='BLOCKS_PUSH_RECEIVED',
+          body:typeof event.data.body==='string'?event.data.body:null
+        });
+      }else if(pushType==='BLOCKS_PUSH_RECEIVED'){
+        // The UI may still be initialising when a foreground push arrives.
+        window.BLOCKS_EARLY_INVITE={url:target.href,foreground:true,
+          body:event.data.body};
+      }else if(routingPushUrl!==target.href){
+        routingPushUrl=target.href;
+        location.href=target.href;
+      }
     }catch(_){}
   });
   if(installed){

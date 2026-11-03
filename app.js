@@ -203,7 +203,10 @@ restartDialog.innerHTML=`
       <button type="button" id="restart-one">PLAY SOLO</button>
       <button type="button" id="restart-two">TWO PLAYERS · ONE PHONE</button>
       <button type="button" id="restart-remote">PLAY TOGETHER · TWO PHONES</button>
-      <button type="button" id="restart-settings" class="restart-secondary">SETTINGS</button>
+      <div class="restart-utilities">
+        <button type="button" id="restart-high-scores" class="restart-secondary">HIGH SCORES</button>
+        <button type="button" id="restart-settings" class="restart-secondary">SETTINGS</button>
+      </div>
     </div>
     <div id="restart-rules-screen" hidden>
       <button type="button" id="restart-back" class="restart-back">← BACK</button>
@@ -228,6 +231,7 @@ const restartModeScreen=document.getElementById("restart-mode-screen");
 const restartRulesScreen=document.getElementById("restart-rules-screen");
 const restartBackButton=document.getElementById("restart-back");
 const restartSettingsButton=document.getElementById("restart-settings");
+const restartScoresButton=document.getElementById("restart-high-scores");
 const onePlayerButton=document.getElementById("restart-one");
 const twoPlayerButton=document.getElementById("restart-two");
 const remotePlayerButton=document.getElementById("restart-remote");
@@ -368,6 +372,14 @@ bindImmediateAction(onePlayerButton,()=>showRulesFor(1));
 bindImmediateAction(twoPlayerButton,()=>showRulesFor(2));
 bindImmediateAction(remotePlayerButton,openPlayTogether);
 bindImmediateAction(restartSettingsButton,()=>window.BLOCKS_OPEN_SETTINGS?.());
+bindImmediateAction(restartScoresButton,()=>{
+  if(typeof window.BLOCKS_OPEN_HIGH_SCORES!=='function')return;
+  restartDialog.hidden=true;
+  window.BLOCKS_OPEN_HIGH_SCORES(()=>{
+    restartDialog.hidden=false;
+    restartScoresButton.focus();
+  });
+});
 bindImmediateAction(settingsButton,()=>window.BLOCKS_OPEN_SETTINGS?.());
 for(const [id,button] of difficultyButtons)
   bindImmediateAction(button,()=>selectDifficulty(id));

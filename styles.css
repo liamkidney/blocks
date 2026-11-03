@@ -665,6 +665,12 @@ body.two-player.match-paused .player-board-frame::after {
 }
 #scores-status{font-size:12px;font-weight:700;margin:18px 0}
 #scores-back,#scores-retry{border:2px solid var(--ink);background:var(--ink);color:var(--paper);padding:12px 18px;font:900 12px Helvetica,Arial,sans-serif;letter-spacing:1px;margin:0 0 22px;touch-action:manipulation}
+#high-scores-overlay #scores-back{
+  width:44px;height:44px;min-height:44px;margin:0 0 16px;padding:0;
+  border:0;border-radius:8px;background:transparent;color:var(--ink);
+  font:400 29px/1 Helvetica,Arial,sans-serif;
+  display:grid;place-items:center;cursor:pointer
+}
 #scores-retry[hidden]{display:none}
 
 /* Trophy button sits beneath pause/restart in the HUD. */

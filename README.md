@@ -17,9 +17,11 @@ code remains available for playing with someone for the first time.
 
 Friendship controls and push registration are available **only while running the
 installed standalone PWA**. Safari and other ordinary browser tabs show only
-the existing multiplayer and room-code UI. The host's **Invite Friend** button
-is hidden unless that installation has saved friends, and an open friend list
-stays visible through waiting-room polling.
+the existing multiplayer and room-code UI. **Play Together** offers **Create Game**,
+**Join Game**, and **Invite Friend** (only when saved friends exist). Choosing
+**Invite Friend** opens the friends list before any room is created. Backing
+out leaves no room. Choosing a friend creates the room, sends a push, and
+shows a waiting screen without irrelevant manual code controls.
 
 In the saved-friends list, tap the **×** beside a name and confirm to remove
 that friend. This revokes invitations in both directions and clears mutual
@@ -34,10 +36,10 @@ disappears.
    installation for Web Push. On iPhone, install **Blocks Dev** to the Home Screen,
    open it from the icon, and grant permission when prompted. No Apple developer
    account or personal sign-in is needed.
-3. Next time, the host creates a room normally, taps **Invite Friend**, and
-   selects a saved friend. Supabase sends an encrypted push notification to that
-   friend's subscribed installation. Tapping it opens the **installed PWA**
-   directly into the same room's **Ready to Start** screen.
+3. Next time, the host taps **Invite Friend** on **Play Together** and selects
+   a saved friend. Only then is a room created and a push sent. If delivery
+   fails, the newly created room is cancelled. Tapping the notification opens
+   the **installed PWA** directly into the **Ready to Start** screen.
 4. Notification invitations currently respect the original **three-minute**
    waiting-room expiry. A connected match and subsequent rematches still live
    independently of that short expiry. The friend cannot be invited while

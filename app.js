@@ -819,6 +819,7 @@ board.addEventListener("animationend",event=>{
 const repeatTimers=new Map();
 const repeatable=new Set(["down","left","right"]);
 const gameControlResetters=[];
+let controlEditing=false;
 function applyCommand(command,player=0){
   const target=session.games[player];
   if(!target)return;
@@ -838,6 +839,7 @@ function repeat(button){
     command==="down"?DOWN_REPEAT_INTERVAL:REPEAT_INTERVAL));
 }
 function press(button){
+  if(controlEditing)return;
   const command=button.dataset.command;
   if(button.classList.contains("pressed"))return;
   button.classList.add("pressed");
@@ -874,6 +876,7 @@ function nearestControl(buttons,x,y){
   return closest;
 }
 function findControlStart(target,x,y){
+  if(controlEditing)return null;
   const direct=target?.closest?.(".control");
   if(direct){
     const group=controlGroups.find(item=>item.buttons.includes(direct));
@@ -1076,6 +1079,168 @@ if("serviceWorker" in navigator){
     }catch(error){console.warn("Service worker registration failed",error);}
   });
 }
+
+// Solo portrait control arrangement. Always drag the real game's control row;
+// the floating proxy is an exact clone of the grabbed control, including its SVG.
+const SOLO_CONTROL_ACTIONS=["left","right","down","rotate_cw"];
+const SOLO_CONTROL_ORDER_KEY="blocks:control-order:v1:"+
+  location.pathname.replace(/index[.]html$/,"");
+const soloControlPad=document.getElementById("controls");
+const soloControlButtons=Array.from(soloControlPad.querySelectorAll(".control"));
+const isSoloPortrait=()=>!TWO_PLAYER&&!REMOTE_PLAYER&&
+  window.matchMedia?.("(orientation: portrait)")?.matches===true;
+function isValidSoloControlOrder(value){
+  return Array.isArray(value)&&value.length===4&&new Set(value).size===4&&
+    SOLO_CONTROL_ACTIONS.every(command=>value.includes(command));
+}
+function getSavedSoloControlOrder(){
+  try{
+    const value=JSON.parse(localStorage.getItem(SOLO_CONTROL_ORDER_KEY)||"null");
+    return isValidSoloControlOrder(value)?value:SOLO_CONTROL_ACTIONS.slice();
+  }catch(_){return SOLO_CONTROL_ACTIONS.slice()}
+}
+let soloControlOrder=getSavedSoloControlOrder();
+function applySoloControlOrder(order){
+  for(const button of soloControlButtons)
+    button.style.setProperty("--portrait-control-order",order.indexOf(button.dataset.command));
+}
+applySoloControlOrder(soloControlOrder);
+let soloControlEditor=null;
+function moveSoloControlTo(index){
+  const state=soloControlEditor;
+  if(!state?.drag)return;
+  const oldIndex=state.order.indexOf(state.drag.button.dataset.command);
+  if(index===oldIndex)return;
+  const before=new Map(soloControlButtons.map(button=>[
+    button,button.getBoundingClientRect()
+  ]));
+  const reordered=state.order.slice();
+  const [command]=reordered.splice(oldIndex,1);
+  reordered.splice(index,0,command);
+  state.order=reordered;
+  applySoloControlOrder(reordered);
+  if(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches)return;
+  for(const button of soloControlButtons){
+    if(button===state.drag.button||!button.animate)continue;
+    const from=before.get(button),to=button.getBoundingClientRect();
+    const delta=from.left-to.left;
+    if(Math.abs(delta)<1)continue;
+    button.getAnimations?.().forEach(animation=>animation.cancel());
+    button.animate([
+      {transform:"translateX("+delta+"px)"},
+      {transform:"translateX(0)"}
+    ],{duration:175,easing:"ease-out"});
+  }
+}
+function stopSoloControlDrag(commit){
+  const state=soloControlEditor;
+  if(!state?.drag)return;
+  const {button,ghost}=state.drag;
+  state.drag=null;
+  ghost.remove();
+  button.classList.remove("control-edit-placeholder");
+  if(!commit){
+    state.order=soloControlOrder.slice();
+    applySoloControlOrder(state.order);
+  }
+}
+function finishSoloControlEdit(){
+  const state=soloControlEditor;
+  if(!state)return;
+  stopSoloControlDrag(true);
+  soloControlOrder=state.order.slice();
+  try{localStorage.setItem(SOLO_CONTROL_ORDER_KEY,JSON.stringify(soloControlOrder))}
+  catch(_){}
+  state.toolbar.remove();
+  soloControlEditor=null;
+  controlEditing=false;
+  document.body.classList.remove("controls-editing");
+  clearControlContacts();
+  if(state.showModeMenu)restartDialog.hidden=false;
+  if(state.resumeGame&&game.phase==="paused")game.resume();
+  renderActions();
+  saveGame(true);
+}
+window.BLOCKS_BEGIN_CONTROL_EDIT=()=>{
+  if(!isSoloPortrait())return false;
+  if(soloControlEditor)return true;
+  clearControlContacts();
+  const resumeGame=game.phase==="falling"||game.phase==="clearing_lines";
+  if(resumeGame)game.pause();
+  const showModeMenu=!restartDialog.hidden;
+  restartDialog.hidden=true;
+  const toolbar=document.createElement("div");
+  toolbar.id="controls-edit-toolbar";
+  toolbar.innerHTML='<span>Drag controls to rearrange</span><button type="button" id="controls-edit-done">Done</button>';
+  soloControlPad.appendChild(toolbar);
+  toolbar.querySelector("button").addEventListener("click",finishSoloControlEdit);
+  soloControlEditor={order:soloControlOrder.slice(),resumeGame,showModeMenu,toolbar,drag:null};
+  controlEditing=true;
+  document.body.classList.add("controls-editing");
+  renderActions();
+  saveGame(true);
+  return true;
+};
+window.BLOCKS_RESET_CONTROL_ORDER=()=>{
+  if(TWO_PLAYER||REMOTE_PLAYER)return false;
+  if(soloControlEditor)finishSoloControlEdit();
+  soloControlOrder=SOLO_CONTROL_ACTIONS.slice();
+  applySoloControlOrder(soloControlOrder);
+  try{localStorage.setItem(SOLO_CONTROL_ORDER_KEY,JSON.stringify(soloControlOrder))}
+  catch(_){}
+  return true;
+};
+document.addEventListener("pointerdown",event=>{
+  if(!controlEditing||!soloControlEditor||soloControlEditor.drag)return;
+  if(event.pointerType==="mouse"&&event.button!==0)return;
+  const button=event.target?.closest?.("#controls .control");
+  if(!button||!soloControlButtons.includes(button))return;
+  event.preventDefault();
+  const rect=button.getBoundingClientRect();
+  const ghost=button.cloneNode(true);
+  ghost.classList.remove("pressed");
+  ghost.classList.add("control-edit-ghost");
+  ghost.setAttribute("aria-hidden","true");
+  ghost.style.left=rect.left+"px";
+  ghost.style.top=rect.top+"px";
+  ghost.style.width=rect.width+"px";
+  ghost.style.height=rect.height+"px";
+  document.body.appendChild(ghost);
+  button.classList.add("control-edit-placeholder");
+  soloControlEditor.drag={
+    id:event.pointerId,button,ghost,startX:event.clientX,startY:event.clientY
+  };
+  button.setPointerCapture?.(event.pointerId);
+},true);
+document.addEventListener("pointermove",event=>{
+  const drag=soloControlEditor?.drag;
+  if(!drag||drag.id!==event.pointerId)return;
+  event.preventDefault();
+  drag.ghost.style.transform="translate3d("+
+    (event.clientX-drag.startX)+"px,"+(event.clientY-drag.startY)+
+    "px,0) scale(1.05)";
+  const rect=soloControlPad.getBoundingClientRect();
+  const gap=parseFloat(window.getComputedStyle(soloControlPad).columnGap)||0;
+  const keyWidth=(rect.width-3*gap)/4;
+  if(keyWidth<=0)return;
+  const index=Math.max(0,Math.min(3,Math.round(
+    (event.clientX-rect.left-keyWidth/2)/(keyWidth+gap)
+  )));
+  moveSoloControlTo(index);
+},true);
+document.addEventListener("pointerup",event=>{
+  if(soloControlEditor?.drag?.id!==event.pointerId)return;
+  event.preventDefault();
+  stopSoloControlDrag(true);
+},true);
+document.addEventListener("pointercancel",event=>{
+  if(soloControlEditor?.drag?.id===event.pointerId)stopSoloControlDrag(false);
+},true);
+window.addEventListener("blur",()=>stopSoloControlDrag(false));
+window.addEventListener("resize",()=>{
+  if(controlEditing&&!isSoloPortrait())finishSoloControlEdit();
+});
+// End solo portrait control arrangement.
 
 // Gameplay blocks long-press menus, but profile/settings text inputs must
 // retain ordinary iOS editing, selection, paste and correction behaviour.

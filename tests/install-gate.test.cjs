@@ -107,7 +107,7 @@ test("appinstalled shows launch instructions but never silently enables browser 
   const result=boot();
   result.windowEvents.appinstalled();
   assert.ok(result.rootClasses.has("blocks-install-required"));
-  assert.match(result.status.textContent,/Open the app/);
+  assert.match(result.status.textContent,/Blocks installed/);
   assert.match(result.instructions.innerHTML,/app icon/);
 });
 

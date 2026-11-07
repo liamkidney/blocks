@@ -19,26 +19,30 @@
   let button=null,instructions=null,status=null;
 
   function manualInstructions(){
-    if(iOS)return '<p>On iPhone or iPad:</p>'+
-      '<ol><li>Open this page in <strong>Safari</strong>.</li>'+
-      '<li>Tap <strong>Share</strong> (the square with an upward arrow).</li>'+
-      '<li>Choose <strong>Add to Home Screen</strong>, keep <strong>Open as Web App</strong> enabled, then tap <strong>Add</strong>.</li>'+
-      '<li>Launch <strong>Blocks</strong> from your Home Screen.</li></ol>';
-    if(android)return '<p>In <strong>Chrome</strong>, open the browser menu (⋮) and choose '+
-      '<strong>Install app</strong> or <strong>Add to Home screen</strong>. '+
-      'Then open Blocks from its Home Screen icon.</p>';
-    return '<p>Use your browser’s <strong>Install app</strong> command. '+
-      'On Safari for Mac, use <strong>File → Add to Dock</strong>. '+
-      'Then launch Blocks from the installed app icon.</p>';
+    // The Share sheet already belongs to the browser the player is using.
+    // No browser-switch step or device heading is needed on iPhone/iPad.
+    if(iOS)return '<ol>'+
+      '<li>Tap <svg class="blocks-share-icon" viewBox="0 0 24 24" aria-label="Share" role="img">'+
+      '<path d="M12 16V3m0 0L8 7m4-4 4 4M5 11H4v9h16v-9h-1" '+
+      'fill="none" stroke="currentColor" stroke-width="1.7" '+
+      'stroke-linecap="round" stroke-linejoin="round"/></svg> <strong>Share</strong>.</li>'+
+      '<li>Select <strong>Add to Home Screen</strong>.</li>'+
+      '</ol>';
+    if(android)return '<ol>'+
+      '<li>Open the browser menu <strong>(⋮)</strong>.</li>'+
+      '<li>Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>'+
+      '</ol>';
+    return '<p>Choose <strong>Install app</strong> from your browser menu. '+
+      'On Safari for Mac, choose <strong>File → Add to Dock</strong>.</p>';
   }
   function refresh(){
     if(!button||!instructions||!status)return;
     button.hidden=!installPrompt||installedNotice;
     instructions.hidden=!!installPrompt&&!installedNotice;
     instructions.innerHTML=installedNotice?
-      '<p>Open <strong>Blocks</strong> from its app icon to play. This browser tab cannot start a game.</p>':
+      '<p>Open <strong>Blocks</strong> from its app icon to play.</p>':
       manualInstructions();
-    status.textContent=installedNotice?'Blocks is installed. Open the app to play.':'';
+    status.textContent=installedNotice?'Blocks installed.':'';
   }
   function unlockIfInstalled(){
     if(!isAppMode())return;
@@ -54,7 +58,7 @@
       '<div class="blocks-install-card">'+
       '<img class="blocks-install-icon" src="icon-192.png" alt="" width="80" height="80">'+
       '<h1>Install Blocks to play</h1>'+
-      '<p class="blocks-install-intro">Add Blocks to your device once, then open it like any other app.</p>'+
+
       '<button id="blocks-install-button" type="button" hidden>Install Blocks</button>'+
       '<div id="blocks-install-instructions" class="blocks-install-instructions"></div>'+
       '<p id="blocks-install-status" class="blocks-install-status" role="status" aria-live="polite"></p>'+

@@ -28,27 +28,21 @@ html.blocks-install-required body > :not(#blocks-install-gate):not(script) {
 .blocks-install-card {
   box-sizing:border-box;
   width:100%;
-  max-width:390px;
+  max-width:360px;
   text-align:center;
 }
 .blocks-install-icon {
   display:block;
-  width:80px;
-  height:80px;
-  border-radius:18px;
-  margin:0 auto 23px;
+  width:64px;
+  height:64px;
+  border-radius:14px;
+  margin:0 auto 22px;
 }
 .blocks-install-card h1 {
   font-size:clamp(26px,6vw,34px);
   line-height:1.16;
   letter-spacing:-0.035em;
-  margin:0 0 13px;
-}
-.blocks-install-intro {
-  font-size:16px;
-  line-height:1.5;
-  color:#5f5d53;
-  margin:0 auto 25px;
+  margin:0 0 25px;
 }
 #blocks-install-button {
   appearance:none;
@@ -64,7 +58,7 @@ html.blocks-install-required body > :not(#blocks-install-gate):not(script) {
   font-size:17px;
   font-weight:700;
   padding:17px 20px;
-  margin:0 0 23px;
+  margin:0 0 17px;
   cursor:pointer;
 }
 #blocks-install-button:focus-visible {
@@ -77,19 +71,29 @@ html.blocks-install-required body > :not(#blocks-install-gate):not(script) {
 }
 .blocks-install-instructions {
   text-align:left;
-  font-size:15px;
-  line-height:1.65;
+  font-size:16px;
+  line-height:1.5;
   color:#393930;
 }
 .blocks-install-instructions p {
-  margin:0 0 9px;
-}
-.blocks-install-instructions ol {
-  padding-left:23px;
   margin:0;
 }
+.blocks-install-instructions ol {
+  display:grid;
+  gap:16px;
+  max-width:310px;
+  padding-left:25px;
+  margin:0 auto;
+}
 .blocks-install-instructions li {
-  margin:0 0 12px;
+  padding-left:4px;
+  margin:0;
+}
+.blocks-share-icon {
+  display:inline-block;
+  width:1.15em;
+  height:1.15em;
+  vertical-align:-0.19em;
 }
 .blocks-install-status {
   color:#5f5d53;

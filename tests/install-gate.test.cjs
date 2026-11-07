@@ -66,15 +66,22 @@ test("browser launches are locked and show manual iOS install instructions",()=>
   assert.equal(result.document.mounted,result.gate);
   assert.equal(result.button.hidden,true);
   assert.match(result.gate.innerHTML,/Install Blocks to play/);
-  assert.match(result.instructions.innerHTML,/Safari/);
+  assert.match(result.instructions.innerHTML,/<ol>/);
+  assert.match(result.instructions.innerHTML,/<svg class="blocks-share-icon"/);
+  assert.match(result.instructions.innerHTML,/Share/);
   assert.match(result.instructions.innerHTML,/Add to Home Screen/);
-  assert.match(result.instructions.innerHTML,/Open as Web App/);
+  assert.equal((result.instructions.innerHTML.match(/<li>/g)||[]).length,2);
+  assert.doesNotMatch(result.instructions.innerHTML,/On iPhone|Open this page|Safari|Launch Blocks|Open as Web App/);
+  assert.doesNotMatch(result.gate.innerHTML,/blocks-install-intro/);
 });
 
 test("Android gets manual instructions when its install event is unavailable",()=>{
   const result=boot({android:true});
-  assert.match(result.instructions.innerHTML,/Chrome/);
+  assert.match(result.instructions.innerHTML,/browser menu/);
   assert.match(result.instructions.innerHTML,/Install app/);
+  assert.match(result.instructions.innerHTML,/Add to Home screen/);
+  assert.equal((result.instructions.innerHTML.match(/<li>/g)||[]).length,2);
+  assert.doesNotMatch(result.instructions.innerHTML,/In Chrome|Then open/);
   assert.equal(result.button.hidden,true);
 });
 

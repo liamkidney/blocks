@@ -1,0 +1,100 @@
+/* Browser view: installed app is the only playable entry point. */
+html.blocks-install-required,
+html.blocks-install-required body {
+  min-height:100%;
+  height:auto !important;
+  overflow:auto !important;
+}
+html.blocks-install-required body {
+  margin:0;
+  background:#f3efe3;
+  color:#292923;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+/* Hide every game surface and dialog, including dynamically appended ones. */
+html.blocks-install-required body > :not(#blocks-install-gate):not(script) {
+  display:none !important;
+}
+#blocks-install-gate {
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-height:100svh;
+  padding:calc(24px + env(safe-area-inset-top)) 20px
+          calc(24px + env(safe-area-inset-bottom));
+}
+.blocks-install-card {
+  box-sizing:border-box;
+  width:100%;
+  max-width:390px;
+  text-align:center;
+}
+.blocks-install-icon {
+  display:block;
+  width:80px;
+  height:80px;
+  border-radius:18px;
+  margin:0 auto 23px;
+}
+.blocks-install-card h1 {
+  font-size:clamp(26px,6vw,34px);
+  line-height:1.16;
+  letter-spacing:-0.035em;
+  margin:0 0 13px;
+}
+.blocks-install-intro {
+  font-size:16px;
+  line-height:1.5;
+  color:#5f5d53;
+  margin:0 auto 25px;
+}
+#blocks-install-button {
+  appearance:none;
+  box-sizing:border-box;
+  display:block;
+  width:100%;
+  border:0;
+  border-radius:14px;
+  background:#292923;
+  color:#fff;
+  font:700 17px/1.25 inherit;
+  font-family:inherit;
+  font-size:17px;
+  font-weight:700;
+  padding:17px 20px;
+  margin:0 0 23px;
+  cursor:pointer;
+}
+#blocks-install-button:focus-visible {
+  outline:3px solid #637da3;
+  outline-offset:3px;
+}
+#blocks-install-button[hidden],
+#blocks-install-instructions[hidden] {
+  display:none !important;
+}
+.blocks-install-instructions {
+  text-align:left;
+  font-size:15px;
+  line-height:1.65;
+  color:#393930;
+}
+.blocks-install-instructions p {
+  margin:0 0 9px;
+}
+.blocks-install-instructions ol {
+  padding-left:23px;
+  margin:0;
+}
+.blocks-install-instructions li {
+  margin:0 0 12px;
+}
+.blocks-install-status {
+  color:#5f5d53;
+  font-size:14px;
+  line-height:1.5;
+  margin:12px 0 0;
+}
+.blocks-install-status:empty {display:none;}

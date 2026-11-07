@@ -165,3 +165,7 @@ Tests: `node --test tests/*.test.cjs`, including
 `supabase/tests/short_invites_smoke.sql` in the Supabase SQL editor for
 transactional integration checks. Development is promoted to production
 only using the validated linear `dev` → `main` workflow.
+
+## Install-to-play requirement
+
+Blocks is playable only when launched as an installed progressive web app. Browser tabs show an installation screen rather than the game (including invitation links). On iPhone/iPad, use Safari → Share → Add to Home Screen with **Open as Web App** enabled; on supported Chromium browsers, use the **Install Blocks** prompt or the browser's Install app menu. Open the installed icon to play. This is a client-side UX gate, not a security control. Both production and development retain separate installable PWA identities and caches.

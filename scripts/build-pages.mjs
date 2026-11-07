@@ -2,6 +2,7 @@
 // Usage: node scripts/build-pages.mjs <source-dir> <output-dir> <prod|dev> <commit-sha>
 import {copyFileSync,existsSync,mkdirSync,readFileSync,writeFileSync} from "node:fs";
 import {join} from "node:path";
+import {bluePng,blueSvg} from "./dev-icon.mjs";
 
 const [source,output,channel,revision]=process.argv.slice(2);
 if(!source||!output||!["prod","dev"].includes(channel)||!revision)
@@ -18,6 +19,17 @@ for(const name of assets){
   const from=join(source,name);
   if(!existsSync(from))throw new Error("Missing build asset: "+from);
   copyFileSync(from,join(output,name));
+}
+// Keep production's original red icons; recolour only the generated dev files.
+// This includes Safari's apple-touch icon and the PNG icon shown in the
+// installation screen, in addition to the browser favicon and PWA manifest.
+if(channel==="dev"){
+  for(const asset of ["favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"]){
+    const destination=join(output,asset);
+    writeFileSync(destination,bluePng(readFileSync(destination)));
+  }
+  const svgFile=join(output,"icon.svg");
+  writeFileSync(svgFile,blueSvg(readFileSync(svgFile,"utf8")));
 }
 // New game modes are present in dev only until gameplay is explicitly released.
 if(channel==="dev"&&!existsSync(join(source,"game-modes.js")))

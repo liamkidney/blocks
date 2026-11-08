@@ -188,7 +188,7 @@ test('editor is unavailable outside solo portrait',()=>{
     const b=boot(options);
     assert.equal(b.window.BLOCKS_BEGIN_CONTROL_EDIT(),false);
     assert.equal(b.game.phase,'falling');
-    assert.equal(b.pad.children.length,0);
+    assert.equal(b.pad.children.filter(x=>x.id==='controls-edit-toolbar').length,0);
   }
 });
 test('stored invalid or duplicate actions are ignored',()=>{

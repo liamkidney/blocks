@@ -24,7 +24,9 @@ function makePad(commandsList=commands){
   return {
     children,
     classList:{add(name){this.mode=name}},
-    querySelectorAll:selector=>selector===".control"||selector==="button.control"?children:[],
+    querySelectorAll(selector){
+      return selector===".control"||selector==="button.control"?this.children:[];
+    },
     appendChild(button){this.children=this.children.filter(v=>v!==button);this.children.push(button)}
   };
 }

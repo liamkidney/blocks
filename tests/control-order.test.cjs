@@ -53,6 +53,9 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
     };
   }
   const buttons=ACTIONS.map((command,index)=>makeButton(command,index));
+  const otherButtons=ACTIONS.map((command,index)=>makeButton(command,index));
+  const otherPad={querySelectorAll:()=>otherButtons};
+  let otherPadMounted=false;
   const pad={
     children:[],querySelectorAll:()=>buttons,
     getBoundingClientRect:()=>({left:0,top:0,width:276,height:66}),
@@ -64,7 +67,8 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   });
   const done=makeToolbarControl(),reset=makeToolbarControl();
   const document={
-    body,getElementById:id=>id==='controls'?pad:null,
+    body,getElementById:id=>id==='controls'?pad:
+      id==='player-two-controls'&&otherPadMounted?otherPad:null,
     createElement:()=>({
       id:'',innerHTML:'',parent:null,remove(){
         if(this.parent)this.parent.children=this.parent.children.filter(x=>x!==this);
@@ -86,8 +90,8 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   };
   const restartDialog={hidden:!menu};
   let clears=0,renders=0,saves=0;
-  const start=app.indexOf('// Solo portrait control arrangement.');
-  const end=app.indexOf('// End solo portrait control arrangement.',start);
+  const start=app.indexOf('// One personal button order is shared');
+  const end=app.indexOf('// End shared control order and portrait editor.',start);
   assert.ok(start>0&&end>start,'live editor code must have stable markers');
   const code=app.slice(start,end);
   const context={
@@ -102,7 +106,12 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
     saveGame:()=>saves++,
     console
   };
-  vm.runInNewContext(code,context,{filename:'solo-editor.js'});
+  vm.runInNewContext(code,context,{filename:'shared-control-editor.js'});
+  if(twoPlayer){
+    // multiplayer.js inserts the second station after the initial app load.
+    otherPadMounted=true;
+    window.BLOCKS_APPLY_CONTROL_ORDER();
+  }
   const dispatch=(type,event)=>{for(const listener of docEvents.get(type)||[])listener({
     preventDefault(){},...event
   })};
@@ -113,7 +122,7 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   const pointer=(type,button,id,x)=>dispatch(type,{
     target:button,pointerId:id,pointerType:'touch',clientX:x,clientY:30
   });
-  return {window,document,pad,buttons,done,reset,game,storage,visualOrder,pointer,
+  return {window,document,pad,buttons,otherButtons,done,reset,game,storage,visualOrder,pointer,
     restartDialog,context,get clears(){return clears},get saves(){return saves}};
 }
 
@@ -189,7 +198,8 @@ test('reset returns all four actual controls to default order',()=>{
 test('touch input is gated during edit mode and portrait CSS provides wiggle',()=>{
   assert.match(app,/function press\(button\)\{\s*if\(controlEditing\)return/);
   assert.match(app,/function findControlStart\(target,x,y\)\{\s*if\(controlEditing\)return null/);
-  assert.match(css,/body:not\(\.two-player\):not\(\.remote-multiplayer\) #controls \.control/);
+  assert.match(css,/body:not\(\.two-player\) #controls \.control/);
+  assert.doesNotMatch(css,/body:not\(\.two-player\):not\(\.remote-multiplayer\)/);
   assert.match(css,/blocks-control-wiggle/);
   assert.match(app,/const ghost=button\.cloneNode\(true\)/);
   assert.match(css,/body > \.control\.control-edit-ghost/);
@@ -268,4 +278,65 @@ test('Reset while dragging removes placeholder and keeps editor open',()=>{
   assert.equal(b.document.body.classList.contains('controls-editing'),true);
   b.done.click();
   assert.deepEqual(JSON.parse(b.storage.get(KEY)),ACTIONS);
+});
+
+test('saved solo order is restored in two-phone mode using the same storage key',()=>{
+  const saved='["right","down","rotate_cw","left"]';
+  const solo=boot({saved});
+  const remote=boot({saved,remote:true});
+  assert.deepEqual(remote.visualOrder(),solo.visualOrder());
+  assert.deepEqual(remote.visualOrder(),["right","down","rotate_cw","left"]);
+  assert.equal(remote.window.BLOCKS_BEGIN_CONTROL_EDIT(),false,
+    'layout editing stays in solo mode; the preference still applies remotely');
+});
+
+test('one-phone two-player mode maps shared button order to both diamond pads',()=>{
+  const saved='["right","down","rotate_cw","left"]';
+  const b=boot({saved,twoPlayer:true});
+  // Slots are left-middle, right-middle, bottom-middle, top-middle.
+  const expected={
+    right:['1','2'], down:['2','2'],
+    rotate_cw:['1 / 3','3'], left:['1 / 3','1']
+  };
+  for(const group of [b.buttons,b.otherButtons]){
+    for(const button of group){
+      const [column,row]=expected[button.dataset.command];
+      assert.equal(button.style.props['--diamond-control-column'],column);
+      assert.equal(button.style.props['--diamond-control-row'],row);
+    }
+  }
+  assert.match(css,/grid-column:var\(--diamond-control-column,/);
+  assert.match(css,/grid-row:var\(--diamond-control-row,/);
+  assert.match(fs.readFileSync(path.join(__dirname,'..','multiplayer.js'),'utf8'),
+    /window\.BLOCKS_APPLY_CONTROL_ORDER\?\.\(\)/);
+});
+
+test('uncustomised one-phone controls retain the original diamond positions',()=>{
+  const b=boot({twoPlayer:true});
+  const defaults={
+    left:['1','2'],right:['2','2'],
+    down:['1 / 3','3'],rotate_cw:['1 / 3','1']
+  };
+  for(const group of [b.buttons,b.otherButtons])
+    for(const button of group){
+      const [column,row]=defaults[button.dataset.command];
+      assert.equal(button.style.props['--diamond-control-column'],column);
+      assert.equal(button.style.props['--diamond-control-row'],row);
+    }
+});
+
+test('saved button preferences survive switching solo, remote and local two-player',()=>{
+  const original=boot();
+  original.window.BLOCKS_BEGIN_CONTROL_EDIT();
+  original.pointer('pointerdown',original.buttons[0],4,10);
+  original.pointer('pointermove',original.buttons[0],4,252);
+  original.pointer('pointerup',original.buttons[0],4,252);
+  original.done.click();
+  const saved=original.storage.get(KEY);
+  assert.ok(saved);
+  assert.deepEqual(boot({saved}).visualOrder(),["right","down","rotate_cw","left"]);
+  assert.deepEqual(boot({saved,remote:true}).visualOrder(),
+    ["right","down","rotate_cw","left"]);
+  assert.deepEqual(boot({saved,twoPlayer:true}).visualOrder(),
+    ["right","down","rotate_cw","left"]);
 });

@@ -35,7 +35,7 @@
           '<p class="blocks-settings-hint">Defaults for new games. The host sets the rules for both players in a two-phone match.</p>',
           '<div class="settings-button-layout">',
             '<h4>Button order</h4>',
-            '<p class="blocks-settings-hint">Rearrange the controls directly on the game screen. The game pauses while editing.</p>',
+            '<p class="blocks-settings-hint">Set your button order once for every game mode. Rearrange on the solo game screen.</p>',
             '<div class="settings-control-options">',
               '<button type="button" id="settings-control-start">Rearrange buttons</button>',
             '</div>',

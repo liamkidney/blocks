@@ -1125,11 +1125,18 @@ function updateVersionLabel(){
 }
 updateVersionLabel();
 
-// Solo portrait control arrangement. Always drag the real game's control row;
-// the floating proxy is an exact clone of the grabbed control, including its SVG.
+// One personal button order is shared by solo and both multiplayer modes.
+// Editing remains on the solo portrait board; every mode loads that saved order.
+// The floating proxy is an exact clone of the grabbed control, including its SVG.
 const SOLO_CONTROL_ACTIONS=["left","right","down","rotate_cw"];
+// Retain the existing storage key so previously customised buttons survive.
 const SOLO_CONTROL_ORDER_KEY="blocks:control-order:v1:"+
   location.pathname.replace(/index[.]html$/,"");
+// In the one-phone two-player diamond, preserve the default geometry while
+// mapping a customised four-slot order onto both players' control stations.
+const DIAMOND_CONTROL_SLOTS=[
+  ["1","2"],["2","2"],["1 / 3","3"],["1 / 3","1"]
+];
 const soloControlPad=document.getElementById("controls");
 const soloControlButtons=Array.from(soloControlPad.querySelectorAll(".control"));
 const isSoloPortrait=()=>!TWO_PLAYER&&!REMOTE_PLAYER&&
@@ -1146,9 +1153,20 @@ function getSavedSoloControlOrder(){
 }
 let soloControlOrder=getSavedSoloControlOrder();
 function applySoloControlOrder(order){
-  for(const button of soloControlButtons)
-    button.style.setProperty("--portrait-control-order",order.indexOf(button.dataset.command));
+  // The second station is inserted by multiplayer.js after app.js has loaded.
+  // Reapply when its controls appear so both stations use the same preference.
+  for(const pad of [soloControlPad,document.getElementById("player-two-controls")]){
+    if(!pad)continue;
+    for(const button of pad.querySelectorAll(".control")){
+      const slot=order.indexOf(button.dataset.command);
+      if(slot<0)continue;
+      button.style.setProperty("--portrait-control-order",slot);
+      button.style.setProperty("--diamond-control-column",DIAMOND_CONTROL_SLOTS[slot][0]);
+      button.style.setProperty("--diamond-control-row",DIAMOND_CONTROL_SLOTS[slot][1]);
+    }
+  }
 }
+window.BLOCKS_APPLY_CONTROL_ORDER=()=>applySoloControlOrder(soloControlOrder);
 applySoloControlOrder(soloControlOrder);
 let soloControlEditor=null;
 // Track only movement effects: cancelling every animation also cancels the
@@ -1300,5 +1318,5 @@ window.addEventListener("blur",()=>stopSoloControlDrag(false));
 window.addEventListener("resize",()=>{
   if(controlEditing&&!isSoloPortrait())finishSoloControlEdit();
 });
-// End solo portrait control arrangement.
+// End shared control order and portrait editor.
 

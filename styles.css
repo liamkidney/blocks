@@ -550,20 +550,20 @@ body.two-player .diamond-pad > .control {
   align-self:center;
 }
 body.two-player .diamond-pad > [data-command="rotate_cw"] {
-  grid-column:1 / 3;
-  grid-row:1;
+  grid-column:var(--diamond-control-column,1 / 3);
+  grid-row:var(--diamond-control-row,1);
 }
 body.two-player .diamond-pad > [data-command="left"] {
-  grid-column:1;
-  grid-row:2;
+  grid-column:var(--diamond-control-column,1);
+  grid-row:var(--diamond-control-row,2);
 }
 body.two-player .diamond-pad > [data-command="right"] {
-  grid-column:2;
-  grid-row:2;
+  grid-column:var(--diamond-control-column,2);
+  grid-row:var(--diamond-control-row,2);
 }
 body.two-player .diamond-pad > [data-command="down"] {
-  grid-column:1 / 3;
-  grid-row:3;
+  grid-column:var(--diamond-control-column,1 / 3);
+  grid-row:var(--diamond-control-row,3);
 }
 body.two-player #landscape-title,
 body.two-player #version { display:none; }
@@ -1351,9 +1351,9 @@ body.remote-multiplayer #board-frame.game-paused::after{
 #blocks-invite-dialog button:disabled{opacity:.5}
 
 
-/* Solo portrait: map actions into four slots without moving the input elements. */
+/* Solo and two-phone portrait: the same personal four-slot button order. */
 @media(orientation:portrait){
-  body:not(.two-player):not(.remote-multiplayer) #controls .control{
+  body:not(.two-player) #controls .control{
     order:var(--portrait-control-order,0)
   }
   body.controls-editing:not(.two-player) #controls{position:relative}

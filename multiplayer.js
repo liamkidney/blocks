@@ -29,6 +29,9 @@
     for(const button of buttons)pad.appendChild(button);
     pad.classList.add("diamond-pad");
   }
+  // The second player's controls are created after the app restored preferences.
+  // Apply the same saved personal order to both stations now.
+  window.BLOCKS_APPLY_CONTROL_ORDER?.();
 
   for(const id of ["movement-controls","rotation-controls"]){
     const wrapper=document.getElementById(id);

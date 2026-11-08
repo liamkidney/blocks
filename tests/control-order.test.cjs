@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const model=fs.readFileSync(path.join(__dirname,'..','control-layout.js'),'utf8');
 const settings=fs.readFileSync(path.join(__dirname,'..','settings.js'),'utf8');
 const css=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
 const ACTIONS=['left','right','down','rotate_cw'];
@@ -54,10 +55,13 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   }
   const buttons=ACTIONS.map((command,index)=>makeButton(command,index));
   const otherButtons=ACTIONS.map((command,index)=>makeButton(command,index));
-  const otherPad={querySelectorAll:()=>otherButtons};
+  const otherPad={
+    classList:makeClasses(),children:[],querySelectorAll:()=>otherButtons,
+    appendChild(button){this.children.push(button);button.parent=this}
+  };
   let otherPadMounted=false;
   const pad={
-    children:[],querySelectorAll:()=>buttons,
+    classList:makeClasses(),children:[],querySelectorAll:()=>buttons,
     getBoundingClientRect:()=>({left:0,top:0,width:276,height:66}),
     appendChild(child){this.children.push(child);child.parent=this}
   };
@@ -67,7 +71,8 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   });
   const done=makeToolbarControl(),reset=makeToolbarControl();
   const document={
-    body,getElementById:id=>id==='controls'?pad:
+    body,querySelectorAll:()=>[...buttons,...(otherPadMounted?otherButtons:[])],
+    getElementById:id=>id==='controls'?pad:
       id==='player-two-controls'&&otherPadMounted?otherPad:null,
     createElement:()=>({
       id:'',innerHTML:'',parent:null,remove(){
@@ -90,7 +95,7 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
   };
   const restartDialog={hidden:!menu};
   let clears=0,renders=0,saves=0;
-  const start=app.indexOf('// One personal button order is shared');
+  const start=app.indexOf('// Personal control editor.');
   const end=app.indexOf('// End shared control order and portrait editor.',start);
   assert.ok(start>0&&end>start,'live editor code must have stable markers');
   const code=app.slice(start,end);
@@ -106,11 +111,13 @@ function boot({saved=null,phase='falling',portrait=true,twoPlayer=false,remote=f
     saveGame:()=>saves++,
     console
   };
-  vm.runInNewContext(code,context,{filename:'shared-control-editor.js'});
+  vm.runInNewContext(model,context,{filename:'control-layout.js'});
+  vm.runInNewContext(code,context,{filename:'control-editor.js'});
   if(twoPlayer){
     // multiplayer.js inserts the second station after the initial app load.
     otherPadMounted=true;
-    window.BLOCKS_APPLY_CONTROL_ORDER();
+    window.BLOCKS_CONTROL_LAYOUT.prepareDiamondPad(pad);
+    window.BLOCKS_CONTROL_LAYOUT.prepareDiamondPad(otherPad);
   }
   const dispatch=(type,event)=>{for(const listener of docEvents.get(type)||[])listener({
     preventDefault(){},...event
@@ -305,10 +312,10 @@ test('one-phone two-player mode maps shared button order to both diamond pads',(
       assert.equal(button.style.props['--diamond-control-row'],row);
     }
   }
-  assert.match(css,/grid-column:var\(--diamond-control-column,/);
-  assert.match(css,/grid-row:var\(--diamond-control-row,/);
+  assert.match(css,/grid-column:var\(--diamond-control-column\)/);
+  assert.match(css,/grid-row:var\(--diamond-control-row\)/);
   assert.match(fs.readFileSync(path.join(__dirname,'..','multiplayer.js'),'utf8'),
-    /window\.BLOCKS_APPLY_CONTROL_ORDER\?\.\(\)/);
+    /BLOCKS_CONTROL_LAYOUT\.prepareDiamondPad\(pad\)/);
 });
 
 test('uncustomised one-phone controls retain the original diamond positions',()=>{

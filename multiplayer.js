@@ -6,9 +6,10 @@
   second.id="second-game";
   second.innerHTML='<div class="second-board-wrap"><div class="player-label">PLAYER 2</div><div class="second-board-frame"><div class="second-board"></div></div></div><div class="second-hud"><div class="hud-label">NEXT</div><div class="second-preview"></div><div class="metric"><div class="hud-label">SCORE</div><div class="value second-score">0</div></div><div class="metric"><div class="hud-label">LINES</div><div class="value second-lines">0</div></div></div>';
   document.getElementById("console").appendChild(second);
-  const controls2=document.createElement("div");
+  // Reuse the exact same buttons/icons/labels as the main control pad.
+  const controls2=window.BLOCKS_CONTROL_LAYOUT.createPad(
+    document.getElementById("controls"),1);
   controls2.id="player-two-controls";
-  controls2.innerHTML='<button class="control" data-player="1" data-command="left" aria-label="Player 2 move left"><span class="icon">←</span></button><button class="control" data-player="1" data-command="right" aria-label="Player 2 move right"><span class="icon">→</span></button><button class="control" data-player="1" data-command="down" aria-label="Player 2 drop"><span class="icon">↓</span></button><button class="control rotate" data-player="1" data-command="rotate_cw" aria-label="Player 2 rotate clockwise"><span class="icon"><svg class="rotate-svg" viewBox="0 0 32 32"><path d="M25 11 A11 11 0 1 0 25 22"/><path d="M25 11 L25 5 M25 11 L19 10"/></svg></span></button>';
   document.getElementById("console").appendChild(controls2);
   bindGameControls(controls2);
   const consoleElement=document.getElementById("console");
@@ -22,16 +23,9 @@
   playerTwoStation.classList.add("player-station");
   consoleElement.insertBefore(playerTwoStation,playerOneStation);
   playerTwoStation.append(second,controls2);
-  // Normalize both pads to the same four direct children before applying the grid.
-  // The single-player DOM remains unchanged.
-  for(const pad of [document.getElementById("controls"),controls2]){
-    const buttons=Array.from(pad.querySelectorAll("button.control"));
-    for(const button of buttons)pad.appendChild(button);
-    pad.classList.add("diamond-pad");
-  }
-  // The second player's controls are created after the app restored preferences.
-  // Apply the same saved personal order to both stations now.
-  window.BLOCKS_APPLY_CONTROL_ORDER?.();
+  // The shared model prepares both instances for the diamond geometry.
+  for(const pad of [document.getElementById("controls"),controls2])
+    window.BLOCKS_CONTROL_LAYOUT.prepareDiamondPad(pad);
 
   for(const id of ["movement-controls","rotation-controls"]){
     const wrapper=document.getElementById(id);

@@ -49,7 +49,8 @@ test("precache installs a complete offline game without activating mid-session",
   const worker=bootWorker();
   await worker.fire("install");
   for(const name of ["/blocks/dev/","/blocks/dev/index.html","/blocks/dev/app.js",
-    "/blocks/dev/game-modes.js","/blocks/dev/board-renderer.js","/blocks/dev/score-sync.js"]){
+    "/blocks/dev/game-modes.js","/blocks/dev/board-renderer.js",
+    "/blocks/dev/control-layout.js","/blocks/dev/score-sync.js"]){
     assert.ok(worker.stored.has(name),"Missing offline asset "+name);
   }
   assert.equal(worker.skipped(),0,"new releases must wait, not interrupt gameplay");

@@ -9,7 +9,7 @@ if(!source||!output||!["prod","dev"].includes(channel)||!revision)
   throw new Error("Usage: build-pages.mjs <source> <destination> <prod|dev> <revision>");
 
 const assets=[
-  "index.html","styles.css","install-gate.css","install-gate.js","tetrominoes.js","game.js","session.js","app.js",
+  "index.html","styles.css","install-gate.css","install-gate.js","tetrominoes.js","game.js","session.js","control-layout.js","app.js",
   "multiplayer.js","remote-multiplayer.js","manifest.json","sw.js","version.js","config.js",
   "player-name.js","score-sync.js","high-scores.js","settings.js",
   "icon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png"

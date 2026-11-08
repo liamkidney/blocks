@@ -1125,49 +1125,14 @@ function updateVersionLabel(){
 }
 updateVersionLabel();
 
-// One personal button order is shared by solo and both multiplayer modes.
-// Editing remains on the solo portrait board; every mode loads that saved order.
-// The floating proxy is an exact clone of the grabbed control, including its SVG.
-const SOLO_CONTROL_ACTIONS=["left","right","down","rotate_cw"];
-// Retain the existing storage key so previously customised buttons survive.
-const SOLO_CONTROL_ORDER_KEY="blocks:control-order:v1:"+
-  location.pathname.replace(/index[.]html$/,"");
-// In the one-phone two-player diamond, preserve the default geometry while
-// mapping a customised four-slot order onto both players' control stations.
-const DIAMOND_CONTROL_SLOTS=[
-  ["1","2"],["2","2"],["1 / 3","3"],["1 / 3","1"]
-];
+// Personal control editor. The layout model owns all order and storage state.
+// Only editing is mode-specific: it happens on the actual solo portrait pad.
+const controlLayout=window.BLOCKS_CONTROL_LAYOUT;
 const soloControlPad=document.getElementById("controls");
 const soloControlButtons=Array.from(soloControlPad.querySelectorAll(".control"));
 const isSoloPortrait=()=>!TWO_PLAYER&&!REMOTE_PLAYER&&
   window.matchMedia?.("(orientation: portrait)")?.matches===true;
-function isValidSoloControlOrder(value){
-  return Array.isArray(value)&&value.length===4&&new Set(value).size===4&&
-    SOLO_CONTROL_ACTIONS.every(command=>value.includes(command));
-}
-function getSavedSoloControlOrder(){
-  try{
-    const value=JSON.parse(localStorage.getItem(SOLO_CONTROL_ORDER_KEY)||"null");
-    return isValidSoloControlOrder(value)?value:SOLO_CONTROL_ACTIONS.slice();
-  }catch(_){return SOLO_CONTROL_ACTIONS.slice()}
-}
-let soloControlOrder=getSavedSoloControlOrder();
-function applySoloControlOrder(order){
-  // The second station is inserted by multiplayer.js after app.js has loaded.
-  // Reapply when its controls appear so both stations use the same preference.
-  for(const pad of [soloControlPad,document.getElementById("player-two-controls")]){
-    if(!pad)continue;
-    for(const button of pad.querySelectorAll(".control")){
-      const slot=order.indexOf(button.dataset.command);
-      if(slot<0)continue;
-      button.style.setProperty("--portrait-control-order",slot);
-      button.style.setProperty("--diamond-control-column",DIAMOND_CONTROL_SLOTS[slot][0]);
-      button.style.setProperty("--diamond-control-row",DIAMOND_CONTROL_SLOTS[slot][1]);
-    }
-  }
-}
-window.BLOCKS_APPLY_CONTROL_ORDER=()=>applySoloControlOrder(soloControlOrder);
-applySoloControlOrder(soloControlOrder);
+controlLayout.apply();
 let soloControlEditor=null;
 // Track only movement effects: cancelling every animation also cancels the
 // CSS wiggle, leaving neighbouring controls motionless during a drag.
@@ -1184,7 +1149,7 @@ function moveSoloControlTo(index){
   const [command]=reordered.splice(oldIndex,1);
   reordered.splice(index,0,command);
   state.order=reordered;
-  applySoloControlOrder(reordered);
+  controlLayout.apply(reordered);
   if(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches)return;
   for(const button of soloControlButtons){
     if(button===state.drag.button||!button.animate)continue;
@@ -1209,8 +1174,8 @@ function stopSoloControlDrag(commit){
   ghost.remove();
   button.classList.remove("control-edit-placeholder");
   if(!commit){
-    state.order=soloControlOrder.slice();
-    applySoloControlOrder(state.order);
+    state.order=controlLayout.getOrder();
+    controlLayout.apply(state.order);
   }
 }
 function resetSoloControlEdit(){
@@ -1218,16 +1183,14 @@ function resetSoloControlEdit(){
   if(!state)return;
   // Reset the preview without saving or resuming the paused game.
   stopSoloControlDrag(false);
-  state.order=SOLO_CONTROL_ACTIONS.slice();
-  applySoloControlOrder(state.order);
+  state.order=controlLayout.defaultOrder();
+  controlLayout.apply(state.order);
 }
 function finishSoloControlEdit(){
   const state=soloControlEditor;
   if(!state)return;
   stopSoloControlDrag(true);
-  soloControlOrder=state.order.slice();
-  try{localStorage.setItem(SOLO_CONTROL_ORDER_KEY,JSON.stringify(soloControlOrder))}
-  catch(_){}
+  controlLayout.save(state.order);
   state.toolbar.remove();
   soloControlEditor=null;
   controlEditing=false;
@@ -1252,7 +1215,7 @@ window.BLOCKS_BEGIN_CONTROL_EDIT=()=>{
   soloControlPad.appendChild(toolbar);
   toolbar.querySelector("#controls-edit-reset").addEventListener("click",resetSoloControlEdit);
   toolbar.querySelector("#controls-edit-done").addEventListener("click",finishSoloControlEdit);
-  soloControlEditor={order:soloControlOrder.slice(),resumeGame,showModeMenu,toolbar,drag:null};
+  soloControlEditor={order:controlLayout.getOrder(),resumeGame,showModeMenu,toolbar,drag:null};
   controlEditing=true;
   document.body.classList.add("controls-editing");
   renderActions();
@@ -1262,10 +1225,7 @@ window.BLOCKS_BEGIN_CONTROL_EDIT=()=>{
 window.BLOCKS_RESET_CONTROL_ORDER=()=>{
   if(TWO_PLAYER||REMOTE_PLAYER)return false;
   if(soloControlEditor)finishSoloControlEdit();
-  soloControlOrder=SOLO_CONTROL_ACTIONS.slice();
-  applySoloControlOrder(soloControlOrder);
-  try{localStorage.setItem(SOLO_CONTROL_ORDER_KEY,JSON.stringify(soloControlOrder))}
-  catch(_){}
+  controlLayout.reset();
   return true;
 };
 document.addEventListener("pointerdown",event=>{

@@ -169,3 +169,12 @@ only using the validated linear `dev` → `main` workflow.
 ## Install-to-play requirement
 
 Blocks is playable only when launched as an installed progressive web app. Browser tabs show an installation screen rather than the game (including invitation links). On iPhone/iPad, use Safari → Share → Add to Home Screen with **Open as Web App** enabled; on supported Chromium browsers, use the **Install Blocks** prompt or the browser's Install app menu. Open the installed icon to play. This is a client-side UX gate, not a security control. Both production and development retain separate installable PWA identities and caches.
+
+## Shared control layout
+
+The single `control-layout.js` module owns the four commands, existing localStorage
+preference, validation, placement and control-pad cloning. `app.js` only implements
+the solo portrait drag editor; `multiplayer.js` reuses the actual control buttons
+and asks the same module to prepare the two diamond pads. The saved arrangement
+applies to solo, two phones, and both stations of one-phone two-player games.
+Mode-specific geometry remains in CSS. No preference migration is required.

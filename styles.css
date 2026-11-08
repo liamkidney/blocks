@@ -539,6 +539,8 @@ body.two-player .diamond-pad {
   translate:0 calc(var(--board-h) * .10);
 }
 body.two-player .diamond-pad > .control {
+  grid-column:var(--diamond-control-column);
+  grid-row:var(--diamond-control-row);
   width:var(--pad-key);
   height:var(--pad-key);
   min-width:0;
@@ -548,22 +550,6 @@ body.two-player .diamond-pad > .control {
   border-radius:18%;
   justify-self:center;
   align-self:center;
-}
-body.two-player .diamond-pad > [data-command="rotate_cw"] {
-  grid-column:var(--diamond-control-column,1 / 3);
-  grid-row:var(--diamond-control-row,1);
-}
-body.two-player .diamond-pad > [data-command="left"] {
-  grid-column:var(--diamond-control-column,1);
-  grid-row:var(--diamond-control-row,2);
-}
-body.two-player .diamond-pad > [data-command="right"] {
-  grid-column:var(--diamond-control-column,2);
-  grid-row:var(--diamond-control-row,2);
-}
-body.two-player .diamond-pad > [data-command="down"] {
-  grid-column:var(--diamond-control-column,1 / 3);
-  grid-row:var(--diamond-control-row,3);
 }
 body.two-player #landscape-title,
 body.two-player #version { display:none; }
@@ -1351,7 +1337,7 @@ body.remote-multiplayer #board-frame.game-paused::after{
 #blocks-invite-dialog button:disabled{opacity:.5}
 
 
-/* Solo and two-phone portrait: the same personal four-slot button order. */
+/* Portrait controls use the shared slot order in solo and two-phone mode. */
 @media(orientation:portrait){
   body:not(.two-player) #controls .control{
     order:var(--portrait-control-order,0)

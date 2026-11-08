@@ -638,3 +638,124 @@ test('rapid acknowledgement waits for notification handoff write',async()=>{
   await Promise.all([clickWork,ackWork]);
   assert.equal(saved.size,0,'completed invitations must not replay later');
 });
+
+test('when iOS rejects focus, notification opens the app as a fallback',async()=>{
+  const worker=handoffWorker();
+  const invite=worker.scope+'?remote=1&push_join=QRT';
+  const received=[];
+  worker.windows.push({
+    url:worker.scope+'?remote=1',
+    visibilityState:'hidden',
+    postMessage:message=>received.push(message),
+    focus:async()=>{throw Error('Focus denied by iOS')}
+  });
+  await worker.fire('notificationclick',invite);
+  assert.deepEqual(worker.opened,[invite],
+    'failed focus must fall back to openWindow');
+  assert.equal(received.length,1,'the original game first receives the invite');
+  assert.equal(worker.saved.size,1,
+    'handoff survives even if the fallback reopens at start_url');
+});
+
+test('notification opens the app when listing clients fails',async()=>{
+  const handlers={},opened=[];
+  const scope='https://example.test/blocks/dev/';
+  const cache={async put(){},async match(){return null}};
+  vm.runInNewContext(file('sw.js'),{
+    self:{
+      registration:{scope},
+      clients:{
+        matchAll:async()=>{throw Error('Could not enumerate windows')},
+        openWindow:url=>{opened.push(url);return Promise.resolve(null)}
+      },
+      addEventListener:(name,fn)=>{handlers[name]=fn}
+    },
+    URL,console,Date,Response:class {},
+    caches:{async open(){return cache}}
+  },{filename:'sw.js'});
+  let work;
+  const invite=scope+'?remote=1&push_join=QRT';
+  handlers.notificationclick({
+    notification:{data:{url:invite},close(){}},
+    waitUntil:p=>{work=p}
+  });
+  await work;
+  assert.deepEqual(opened,[invite]);
+});
+
+test('notification prefers a visible app over an older hidden window',async()=>{
+  const scope='https://example.test/blocks/dev/';
+  const handlers={},actions=[],cache={
+    async put(){},async match(){return null}
+  };
+  const makeClient=(name,visibilityState)=>({
+    url:scope+'?remote=1',visibilityState,
+    postMessage:()=>actions.push(name+':message'),
+    focus:()=>{actions.push(name+':focus');return Promise.resolve(null)}
+  });
+  vm.runInNewContext(file('sw.js'),{
+    self:{
+      registration:{scope},
+      clients:{matchAll:async()=>[
+        makeClient('hidden','hidden'),makeClient('visible','visible')
+      ]},
+      addEventListener:(name,fn)=>{handlers[name]=fn}
+    },
+    URL,console,Date,Response:class {},
+    caches:{async open(){return cache}}
+  },{filename:'sw.js'});
+  let work;
+  handlers.notificationclick({
+    notification:{data:{url:scope+'?remote=1&push_join=QRT'},close(){}},
+    waitUntil:p=>{work=p}
+  });
+  await work;
+  assert.deepEqual(actions,['visible:message','visible:focus']);
+});
+
+test('cold PWA handoff request waits for a pending notification write',async()=>{
+  const scope='https://example.test/blocks/dev/';
+  const handlers={},stored=new Map();
+  let finishWrite;
+  class FakeResponse{
+    constructor(value){this.value=value}
+    async json(){return JSON.parse(this.value)}
+  }
+  const cache={
+    put(key,value){return new Promise(resolve=>{
+      finishWrite=()=>{stored.set(String(key),value);resolve()};
+    })},
+    async match(key){return stored.get(String(key))||null},
+    async delete(key){stored.delete(String(key))}
+  };
+  const self={
+    registration:{scope},
+    clients:{matchAll:async()=>[],openWindow:()=>Promise.resolve(null)},
+    addEventListener:(name,fn)=>{handlers[name]=fn}
+  };
+  vm.runInNewContext(file('sw.js'),{
+    self,URL,console,Date,Response:FakeResponse,
+    caches:{async open(){return cache}}
+  },{filename:'sw.js'});
+  const invite=scope+'?remote=1&push_join=QRT';
+  let clickWork,readWork;
+  handlers.notificationclick({
+    notification:{data:{url:invite},close(){}},
+    waitUntil:p=>{clickWork=p}
+  });
+  for(let i=0;i<12&&!finishWrite;i++)await Promise.resolve();
+  assert.equal(typeof finishWrite,'function');
+  const received=[];
+  handlers.message({
+    data:{type:'BLOCKS_GET_PUSH_INVITATION'},
+    source:{postMessage:m=>received.push(m)},
+    waitUntil:p=>{readWork=p}
+  });
+  await Promise.resolve();
+  assert.equal(received.length,0,
+    'do not return an empty result before CacheStorage write completes');
+  finishWrite();
+  await Promise.all([clickWork,readWork]);
+  assert.equal(received.length,1);
+  assert.equal(received[0].url,invite);
+});

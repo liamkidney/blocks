@@ -57,6 +57,9 @@ self.addEventListener("message",event=>{
     event.waitUntil(self.skipWaiting());
   }else if(event.data?.type==="BLOCKS_GET_PUSH_INVITATION"){
     event.waitUntil((async()=>{
+      // A cold-started page may ask before the click handler's CacheStorage
+      // write finishes. Never respond "nothing pending" during that race.
+      await pendingPushSave;
       const pending=await readPushHandoff();
       if(pending)event.source?.postMessage({
         type:'BLOCKS_PUSH_INVITATION',url:pending.url
@@ -135,42 +138,59 @@ self.addEventListener("notificationclick",event=>{
   const target=validInviteURL(event.notification.data?.url);
   if(!target)return;
   event.waitUntil((async()=>{
-    // Focus/openWindow must be initiated while the notification tap's user
-    // activation is still available. Do NOT await CacheStorage or navigate()
-    // before invoking them; either operation can lose the activation on iOS.
-    const windows=await self.clients.matchAll({type:"window",includeUncontrolled:true});
+    // Preserve a clicked intent even when iOS refuses to focus or open a
+    // window. The installed app will re-request it on resume/startup.
+    // Do not await storage before focus/openWindow: that can lose the user
+    // activation associated with the notification tap.
+    let windows=[];
+    try{
+      windows=await self.clients.matchAll({type:"window",includeUncontrolled:true});
+    }catch(error){console.warn("BLOCKS notification clients:",error)}
     const scope=new URL(self.registration.scope);
-    const existing=windows.find(client=>{
+    const candidates=windows.filter(client=>{
       try{
         const url=new URL(client.url);
         return url.origin===scope.origin&&
-          [scope.pathname,scope.pathname+'index.html'].includes(url.pathname);
+          [scope.pathname,scope.pathname+"index.html"].includes(url.pathname);
       }catch(_){return false}
     });
-    const intent={type:'BLOCKS_PUSH_INVITATION',url:target};
-    let opening;
+    // When several windows exist, send the invite to the foreground app,
+    // not an old suspended tab returned first by matchAll().
+    const existing=candidates.find(client=>client.focused===true)||
+      candidates.find(client=>client.visibilityState==="visible")||
+      candidates[0];
+    const intent={type:"BLOCKS_PUSH_INVITATION",url:target};
+    let opening=null;
     if(existing){
-      // Navigation destroys the page that would receive this message. Tell the
-      // running app to join instead, and bring the PWA to the foreground.
+      // First notify the existing page; it may have a live match that must
+      // ask the player before it can be forfeited.
       try{existing.postMessage(intent)}
-      catch(error){console.warn('BLOCKS notification message:',error)}
+      catch(error){console.warn("BLOCKS notification message:",error)}
       try{opening=existing.focus()}
-      catch(error){console.warn('BLOCKS notification focus:',error)}
+      catch(error){console.warn("BLOCKS notification focus:",error)}
     }else{
       try{opening=self.clients.openWindow(target)}
-      catch(error){console.warn('BLOCKS notification open:',error)}
+      catch(error){console.warn("BLOCKS notification open:",error)}
     }
 
-    // Persistence is a recovery path if iOS launches at the Home Screen or
-    // discards the first message. It must not delay focusing/opening the app.
     const stored=savePushHandoff(target);
     pendingPushSave=stored;
+    let focusSucceeded=false;
     try{
       const opened=await opening;
-      if(!existing&&opened?.postMessage){
-        try{opened.postMessage(intent)}catch(_){}
-      }
-    }catch(error){console.warn('BLOCKS notification launch:',error)}
+      focusSucceeded=Boolean(opening);
+      if(!existing)opened?.postMessage?.(intent);
+    }catch(error){console.warn("BLOCKS notification launch:",error)}
+    // iOS can reject focus() for an existing/background PWA. Previously this
+    // stopped here, leaving a notification tap with no visible effect.
+    // Try opening the installed app; retained CacheStorage handoff is still
+    // available if WebKit opens it at its start URL instead of the deep link.
+    if(existing&&!focusSucceeded&&typeof self.clients.openWindow==="function"){
+      try{
+        const reopened=await self.clients.openWindow(target);
+        reopened?.postMessage?.(intent);
+      }catch(error){console.warn("BLOCKS notification reopen:",error)}
+    }
     await stored;
   })());
 });

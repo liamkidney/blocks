@@ -29,18 +29,17 @@ Blocks is an install-to-play falling-block PWA with solo play, two players on on
 
 ## Backlog
 
-### Now — validate before promotion
+Only record work explicitly requested or deferred by the project owner. Separate suggestions from agreed work.
 
-- [ ] Verify push-notification taps and invitation handling on real iPhones (app foreground, background, suspended/cold start; existing match must not be silently abandoned).
-- [ ] Verify saved control order in all game modes, including app relaunch and multiplayer reconnect.
-- [ ] Fix any confirmed regressions, rerun CI and deploy to dev; promote only on request.
+### Verification — recent changes
 
-### Next — candidates, not committed work
+- [ ] Test push-notification taps on real iPhones with Blocks open, backgrounded and relaunched; preserve active games until the player chooses to join.
+- [ ] Test saved control order across game modes, restarts and reconnects.
 
-- [ ] Review control-layout ergonomics and accessibility on small phones, iPads and landscape screens.
-- [ ] Consider handedness and appearance preferences in Settings after the current shared layout is proven stable.
+### User-requested development
 
-### Later
+- [ ] **Responsive game layout:** Review whether the requested fundamental simplification is complete, including the iPad title being cut off and support for different screen sizes and orientations. Resolve any remaining defects rather than adding CSS patches.
+- [ ] **Settings colours:** Add customisable colours (explicitly mentioned for later; design not yet specified).
+- [ ] **Separate Supabase environments:** Revisit the previously deferred separation of development and production databases when prioritised.
 
-- Add items here when agreed. Do not infer features from old discussions or treat proposals as approved.
-
+Do not add assistant-proposed features to this backlog without user approval.
